@@ -202,11 +202,10 @@ REST_FRAMEWORK = {
 # Unfold
 UNFOLD = {
     "SITE_TITLE": "Enredarte Admin",
-    "SITE_HEADER": "Enredarte",
-    "SITE_SUBHEADER": "Panel de Administracion",
+    "SITE_HEADER": "ENREDARTE DASHBOARD",
+    "SITE_SUBHEADER": "Sistema de gestión",
     "SITE_URL": "/",
     "SITE_ICON": lambda request: static("favicon.png"),
-    "SITE_LOGO": lambda request: static("logo.webp"),
     "SITE_SYMBOL": "palette",
     "SITE_FAVICONS": [
         {
@@ -222,17 +221,17 @@ UNFOLD = {
     "THEME": "light",
     "COLORS": {
         "primary": {
-            "50": "oklch(0.97 0.02 296)",
-            "100": "oklch(0.92 0.04 296)",
-            "200": "oklch(0.85 0.08 296)",
-            "300": "oklch(0.75 0.15 296)",
-            "400": "oklch(0.70 0.22 296)",
-            "500": "oklch(0.68 0.28 296)",
-            "600": "oklch(0.60 0.25 296)",
-            "700": "oklch(0.50 0.20 296)",
-            "800": "oklch(0.40 0.16 296)",
-            "900": "oklch(0.30 0.12 296)",
-            "950": "oklch(0.20 0.08 296)",
+            "50": "oklch(0.97 0.02 20)",
+            "100": "oklch(0.92 0.04 20)",
+            "200": "oklch(0.85 0.08 20)",
+            "300": "oklch(0.75 0.12 20)",
+            "400": "oklch(0.64 0.17 20)",
+            "500": "oklch(0.53 0.20 20)",
+            "600": "oklch(0.44 0.18 20)",
+            "700": "oklch(0.36 0.15 20)",
+            "800": "oklch(0.29 0.12 20)",
+            "900": "oklch(0.22 0.08 20)",
+            "950": "oklch(0.17 0.04 20)",
         },
     },
     "SIDEBAR": {
