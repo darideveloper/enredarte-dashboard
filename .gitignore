@@ -1,0 +1,50 @@
+# Python
+__pycache__
+*__pycache__
+*.*pyc
+*.pyc
+*.log*
+*.temp
+temp.*
+*.zip
+
+# Dependencies
+venv
+.venv
+
+# Environment
+.env
+.env.*
+
+# Database
+*.sqlite3
+
+# Static & Media
+staticfiles/
+media/
+
+# IDE
+.vscode
+.windsurf/
+*.DS_Store
+.DS_Store
+
+# Secrets
+credentials.json
+
+# Docker
+debug.*
+db.*
+info.txt
+
+# Ignore proposals
+openspec/changes/*
+
+# Do not ignore archived proposals
+!openspec/changes/archive/
+
+# skip docs
+docs/
+
+# ignore by default all hiden folders (like agents folders)
+.*/
