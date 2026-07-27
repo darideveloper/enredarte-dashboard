@@ -44,8 +44,6 @@ openspec/changes/*
 # Do not ignore archived proposals
 !openspec/changes/archive/
 
-# skip docs
-docs/
 
 # ignore by default all hiden folders (like agents folders)
 .*/
