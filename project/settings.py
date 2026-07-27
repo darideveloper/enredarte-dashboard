@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "django_filters",
     "solo",
     "storages",
+    "core",
     "artworks",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -114,6 +115,8 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
+
+LANGUAGES = [("es", "Español"), ("en", "English")]
 
 LANGUAGE_CODE = "es"
 TIME_ZONE = "America/Mexico_City"
