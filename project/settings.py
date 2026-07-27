@@ -181,12 +181,17 @@ if STORAGE_AWS:
         },
     }
 else:
+    staticfiles_backend = (
+        "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if IS_TESTING
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    )
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            "BACKEND": staticfiles_backend,
         },
     }
 

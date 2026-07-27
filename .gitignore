@@ -47,3 +47,5 @@ openspec/changes/*
 
 # ignore by default all hiden folders (like agents folders)
 .*/
+
+*.db
