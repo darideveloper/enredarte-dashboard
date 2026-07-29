@@ -1,11 +1,4 @@
-## Requirements
-
-### Requirement: Artist model admin registration
-The system SHALL register the `Artist` model in `artworks/admin.py` using `ModelAdminUnfoldBase` so that artists are manageable within the Django Unfold admin site.
-
-#### Scenario: Viewing artist list in admin
-- **WHEN** an administrator opens the Django Admin panel
-- **THEN** the sidebar SHALL display "Artistas" with a palette icon and list artists with columns for Name, Email, Birth Year, Death Year, Active state, and Sort Order in Spanish.
+## MODIFIED Requirements
 
 ### Requirement: Inline translation management for Artist
 The system SHALL display `ArtistTranslation` as a `StackedInline` inside the `Artist` edit form in Django Admin to allow editing Spanish (`es`) and English (`en`) bio text on the same page, pre-populating Spanish (`es`) on the first form and English (`en`) on the second form during creation, and suppressing extra blank forms when all translations already exist.
