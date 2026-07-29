@@ -8,10 +8,14 @@ from artworks.admin import (
     ArtCuratorTranslationInline,
     ArtistAdmin,
     ArtistTranslationInline,
+    ArtworkAdmin,
     ArtworkGalleryInline,
+    ArtworkImageInline,
+    ArtworkTranslationInline,
     CategoryAdmin,
     CategoryTranslationInline,
     GalleryAdmin,
+    GalleryArtworkInline,
     GalleryTranslationInline,
     MediumAdmin,
     MediumTranslationInline,
@@ -23,7 +27,11 @@ from artworks.models import (
     ArtCuratorTranslation,
     Artist,
     ArtistTranslation,
+    Artwork,
     ArtworkGallery,
+    ArtworkImage,
+    ArtworkStatus,
+    ArtworkTranslation,
     Category,
     CategoryTranslation,
     Gallery,
@@ -332,4 +340,78 @@ class GalleryAdminTestCase(TestCase):
     def test_gallery_display_name_fallback_empty(self):
         """Test fallback when no translations exist"""
         self.assertEqual(self.gallery_admin.display_name(self.gallery), "-")
+
+
+class ArtworkAdminTestCase(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+
+        self.artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")
+        self.category = Category.objects.create(slug="pintura")
+        self.medium = Medium.objects.create(slug="oleo")
+        self.surface = Surface.objects.create(slug="lienzo")
+
+        self.artwork = Artwork.objects.create(
+            artist=self.artist,
+            year=1939,
+            dimensions="143x152 cm",
+            category=self.category,
+            medium=self.medium,
+            surface=self.surface,
+            price_mxn=50000.00,
+            price_usd=2500.00,
+            status=ArtworkStatus.AVAILABLE,
+            slug="las-dos-fridas",
+            sort_order=1,
+        )
+        self.artwork_admin = admin.site._registry[Artwork]
+
+    def test_artwork_registered(self):
+        """Test Artwork is registered with ArtworkAdmin"""
+        self.assertIn(Artwork, admin.site._registry)
+        self.assertIsInstance(admin.site._registry[Artwork], ArtworkAdmin)
+
+    def test_artwork_inlines(self):
+        """Test ArtworkAdmin uses translation, image, and gallery inlines"""
+        self.assertIn(ArtworkTranslationInline, self.artwork_admin.inlines)
+        self.assertIn(ArtworkImageInline, self.artwork_admin.inlines)
+        self.assertIn(GalleryArtworkInline, self.artwork_admin.inlines)
+
+    def test_artwork_initial_sort_order(self):
+        """Test auto-population of sort_order"""
+        url = reverse("admin:artworks_artwork_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 2)
+
+    def test_artwork_display_title_spanish(self):
+        """Test display_title prefers Spanish translation"""
+        ArtworkTranslation.objects.create(
+            artwork=self.artwork, language="en", title="The Two Fridas"
+        )
+        ArtworkTranslation.objects.create(
+            artwork=self.artwork, language="es", title="Las Dos Fridas"
+        )
+        self.assertEqual(self.artwork_admin.display_title(self.artwork), "Las Dos Fridas")
+
+    def test_artwork_display_title_fallback(self):
+        """Test display_title falls back to available language if Spanish missing"""
+        ArtworkTranslation.objects.create(
+            artwork=self.artwork, language="en", title="The Two Fridas"
+        )
+        self.assertEqual(self.artwork_admin.display_title(self.artwork), "The Two Fridas")
+
+    def test_artwork_display_title_fallback_empty(self):
+        """Test fallback when no translations exist"""
+        self.assertEqual(self.artwork_admin.display_title(self.artwork), "-")
+
+    def test_artwork_display_price(self):
+        """Test price formatting method"""
+        self.assertEqual(
+            self.artwork_admin.display_price(self.artwork),
+            "$50,000.00 MXN / $2,500.00 USD"
+        )
 
