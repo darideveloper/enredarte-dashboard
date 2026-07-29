@@ -8,8 +8,25 @@ from artworks.admin import (
     ArtCuratorTranslationInline,
     ArtistAdmin,
     ArtistTranslationInline,
+    CategoryAdmin,
+    CategoryTranslationInline,
+    MediumAdmin,
+    MediumTranslationInline,
+    SurfaceAdmin,
+    SurfaceTranslationInline,
 )
-from artworks.models import ArtCurator, ArtCuratorTranslation, Artist, ArtistTranslation
+from artworks.models import (
+    ArtCurator,
+    ArtCuratorTranslation,
+    Artist,
+    ArtistTranslation,
+    Category,
+    CategoryTranslation,
+    Medium,
+    MediumTranslation,
+    Surface,
+    SurfaceTranslation,
+)
 
 
 class ArtistAdminTestCase(TestCase):
@@ -138,4 +155,126 @@ class ArtCuratorAdminTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 8)
 
+
+class CategoryAdminTestCase(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+
+    def test_category_registered_in_admin(self):
+        self.assertIn(Category, admin.site._registry)
+        self.assertIsInstance(admin.site._registry[Category], CategoryAdmin)
+
+    def test_category_admin_has_translation_inline(self):
+        category_admin = admin.site._registry[Category]
+        self.assertIn(CategoryTranslationInline, category_admin.inlines)
+
+    def test_category_admin_changelist_view(self):
+        category = Category.objects.create(slug="pintura")
+        CategoryTranslation.objects.create(category=category, language="es", name="Pintura", description="Obras de pintura.")
+        CategoryTranslation.objects.create(category=category, language="en", name="Painting", description="Painting works.")
+
+        url = reverse("admin:artworks_category_changelist")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Pintura")
+
+    def test_new_category_add_view_initial_languages(self):
+        url = reverse("admin:artworks_category_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        formset = response.context_data["inline_admin_formsets"][0].formset
+        self.assertEqual(len(formset.extra_forms), 2)
+        self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
+        self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
+
+    def test_category_add_view_sort_order_initial(self):
+        url = reverse("admin:artworks_category_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
+
+
+class MediumAdminTestCase(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+
+    def test_medium_registered_in_admin(self):
+        self.assertIn(Medium, admin.site._registry)
+        self.assertIsInstance(admin.site._registry[Medium], MediumAdmin)
+
+    def test_medium_admin_has_translation_inline(self):
+        medium_admin = admin.site._registry[Medium]
+        self.assertIn(MediumTranslationInline, medium_admin.inlines)
+
+    def test_medium_admin_changelist_view(self):
+        medium = Medium.objects.create(slug="oleo")
+        MediumTranslation.objects.create(medium=medium, language="es", name="Óleo")
+        MediumTranslation.objects.create(medium=medium, language="en", name="Oil")
+
+        url = reverse("admin:artworks_medium_changelist")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Óleo")
+
+    def test_new_medium_add_view_initial_languages(self):
+        url = reverse("admin:artworks_medium_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        formset = response.context_data["inline_admin_formsets"][0].formset
+        self.assertEqual(len(formset.extra_forms), 2)
+        self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
+        self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
+
+    def test_medium_add_view_sort_order_initial(self):
+        url = reverse("admin:artworks_medium_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
+
+
+class SurfaceAdminTestCase(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+
+    def test_surface_registered_in_admin(self):
+        self.assertIn(Surface, admin.site._registry)
+        self.assertIsInstance(admin.site._registry[Surface], SurfaceAdmin)
+
+    def test_surface_admin_has_translation_inline(self):
+        surface_admin = admin.site._registry[Surface]
+        self.assertIn(SurfaceTranslationInline, surface_admin.inlines)
+
+    def test_surface_admin_changelist_view(self):
+        surface = Surface.objects.create(slug="lienzo")
+        SurfaceTranslation.objects.create(surface=surface, language="es", name="Lienzo")
+        SurfaceTranslation.objects.create(surface=surface, language="en", name="Canvas")
+
+        url = reverse("admin:artworks_surface_changelist")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Lienzo")
+
+    def test_new_surface_add_view_initial_languages(self):
+        url = reverse("admin:artworks_surface_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        formset = response.context_data["inline_admin_formsets"][0].formset
+        self.assertEqual(len(formset.extra_forms), 2)
+        self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
+        self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
+
+    def test_surface_add_view_sort_order_initial(self):
+        url = reverse("admin:artworks_surface_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
 

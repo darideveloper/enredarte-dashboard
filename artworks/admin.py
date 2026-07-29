@@ -3,7 +3,18 @@ from django.contrib import admin
 from django.db.models import Max
 from django.forms.models import BaseInlineFormSet
 
-from artworks.models import ArtCurator, ArtCuratorTranslation, Artist, ArtistTranslation
+from artworks.models import (
+    ArtCurator,
+    ArtCuratorTranslation,
+    Artist,
+    ArtistTranslation,
+    Category,
+    CategoryTranslation,
+    Medium,
+    MediumTranslation,
+    Surface,
+    SurfaceTranslation,
+)
 from project.admin_base import ModelAdminUnfoldBase
 from unfold.admin import StackedInline
 
@@ -42,6 +53,51 @@ class ArtCuratorTranslationInline(StackedInline):
     verbose_name_plural = "Traducciones (Español / Inglés)"
     max_num = len(settings.LANGUAGES)
     fields = ["language", "bio"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
+class CategoryTranslationInline(StackedInline):
+    model = CategoryTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name", "description"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
+class MediumTranslationInline(StackedInline):
+    model = MediumTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
+class SurfaceTranslationInline(StackedInline):
+    model = SurfaceTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name"]
 
     def get_extra(self, request, obj=None, **kwargs):
         if obj:
@@ -134,6 +190,102 @@ class ArtCuratorAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Correo electrónico", ordering="email")
     def display_email(self, obj):
         return obj.email or "-"
+
+    @admin.display(description="Activo", ordering="is_active", boolean=True)
+    def display_active(self, obj):
+        return obj.is_active
+
+
+@admin.register(Category)
+class CategoryAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "label"
+    inlines = [CategoryTranslationInline]
+    search_fields = ["slug", "translations__name", "translations__description"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("System Info", {
+            "fields": ("slug", "is_active", "sort_order")
+        }),
+    )
+    list_display = ["display_name", "slug", "display_active", "sort_order"]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Category.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
+
+    @admin.display(description="Nombre")
+    def display_name(self, obj):
+        es = obj.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = obj.translations.first()
+        return first.name if first else "-"
+
+    @admin.display(description="Activo", ordering="is_active", boolean=True)
+    def display_active(self, obj):
+        return obj.is_active
+
+
+@admin.register(Medium)
+class MediumAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "brush"
+    inlines = [MediumTranslationInline]
+    search_fields = ["slug", "translations__name"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("System Info", {
+            "fields": ("slug", "is_active", "sort_order")
+        }),
+    )
+    list_display = ["display_name", "slug", "display_active", "sort_order"]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Medium.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
+
+    @admin.display(description="Nombre")
+    def display_name(self, obj):
+        es = obj.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = obj.translations.first()
+        return first.name if first else "-"
+
+    @admin.display(description="Activo", ordering="is_active", boolean=True)
+    def display_active(self, obj):
+        return obj.is_active
+
+
+@admin.register(Surface)
+class SurfaceAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "texture"
+    inlines = [SurfaceTranslationInline]
+    search_fields = ["slug", "translations__name"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("System Info", {
+            "fields": ("slug", "is_active", "sort_order")
+        }),
+    )
+    list_display = ["display_name", "slug", "display_active", "sort_order"]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Surface.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
+
+    @admin.display(description="Nombre")
+    def display_name(self, obj):
+        es = obj.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = obj.translations.first()
+        return first.name if first else "-"
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
