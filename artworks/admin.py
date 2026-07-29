@@ -8,15 +8,18 @@ from artworks.models import (
     ArtCuratorTranslation,
     Artist,
     ArtistTranslation,
+    ArtworkGallery,
     Category,
     CategoryTranslation,
+    Gallery,
+    GalleryTranslation,
     Medium,
     MediumTranslation,
     Surface,
     SurfaceTranslation,
 )
 from project.admin_base import ModelAdminUnfoldBase
-from unfold.admin import StackedInline
+from unfold.admin import StackedInline, TabularInline
 
 
 class TranslationInlineFormSet(BaseInlineFormSet):
@@ -104,6 +107,29 @@ class SurfaceTranslationInline(StackedInline):
             existing_count = obj.translations.count()
             return max(0, len(settings.LANGUAGES) - existing_count)
         return len(settings.LANGUAGES)
+
+
+class GalleryTranslationInline(StackedInline):
+    model = GalleryTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name", "description"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
+class ArtworkGalleryInline(TabularInline):
+    model = ArtworkGallery
+    fields = ["artwork"]
+    ordering_field = "sort_order"
+    hide_ordering_field = True
+    extra = 0
 
 
 @admin.register(Artist)
@@ -276,6 +302,41 @@ class SurfaceAdmin(ModelAdminUnfoldBase):
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
         max_order = Surface.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
+
+    @admin.display(description="Nombre")
+    def display_name(self, obj):
+        es = obj.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = obj.translations.first()
+        return first.name if first else "-"
+
+    @admin.display(description="Activo", ordering="is_active", boolean=True)
+    def display_active(self, obj):
+        return obj.is_active
+
+
+@admin.register(Gallery)
+class GalleryAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "storefront"
+    inlines = [GalleryTranslationInline, ArtworkGalleryInline]
+    search_fields = ["slug", "translations__name", "translations__description"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("Basic Info", {
+            "fields": ("curator", "logo")
+        }),
+        ("System Info", {
+            "fields": ("slug", "is_active", "sort_order")
+        }),
+    )
+    list_display = ["display_name", "slug", "curator", "display_active", "sort_order"]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Gallery.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
         initial["sort_order"] = max_order + 1
         return initial
 

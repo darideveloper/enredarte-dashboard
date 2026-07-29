@@ -8,8 +8,11 @@ from artworks.admin import (
     ArtCuratorTranslationInline,
     ArtistAdmin,
     ArtistTranslationInline,
+    ArtworkGalleryInline,
     CategoryAdmin,
     CategoryTranslationInline,
+    GalleryAdmin,
+    GalleryTranslationInline,
     MediumAdmin,
     MediumTranslationInline,
     SurfaceAdmin,
@@ -20,8 +23,11 @@ from artworks.models import (
     ArtCuratorTranslation,
     Artist,
     ArtistTranslation,
+    ArtworkGallery,
     Category,
     CategoryTranslation,
+    Gallery,
+    GalleryTranslation,
     Medium,
     MediumTranslation,
     Surface,
@@ -277,4 +283,53 @@ class SurfaceAdminTestCase(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
+
+
+class GalleryAdminTestCase(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+
+        self.gallery = Gallery.objects.create(slug="galeria-de-arte", sort_order=1)
+        self.gallery_admin = admin.site._registry[Gallery]
+
+    def test_gallery_registered(self):
+        """Test Gallery is registered with GalleryAdmin"""
+        self.assertIn(Gallery, admin.site._registry)
+        self.assertIsInstance(admin.site._registry[Gallery], GalleryAdmin)
+
+    def test_gallery_inlines(self):
+        """Test GalleryAdmin uses GalleryTranslationInline and ArtworkGalleryInline"""
+        self.assertIn(GalleryTranslationInline, self.gallery_admin.inlines)
+        self.assertIn(ArtworkGalleryInline, self.gallery_admin.inlines)
+
+    def test_gallery_initial_sort_order(self):
+        """Test auto-population of sort_order"""
+        url = reverse("admin:artworks_gallery_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 2)
+
+    def test_gallery_display_name_spanish(self):
+        """Test display_name prefers Spanish translation"""
+        GalleryTranslation.objects.create(
+            gallery=self.gallery, language="en", name="Art Gallery"
+        )
+        GalleryTranslation.objects.create(
+            gallery=self.gallery, language="es", name="Galería de Arte"
+        )
+        self.assertEqual(self.gallery_admin.display_name(self.gallery), "Galería de Arte")
+
+    def test_gallery_display_name_fallback(self):
+        """Test display_name falls back to available language if Spanish missing"""
+        GalleryTranslation.objects.create(
+            gallery=self.gallery, language="en", name="Art Gallery"
+        )
+        self.assertEqual(self.gallery_admin.display_name(self.gallery), "Art Gallery")
+
+    def test_gallery_display_name_fallback_empty(self):
+        """Test fallback when no translations exist"""
+        self.assertEqual(self.gallery_admin.display_name(self.gallery), "-")
 
