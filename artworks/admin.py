@@ -41,6 +41,17 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name", "email", "slug", "translations__bio"]
     list_filter = ["is_active"]
+    fieldsets = (
+        ("Personal Info", {
+            "fields": (("name", "slug"), ("birth_year", "death_year"))
+        }),
+        ("Contact & Media", {
+            "fields": ("email", "website", "photo")
+        }),
+        ("System Status", {
+            "fields": (("is_active", "sort_order"),)
+        }),
+    )
     list_display = [
         "display_name",
         "display_email",
