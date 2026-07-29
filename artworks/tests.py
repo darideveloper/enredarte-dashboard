@@ -65,3 +65,19 @@ class ArtistAdminTestCase(TestCase):
         formset = response.context_data["inline_admin_formsets"][0].formset
         self.assertEqual(len(formset.extra_forms), 0)
         self.assertEqual(len(formset.forms), 2)
+
+    def test_artist_add_view_sort_order_initial_when_empty(self):
+        url = reverse("admin:artworks_artist_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
+
+    def test_artist_add_view_sort_order_initial_when_artists_exist(self):
+        Artist.objects.create(name="Artist 1", slug="artist-1", sort_order=5)
+        Artist.objects.create(name="Artist 2", slug="artist-2", sort_order=10)
+
+        url = reverse("admin:artworks_artist_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 11)
+

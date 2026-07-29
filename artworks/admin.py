@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
+from django.db.models import Max
 from django.forms.models import BaseInlineFormSet
 
 from artworks.models import Artist, ArtistTranslation
@@ -60,6 +61,12 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         "display_active",
         "sort_order",
     ]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Artist.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
 
     @admin.display(description="Nombre", ordering="name")
     def display_name(self, obj):
