@@ -2,12 +2,13 @@ from django.conf import settings
 from django.contrib import admin
 from django.db.models import Max
 from django.forms.models import BaseInlineFormSet
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 
 from artworks.models import (
     ArtCurator,
     ArtCuratorTranslation,
     Artist,
+    ArtistSocialLink,
     ArtistTranslation,
     Artwork,
     ArtworkGallery,
@@ -20,6 +21,8 @@ from artworks.models import (
     FormatTranslation,
     Gallery,
     GalleryTranslation,
+    Location,
+    LocationTranslation,
     Scale,
     ScaleTranslation,
     Technique,
@@ -56,6 +59,16 @@ class ArtistTranslationInline(StackedInline):
             existing_count = obj.translations.count()
             return max(0, len(settings.LANGUAGES) - existing_count)
         return len(settings.LANGUAGES)
+
+
+class ArtistSocialLinkInline(TabularInline):
+    model = ArtistSocialLink
+    fields = ["platform", "url"]
+    verbose_name = "Red social"
+    verbose_name_plural = "Redes sociales"
+    ordering_field = "sort_order"
+    hide_ordering_field = True
+    extra = 1
 
 
 class ArtCuratorTranslationInline(StackedInline):
@@ -163,6 +176,21 @@ class GalleryTranslationInline(StackedInline):
         return len(settings.LANGUAGES)
 
 
+class LocationTranslationInline(StackedInline):
+    model = LocationTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
 class ArtworkGalleryInline(TabularInline):
     model = ArtworkGallery
     fields = ["artwork"]
@@ -186,26 +214,49 @@ class GalleryArtworkInline(TabularInline):
 @admin.register(Artist)
 class ArtistAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "palette"
-    inlines = [ArtistTranslationInline]
+    inlines = [ArtistTranslationInline, ArtistSocialLinkInline]
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name", "email", "slug", "translations__bio"]
     list_filter = ["is_active"]
     fieldsets = (
         ("Personal Info", {
-            "fields": (("name", "slug"), ("birth_year", "death_year"))
+            "fields": (("name", "slug"), ("birth_year", "death_year"), "location")
         }),
         ("Contact & Media", {
             "fields": ("email", "website", "photo")
+        }),
+        ("Resumen", {
+            "fields": (
+                "display_techniques_detail",
+                "display_available_detail",
+                "display_new_additions_detail",
+                "display_highlighted_detail",
+                "display_most_viewed_detail",
+                "display_curations_detail",
+            )
         }),
         ("System Status", {
             "fields": (("is_active", "sort_order"),)
         }),
     )
+    readonly_fields = [
+        "display_techniques_detail",
+        "display_available_detail",
+        "display_new_additions_detail",
+        "display_highlighted_detail",
+        "display_most_viewed_detail",
+        "display_curations_detail",
+    ]
     list_display = [
         "display_name",
         "display_email",
         "birth_year",
         "death_year",
+        "display_artworks_count",
+        "display_available_count",
+        "display_techniques_count",
+        "display_highlighted_count",
+        "display_galleries_count",
         "display_active",
         "sort_order",
     ]
@@ -227,6 +278,77 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
+
+    @staticmethod
+    def _translated_name(holder):
+        es = holder.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = holder.translations.first()
+        return first.name if first else "-"
+
+    @staticmethod
+    def _artwork_title(artwork):
+        es = artwork.translations.filter(language="es").first()
+        if es:
+            return es.title
+        first = artwork.translations.first()
+        return first.title if first else artwork.slug
+
+    @admin.display(description="Obras")
+    def display_artworks_count(self, obj):
+        return obj.artworks.filter(is_active=True).count()
+
+    @admin.display(description="Disponibles")
+    def display_available_count(self, obj):
+        return obj.available_artworks.count()
+
+    @admin.display(description="Técnicas")
+    def display_techniques_count(self, obj):
+        return obj.techniques.count()
+
+    @admin.display(description="Destacadas")
+    def display_highlighted_count(self, obj):
+        return obj.highlighted_artworks.count()
+
+    @admin.display(description="Galerías")
+    def display_galleries_count(self, obj):
+        return obj.curations.count()
+
+    @admin.display(description="Técnicas")
+    def display_techniques_detail(self, obj):
+        names = [self._translated_name(t) for t in obj.techniques]
+        return ", ".join(names) if names else "-"
+
+    @admin.display(description="Obras disponibles")
+    def display_available_detail(self, obj):
+        return f"{obj.available_artworks.count()} obra(s) disponible(s)"
+
+    @admin.display(description="Nuevas incorporaciones")
+    def display_new_additions_detail(self, obj):
+        rows = [(self._artwork_title(a), a.year) for a in obj.new_additions]
+        if not rows:
+            return "-"
+        return format_html_join("", "<div>- {0} ({1})</div>", rows)
+
+    @admin.display(description="Destacadas")
+    def display_highlighted_detail(self, obj):
+        titles = [self._artwork_title(a) for a in obj.highlighted_artworks]
+        if not titles:
+            return "-"
+        return format_html_join("", "<div>- {0}</div>", [(t,) for t in titles])
+
+    @admin.display(description="Más visitadas")
+    def display_most_viewed_detail(self, obj):
+        rows = [(self._artwork_title(a), a.views_count) for a in obj.most_viewed]
+        if not rows:
+            return "-"
+        return format_html_join("", "<div>- {0} — {1} visitas</div>", rows)
+
+    @admin.display(description="Curadurías (galerías)")
+    def display_curations_detail(self, obj):
+        names = [self._translated_name(g) for g in obj.curations]
+        return ", ".join(names) if names else "-"
 
 
 @admin.register(ArtCurator)
@@ -433,6 +555,38 @@ class ScaleAdmin(ModelAdminUnfoldBase):
         return obj.is_active
 
 
+@admin.register(Location)
+class LocationAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "location_on"
+    inlines = [LocationTranslationInline]
+    search_fields = ["slug", "translations__name"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("System Info", {
+            "fields": ("slug", "is_active", "sort_order")
+        }),
+    )
+    list_display = ["display_name", "slug", "display_active", "sort_order"]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Location.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
+
+    @admin.display(description="Nombre")
+    def display_name(self, obj):
+        es = obj.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = obj.translations.first()
+        return first.name if first else "-"
+
+    @admin.display(description="Activo", ordering="is_active", boolean=True)
+    def display_active(self, obj):
+        return obj.is_active
+
+
 @admin.register(Gallery)
 class GalleryAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "storefront"
@@ -515,6 +669,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
     list_filter = [
         "status",
         "is_active",
+        "is_highlighted",
         "disciplines",
         "techniques",
         "themes",
@@ -536,7 +691,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
             )
         }),
         ("Commercial & Status", {
-            "fields": (("price_mxn", "price_usd"), "status")
+            "fields": (("price_mxn", "price_usd"), "status", ("is_highlighted", "views_count"))
         }),
         ("System Settings", {
             "fields": ("slug", "is_active", "sort_order")
@@ -549,6 +704,8 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         "display_taxonomies",
         "display_price",
         "status",
+        "is_highlighted",
+        "views_count",
         "display_active",
         "sort_order",
     ]
