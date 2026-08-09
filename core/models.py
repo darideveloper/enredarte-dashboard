@@ -3,7 +3,7 @@ from django.db import models
 
 
 class TimeStampedModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Creado el")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Creado el", db_index=True)
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Actualizado el")
 
     class Meta:

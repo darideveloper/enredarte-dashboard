@@ -1,10 +1,12 @@
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.core.exceptions import ValidationError
 from django.db.models import Max
 from django.forms.models import BaseInlineFormSet
 from django.utils.html import format_html, format_html_join
 
+from artworks.admin_filters import YearFilter, has_related_filter
 from artworks.models import (
     ArtCurator,
     ArtCuratorTranslation,
@@ -157,13 +159,42 @@ class GalleryArtworkInline(TabularInline):
     extra = 1
 
 
+class ArtistAvailableWorksFilter(admin.SimpleListFilter):
+    title = "Obras disponibles"
+    parameter_name = "has_available"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("with", "Con obras disponibles"),
+            ("without", "Sin obras disponibles"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "with":
+            return queryset.filter(
+                artworks__is_active=True, artworks__status=ArtworkStatus.AVAILABLE
+            ).distinct()
+        if self.value() == "without":
+            return queryset.exclude(
+                artworks__is_active=True, artworks__status=ArtworkStatus.AVAILABLE
+            ).distinct()
+        return queryset
+
+
 @admin.register(Artist)
 class ArtistAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "palette"
     inlines = [ArtistTranslationInline, ArtistSocialLinkInline]
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name", "email", "slug", "translations__bio"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        "created_at",
+        ("location", RelatedOnlyFieldListFilter),
+        has_related_filter("artworks", "obras", "has_artworks"),
+        ArtistAvailableWorksFilter,
+    ]
+    list_per_page = 50
     fieldsets = (
         ("Datos personales", {
             "fields": (("name", "slug"), ("birth_year", "death_year"), "location")
@@ -303,7 +334,10 @@ class ArtCuratorAdmin(ModelAdminUnfoldBase):
     inlines = [ArtCuratorTranslationInline]
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name", "email", "slug", "translations__bio"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        has_related_filter("curated_galleries", "galerías", "has_galleries"),
+    ]
     fieldsets = (
         ("Datos personales", {
             "fields": (("name", "slug"),)
@@ -346,7 +380,10 @@ class DisciplineAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "label"
     inlines = [DisciplineTranslationInline]
     search_fields = ["slug", "translations__name"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        has_related_filter("artworks", "obras", "has_artworks"),
+    ]
     fieldsets = (
         ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
@@ -378,7 +415,10 @@ class TechniqueAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "brush"
     inlines = [TechniqueTranslationInline]
     search_fields = ["slug", "translations__name"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        has_related_filter("artworks", "obras", "has_artworks"),
+    ]
     fieldsets = (
         ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
@@ -410,7 +450,10 @@ class ThemeAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "topic"
     inlines = [ThemeTranslationInline]
     search_fields = ["slug", "translations__name"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        has_related_filter("artworks", "obras", "has_artworks"),
+    ]
     fieldsets = (
         ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
@@ -442,7 +485,10 @@ class FormatAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "view_module"
     inlines = [FormatTranslationInline]
     search_fields = ["slug", "translations__name"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        has_related_filter("artworks", "obras", "has_artworks"),
+    ]
     fieldsets = (
         ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
@@ -474,7 +520,10 @@ class ScaleAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "straighten"
     inlines = [ScaleTranslationInline]
     search_fields = ["slug", "translations__name"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        has_related_filter("artworks", "obras", "has_artworks"),
+    ]
     fieldsets = (
         ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
@@ -506,7 +555,10 @@ class LocationAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "location_on"
     inlines = [LocationTranslationInline]
     search_fields = ["slug", "translations__name"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        has_related_filter("artworks", "obras", "has_artworks"),
+    ]
     fieldsets = (
         ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
@@ -538,7 +590,11 @@ class GalleryAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "storefront"
     inlines = [GalleryTranslationInline, ArtworkGalleryInline]
     search_fields = ["slug", "translations__name", "translations__description"]
-    list_filter = ["is_active"]
+    list_filter = [
+        "is_active",
+        ("curator", RelatedOnlyFieldListFilter),
+        has_related_filter("artwork_links", "obras", "has_artworks"),
+    ]
     fieldsets = (
         ("Información básica", {
             "fields": ("curator", "logo")
@@ -606,13 +662,18 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         "status",
         "is_active",
         "is_highlighted",
-        "disciplines",
-        "techniques",
-        "themes",
-        "formats",
-        "scales",
+        "created_at",
+        ("artist", RelatedOnlyFieldListFilter),
+        ("gallery_links__gallery", RelatedOnlyFieldListFilter),
+        YearFilter,
+        ("disciplines", RelatedOnlyFieldListFilter),
+        ("techniques", RelatedOnlyFieldListFilter),
+        ("themes", RelatedOnlyFieldListFilter),
+        ("formats", RelatedOnlyFieldListFilter),
+        ("scales", RelatedOnlyFieldListFilter),
     ]
     filter_horizontal = ["disciplines", "techniques", "themes", "formats", "scales"]
+    list_per_page = 25
     fieldsets = (
         ("Atributos principales", {
             "fields": (("artist", "year"), "dimensions")

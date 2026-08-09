@@ -1,10 +1,12 @@
 from django.contrib import admin
+from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
 from artworks.admin import (
+    ArtistAvailableWorksFilter,
     ArtCuratorAdmin,
     ArtCuratorTranslationInline,
     ArtistAdmin,
@@ -30,6 +32,7 @@ from artworks.admin import (
     ThemeAdmin,
     ThemeTranslationInline,
 )
+from artworks.admin_filters import HasRelatedFilter, YearFilter, has_related_filter
 from artworks.models import (
     ArtCurator,
     ArtCuratorTranslation,
@@ -720,6 +723,169 @@ class ArtworkDiscoveryAdminTestCase(TestCase):
         self.assertIn("is_highlighted", self.artwork_admin.list_display)
         self.assertIn("views_count", self.artwork_admin.list_display)
         self.assertIn("is_highlighted", self.artwork_admin.list_filter)
+
+    def test_artwork_admin_filters(self):
+        self.assertIn(("artist", RelatedOnlyFieldListFilter), self.artwork_admin.list_filter)
+        self.assertIn(("gallery_links__gallery", RelatedOnlyFieldListFilter), self.artwork_admin.list_filter)
+        self.assertIn(YearFilter, self.artwork_admin.list_filter)
+        self.assertIn("created_at", self.artwork_admin.list_filter)
+        self.assertIn(("disciplines", RelatedOnlyFieldListFilter), self.artwork_admin.list_filter)
+        self.assertEqual(self.artwork_admin.list_per_page, 25)
+
+    def test_artist_admin_filters(self):
+        artist_admin = admin.site._registry[Artist]
+        self.assertIn(("location", RelatedOnlyFieldListFilter), artist_admin.list_filter)
+        self.assertIn("created_at", artist_admin.list_filter)
+        self.assertIn(ArtistAvailableWorksFilter, artist_admin.list_filter)
+        self.assertEqual(artist_admin.list_per_page, 50)
+
+    def test_gallery_admin_filters(self):
+        gallery_admin = admin.site._registry[Gallery]
+        self.assertIn(("curator", RelatedOnlyFieldListFilter), gallery_admin.list_filter)
+
+    def test_artcurator_admin_filters(self):
+        artcurator_admin = admin.site._registry[ArtCurator]
+        self.assertIn("is_active", artcurator_admin.list_filter)
+        self.assertTrue(
+            any(
+                isinstance(f, type) and issubclass(f, HasRelatedFilter)
+                for f in artcurator_admin.list_filter
+            ),
+            "ArtCuratorAdmin missing HasRelatedFilter",
+        )
+
+    def test_taxonomy_admin_in_use_filters(self):
+        for admin_class in (
+            DisciplineAdmin,
+            TechniqueAdmin,
+            ThemeAdmin,
+            FormatAdmin,
+            ScaleAdmin,
+            LocationAdmin,
+        ):
+            with self.subTest(admin_class=admin_class.__name__):
+                self.assertTrue(
+                    any(
+                        isinstance(f, type)
+                        and issubclass(f, HasRelatedFilter)
+                        for f in admin_class.list_filter
+                    ),
+                    f"{admin_class.__name__} missing HasRelatedFilter",
+                )
+
+
+class AdminFilterBehaviorTestCase(TestCase):
+    def setUp(self):
+        self.request = RequestFactory().get("/admin/")
+        self.artist_admin = admin.site._registry[Artist]
+        self.artwork_admin = admin.site._registry[Artwork]
+
+    def test_has_related_filter_artists(self):
+        artist_filter = has_related_filter("artworks", "obras", "test_has_artworks")
+        artist_with = Artist.objects.create(name="Con obras", slug="con-obras")
+        artist_without = Artist.objects.create(name="Sin obras", slug="sin-obras")
+        Artwork.objects.create(
+            artist=artist_with,
+            year=2020,
+            dimensions="10x10",
+            price_mxn=100,
+            price_usd=5,
+            status=ArtworkStatus.AVAILABLE,
+            slug="art-behavior-1",
+        )
+
+        with_filter = artist_filter(
+            self.request, {"test_has_artworks": ["with"]}, Artist, self.artist_admin
+        )
+        result = with_filter.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_with, result)
+        self.assertNotIn(artist_without, result)
+
+        without_filter = artist_filter(
+            self.request, {"test_has_artworks": ["without"]}, Artist, self.artist_admin
+        )
+        result = without_filter.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_without, result)
+        self.assertNotIn(artist_with, result)
+
+    def test_year_filter_decade(self):
+        Artwork.objects.create(
+            artist=Artist.objects.create(name="A", slug="a-year"),
+            year=1985,
+            dimensions="10x10",
+            price_mxn=100,
+            price_usd=5,
+            status=ArtworkStatus.AVAILABLE,
+            slug="art-1985",
+        )
+        Artwork.objects.create(
+            artist=Artist.objects.create(name="B", slug="b-year"),
+            year=1992,
+            dimensions="10x10",
+            price_mxn=100,
+            price_usd=5,
+            status=ArtworkStatus.AVAILABLE,
+            slug="art-1992",
+        )
+
+        filter_80s = YearFilter(self.request, {"decade": ["1980"]}, Artwork, self.artwork_admin)
+        result = filter_80s.queryset(self.request, Artwork.objects.all())
+        self.assertEqual(set(result.values_list("year", flat=True)), {1985})
+
+        filter_90s = YearFilter(self.request, {"decade": ["1990"]}, Artwork, self.artwork_admin)
+        result = filter_90s.queryset(self.request, Artwork.objects.all())
+        self.assertEqual(set(result.values_list("year", flat=True)), {1992})
+
+    def test_year_filter_lookups_build_decades(self):
+        for year in (1978, 1984, 1985, 1993):
+            Artwork.objects.create(
+                artist=Artist.objects.create(name=f"Y{year}", slug=f"y-{year}"),
+                year=year,
+                dimensions="10x10",
+                price_mxn=100,
+                price_usd=5,
+                status=ArtworkStatus.AVAILABLE,
+                slug=f"art-y-{year}",
+            )
+        filter_ = YearFilter(self.request, {}, Artwork, self.artwork_admin)
+        lookups = filter_.lookups(self.request, self.artwork_admin)
+        self.assertEqual(lookups, [("1970", "1970–1979"), ("1980", "1980–1989"), ("1990", "1990–1999")])
+
+    def test_artist_available_works_filter(self):
+        artist_available = Artist.objects.create(name="Disponible", slug="disponible")
+        artist_sold = Artist.objects.create(name="Vendida", slug="vendida")
+        Artwork.objects.create(
+            artist=artist_available,
+            year=2020,
+            dimensions="10x10",
+            price_mxn=100,
+            price_usd=5,
+            status=ArtworkStatus.AVAILABLE,
+            slug="art-avail-1",
+        )
+        Artwork.objects.create(
+            artist=artist_sold,
+            year=2020,
+            dimensions="10x10",
+            price_mxn=100,
+            price_usd=5,
+            status=ArtworkStatus.SOLD,
+            slug="art-sold-1",
+        )
+
+        with_filter = ArtistAvailableWorksFilter(
+            self.request, {"has_available": ["with"]}, Artist, self.artist_admin
+        )
+        result = with_filter.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_available, result)
+        self.assertNotIn(artist_sold, result)
+
+        without_filter = ArtistAvailableWorksFilter(
+            self.request, {"has_available": ["without"]}, Artist, self.artist_admin
+        )
+        result = without_filter.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_sold, result)
+        self.assertNotIn(artist_available, result)
 
 
 class TranslationInlineEnforcementTestCase(TestCase):
