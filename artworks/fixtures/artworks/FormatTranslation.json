@@ -1,0 +1,14 @@
+[
+  { "model": "artworks.formattranslation", "pk": 1, "fields": { "format": 1, "language": "es", "name": "Obra original" } },
+  { "model": "artworks.formattranslation", "pk": 2, "fields": { "format": 1, "language": "en", "name": "Original work" } },
+  { "model": "artworks.formattranslation", "pk": 3, "fields": { "format": 2, "language": "es", "name": "Edición limitada" } },
+  { "model": "artworks.formattranslation", "pk": 4, "fields": { "format": 2, "language": "en", "name": "Limited edition" } },
+  { "model": "artworks.formattranslation", "pk": 5, "fields": { "format": 3, "language": "es", "name": "Prints" } },
+  { "model": "artworks.formattranslation", "pk": 6, "fields": { "format": 3, "language": "en", "name": "Prints" } },
+  { "model": "artworks.formattranslation", "pk": 7, "fields": { "format": 4, "language": "es", "name": "Series" } },
+  { "model": "artworks.formattranslation", "pk": 8, "fields": { "format": 4, "language": "en", "name": "Series" } },
+  { "model": "artworks.formattranslation", "pk": 9, "fields": { "format": 5, "language": "es", "name": "Esculturas" } },
+  { "model": "artworks.formattranslation", "pk": 10, "fields": { "format": 5, "language": "en", "name": "Sculptures" } },
+  { "model": "artworks.formattranslation", "pk": 11, "fields": { "format": 6, "language": "es", "name": "Objetos" } },
+  { "model": "artworks.formattranslation", "pk": 12, "fields": { "format": 6, "language": "en", "name": "Objects" } }
+]

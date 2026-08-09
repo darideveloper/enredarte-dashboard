@@ -44,41 +44,74 @@ class GalleryTranslation(TranslationBase):
         unique_together = [("gallery", "language")]
 
 
-class Category(BaseModel):
-    pass
-
-
-class CategoryTranslation(TranslationBase):
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-
+class Discipline(BaseModel):
     class Meta:
-        unique_together = [("category", "language")]
+        verbose_name = "Disciplina"
+        verbose_name_plural = "Disciplinas"
 
 
-class Medium(BaseModel):
-    pass
-
-
-class MediumTranslation(TranslationBase):
-    medium = models.ForeignKey(Medium, on_delete=models.CASCADE, related_name="translations")
+class DisciplineTranslation(TranslationBase):
+    discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name="translations")
     name = models.CharField(max_length=200)
 
     class Meta:
-        unique_together = [("medium", "language")]
+        unique_together = [("discipline", "language")]
 
 
-class Surface(BaseModel):
-    pass
+class Technique(BaseModel):
+    class Meta:
+        verbose_name = "Técnica"
+        verbose_name_plural = "Técnicas"
 
 
-class SurfaceTranslation(TranslationBase):
-    surface = models.ForeignKey(Surface, on_delete=models.CASCADE, related_name="translations")
+class TechniqueTranslation(TranslationBase):
+    technique = models.ForeignKey(Technique, on_delete=models.CASCADE, related_name="translations")
     name = models.CharField(max_length=200)
 
     class Meta:
-        unique_together = [("surface", "language")]
+        unique_together = [("technique", "language")]
+
+
+class Theme(BaseModel):
+    class Meta:
+        verbose_name = "Temática"
+        verbose_name_plural = "Temáticas"
+
+
+class ThemeTranslation(TranslationBase):
+    theme = models.ForeignKey(Theme, on_delete=models.CASCADE, related_name="translations")
+    name = models.CharField(max_length=200)
+
+    class Meta:
+        unique_together = [("theme", "language")]
+
+
+class Format(BaseModel):
+    class Meta:
+        verbose_name = "Tipo de pieza"
+        verbose_name_plural = "Tipos de pieza"
+
+
+class FormatTranslation(TranslationBase):
+    format = models.ForeignKey(Format, on_delete=models.CASCADE, related_name="translations")
+    name = models.CharField(max_length=200)
+
+    class Meta:
+        unique_together = [("format", "language")]
+
+
+class Scale(BaseModel):
+    class Meta:
+        verbose_name = "Tamaño"
+        verbose_name_plural = "Tamaños"
+
+
+class ScaleTranslation(TranslationBase):
+    scale = models.ForeignKey(Scale, on_delete=models.CASCADE, related_name="translations")
+    name = models.CharField(max_length=200)
+
+    class Meta:
+        unique_together = [("scale", "language")]
 
 
 class ArtworkStatus(models.TextChoices):
@@ -93,9 +126,11 @@ class Artwork(BaseModel):
     artist = models.ForeignKey(Artist, on_delete=models.PROTECT, related_name="artworks")
     year = models.IntegerField()
     dimensions = models.CharField(max_length=100)
-    medium = models.ForeignKey(Medium, on_delete=models.PROTECT, related_name="artworks")
-    surface = models.ForeignKey(Surface, on_delete=models.PROTECT, related_name="artworks")
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="artworks")
+    disciplines = models.ManyToManyField(Discipline, related_name="artworks", blank=True)
+    techniques = models.ManyToManyField(Technique, related_name="artworks", blank=True)
+    themes = models.ManyToManyField(Theme, related_name="artworks", blank=True)
+    formats = models.ManyToManyField(Format, related_name="artworks", blank=True)
+    scales = models.ManyToManyField(Scale, related_name="artworks", blank=True)
     price_mxn = models.DecimalField(max_digits=10, decimal_places=2)
     price_usd = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=ArtworkStatus.choices)

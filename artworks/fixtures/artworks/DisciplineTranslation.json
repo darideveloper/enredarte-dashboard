@@ -1,0 +1,62 @@
+[
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 1,
+    "fields": { "discipline": 1, "language": "es", "name": "Pintura" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 2,
+    "fields": { "discipline": 1, "language": "en", "name": "Painting" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 3,
+    "fields": { "discipline": 2, "language": "es", "name": "Collage" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 4,
+    "fields": { "discipline": 2, "language": "en", "name": "Collage" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 5,
+    "fields": { "discipline": 3, "language": "es", "name": "Ilustración" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 6,
+    "fields": { "discipline": 3, "language": "en", "name": "Illustration" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 7,
+    "fields": { "discipline": 4, "language": "es", "name": "Fotografía" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 8,
+    "fields": { "discipline": 4, "language": "en", "name": "Photography" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 9,
+    "fields": { "discipline": 5, "language": "es", "name": "Escultura" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 10,
+    "fields": { "discipline": 5, "language": "en", "name": "Sculpture" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 11,
+    "fields": { "discipline": 6, "language": "es", "name": "Street Art" }
+  },
+  {
+    "model": "artworks.disciplinetranslation",
+    "pk": 12,
+    "fields": { "discipline": 6, "language": "en", "name": "Street Art" }
+  }
+]

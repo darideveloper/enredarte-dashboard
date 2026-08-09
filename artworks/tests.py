@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
@@ -12,15 +13,19 @@ from artworks.admin import (
     ArtworkGalleryInline,
     ArtworkImageInline,
     ArtworkTranslationInline,
-    CategoryAdmin,
-    CategoryTranslationInline,
+    DisciplineAdmin,
+    DisciplineTranslationInline,
+    FormatAdmin,
+    FormatTranslationInline,
     GalleryAdmin,
     GalleryArtworkInline,
     GalleryTranslationInline,
-    MediumAdmin,
-    MediumTranslationInline,
-    SurfaceAdmin,
-    SurfaceTranslationInline,
+    ScaleAdmin,
+    ScaleTranslationInline,
+    TechniqueAdmin,
+    TechniqueTranslationInline,
+    ThemeAdmin,
+    ThemeTranslationInline,
 )
 from artworks.models import (
     ArtCurator,
@@ -32,14 +37,18 @@ from artworks.models import (
     ArtworkImage,
     ArtworkStatus,
     ArtworkTranslation,
-    Category,
-    CategoryTranslation,
+    Discipline,
+    DisciplineTranslation,
+    Format,
+    FormatTranslation,
     Gallery,
     GalleryTranslation,
-    Medium,
-    MediumTranslation,
-    Surface,
-    SurfaceTranslation,
+    Scale,
+    ScaleTranslation,
+    Technique,
+    TechniqueTranslation,
+    Theme,
+    ThemeTranslation,
 )
 
 
@@ -170,33 +179,41 @@ class ArtCuratorAdminTestCase(TestCase):
         self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 8)
 
 
-class CategoryAdminTestCase(TestCase):
+class TaxonomyAdminMixin:
+    model = None
+    admin_class = None
+    translation_model = None
+    translation_field = None
+    translation_inline = None
+    changelist_label = ""
+
     def setUp(self):
         self.superuser = User.objects.create_superuser(
             username="admin", email="admin@example.com", password="password123"
         )
         self.client.login(username="admin", password="password123")
 
-    def test_category_registered_in_admin(self):
-        self.assertIn(Category, admin.site._registry)
-        self.assertIsInstance(admin.site._registry[Category], CategoryAdmin)
+    def test_registered_in_admin(self):
+        self.assertIn(self.model, admin.site._registry)
+        self.assertIsInstance(admin.site._registry[self.model], self.admin_class)
 
-    def test_category_admin_has_translation_inline(self):
-        category_admin = admin.site._registry[Category]
-        self.assertIn(CategoryTranslationInline, category_admin.inlines)
+    def test_has_translation_inline(self):
+        model_admin = admin.site._registry[self.model]
+        self.assertIn(self.translation_inline, model_admin.inlines)
 
-    def test_category_admin_changelist_view(self):
-        category = Category.objects.create(slug="pintura")
-        CategoryTranslation.objects.create(category=category, language="es", name="Pintura", description="Obras de pintura.")
-        CategoryTranslation.objects.create(category=category, language="en", name="Painting", description="Painting works.")
+    def test_changelist_view(self):
+        obj = self.model.objects.create(slug="sample")
+        self.translation_model.objects.create(
+            **{self.translation_field: obj}, language="es", name="Muestra"
+        )
 
-        url = reverse("admin:artworks_category_changelist")
+        url = reverse(f"admin:artworks_{self.changelist_label}_changelist")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Pintura")
+        self.assertContains(response, "Muestra")
 
-    def test_new_category_add_view_initial_languages(self):
-        url = reverse("admin:artworks_category_add")
+    def test_new_add_view_initial_languages(self):
+        url = reverse(f"admin:artworks_{self.changelist_label}_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         formset = response.context_data["inline_admin_formsets"][0].formset
@@ -204,93 +221,56 @@ class CategoryAdminTestCase(TestCase):
         self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
         self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
 
-    def test_category_add_view_sort_order_initial(self):
-        url = reverse("admin:artworks_category_add")
+    def test_add_view_sort_order_initial(self):
+        url = reverse(f"admin:artworks_{self.changelist_label}_add")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
 
 
-class MediumAdminTestCase(TestCase):
-    def setUp(self):
-        self.superuser = User.objects.create_superuser(
-            username="admin", email="admin@example.com", password="password123"
-        )
-        self.client.login(username="admin", password="password123")
-
-    def test_medium_registered_in_admin(self):
-        self.assertIn(Medium, admin.site._registry)
-        self.assertIsInstance(admin.site._registry[Medium], MediumAdmin)
-
-    def test_medium_admin_has_translation_inline(self):
-        medium_admin = admin.site._registry[Medium]
-        self.assertIn(MediumTranslationInline, medium_admin.inlines)
-
-    def test_medium_admin_changelist_view(self):
-        medium = Medium.objects.create(slug="oleo")
-        MediumTranslation.objects.create(medium=medium, language="es", name="Óleo")
-        MediumTranslation.objects.create(medium=medium, language="en", name="Oil")
-
-        url = reverse("admin:artworks_medium_changelist")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Óleo")
-
-    def test_new_medium_add_view_initial_languages(self):
-        url = reverse("admin:artworks_medium_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        formset = response.context_data["inline_admin_formsets"][0].formset
-        self.assertEqual(len(formset.extra_forms), 2)
-        self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
-        self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
-
-    def test_medium_add_view_sort_order_initial(self):
-        url = reverse("admin:artworks_medium_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
+class DisciplineAdminTestCase(TaxonomyAdminMixin, TestCase):
+    model = Discipline
+    admin_class = DisciplineAdmin
+    translation_model = DisciplineTranslation
+    translation_field = "discipline"
+    translation_inline = DisciplineTranslationInline
+    changelist_label = "discipline"
 
 
-class SurfaceAdminTestCase(TestCase):
-    def setUp(self):
-        self.superuser = User.objects.create_superuser(
-            username="admin", email="admin@example.com", password="password123"
-        )
-        self.client.login(username="admin", password="password123")
+class TechniqueAdminTestCase(TaxonomyAdminMixin, TestCase):
+    model = Technique
+    admin_class = TechniqueAdmin
+    translation_model = TechniqueTranslation
+    translation_field = "technique"
+    translation_inline = TechniqueTranslationInline
+    changelist_label = "technique"
 
-    def test_surface_registered_in_admin(self):
-        self.assertIn(Surface, admin.site._registry)
-        self.assertIsInstance(admin.site._registry[Surface], SurfaceAdmin)
 
-    def test_surface_admin_has_translation_inline(self):
-        surface_admin = admin.site._registry[Surface]
-        self.assertIn(SurfaceTranslationInline, surface_admin.inlines)
+class ThemeAdminTestCase(TaxonomyAdminMixin, TestCase):
+    model = Theme
+    admin_class = ThemeAdmin
+    translation_model = ThemeTranslation
+    translation_field = "theme"
+    translation_inline = ThemeTranslationInline
+    changelist_label = "theme"
 
-    def test_surface_admin_changelist_view(self):
-        surface = Surface.objects.create(slug="lienzo")
-        SurfaceTranslation.objects.create(surface=surface, language="es", name="Lienzo")
-        SurfaceTranslation.objects.create(surface=surface, language="en", name="Canvas")
 
-        url = reverse("admin:artworks_surface_changelist")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Lienzo")
+class FormatAdminTestCase(TaxonomyAdminMixin, TestCase):
+    model = Format
+    admin_class = FormatAdmin
+    translation_model = FormatTranslation
+    translation_field = "format"
+    translation_inline = FormatTranslationInline
+    changelist_label = "format"
 
-    def test_new_surface_add_view_initial_languages(self):
-        url = reverse("admin:artworks_surface_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        formset = response.context_data["inline_admin_formsets"][0].formset
-        self.assertEqual(len(formset.extra_forms), 2)
-        self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
-        self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
 
-    def test_surface_add_view_sort_order_initial(self):
-        url = reverse("admin:artworks_surface_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
+class ScaleAdminTestCase(TaxonomyAdminMixin, TestCase):
+    model = Scale
+    admin_class = ScaleAdmin
+    translation_model = ScaleTranslation
+    translation_field = "scale"
+    translation_inline = ScaleTranslationInline
+    changelist_label = "scale"
 
 
 class GalleryAdminTestCase(TestCase):
@@ -349,24 +329,31 @@ class ArtworkAdminTestCase(TestCase):
         )
         self.client.login(username="admin", password="password123")
 
+        call_command("base_loaddata")
+
         self.artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")
-        self.category = Category.objects.create(slug="pintura")
-        self.medium = Medium.objects.create(slug="oleo")
-        self.surface = Surface.objects.create(slug="lienzo")
+        self.discipline = Discipline.objects.get(slug="pintura")
+        self.technique = Technique.objects.get(slug="oleo")
+        self.theme_feminismo = Theme.objects.get(slug="feminismo")
+        self.theme_memoria = Theme.objects.get(slug="memoria")
+        self.format = Format.objects.get(slug="obra-original")
+        self.scale = Scale.objects.get(slug="gran-formato")
 
         self.artwork = Artwork.objects.create(
             artist=self.artist,
             year=1939,
             dimensions="143x152 cm",
-            category=self.category,
-            medium=self.medium,
-            surface=self.surface,
             price_mxn=50000.00,
             price_usd=2500.00,
             status=ArtworkStatus.AVAILABLE,
             slug="las-dos-fridas",
             sort_order=1,
         )
+        self.artwork.disciplines.set([self.discipline])
+        self.artwork.techniques.set([self.technique])
+        self.artwork.themes.set([self.theme_feminismo, self.theme_memoria])
+        self.artwork.formats.set([self.format])
+        self.artwork.scales.set([self.scale])
         self.artwork_admin = admin.site._registry[Artwork]
 
     def test_artwork_registered(self):
@@ -415,3 +402,63 @@ class ArtworkAdminTestCase(TestCase):
             "$50,000.00 MXN / $2,500.00 USD"
         )
 
+    def test_artwork_m2m_taxonomies_save(self):
+        """Test an artwork can have several values per axis"""
+        self.assertEqual(list(self.artwork.disciplines.all()), [self.discipline])
+        self.assertEqual(
+            list(self.artwork.themes.all().order_by("id")),
+            [self.theme_memoria, self.theme_feminismo],
+        )
+        self.assertEqual(list(self.artwork.formats.all()), [self.format])
+        self.assertEqual(list(self.artwork.scales.all()), [self.scale])
+
+    def test_artwork_admin_has_filter_horizontal(self):
+        """Test ArtworkAdmin uses filter_horizontal for the five taxonomy M2M fields"""
+        self.assertEqual(
+            self.artwork_admin.filter_horizontal,
+            ["disciplines", "techniques", "themes", "formats", "scales"],
+        )
+
+    def test_artwork_add_form_renders_taxonomies(self):
+        """Test the artwork add form renders the five taxonomy fields"""
+        url = reverse("admin:artworks_artwork_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        form = response.context_data["adminform"].form
+        for field in ("disciplines", "techniques", "themes", "formats", "scales"):
+            self.assertIn(field, form.fields)
+
+    def test_artwork_changelist_view(self):
+        """Test the artwork changelist loads and shows the taxonomy summary"""
+        url = reverse("admin:artworks_artwork_changelist")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+    def test_base_loaddata_seeds_taxonomies(self):
+        """Test base_loaddata creates the 36 taxonomy rows"""
+        self.assertEqual(Discipline.objects.count(), 6)
+        self.assertEqual(Technique.objects.count(), 7)
+        self.assertEqual(Theme.objects.count(), 15)
+        self.assertEqual(Format.objects.count(), 6)
+        self.assertEqual(Scale.objects.count(), 2)
+
+    def test_base_loaddata_excludes_demo_content(self):
+        """Test base_loaddata does not create the seed demo rows"""
+        self.assertFalse(Artist.objects.filter(slug="mariana-rios").exists())
+        self.assertFalse(Artwork.objects.filter(slug="memoria-silente").exists())
+
+    def test_base_loaddata_fail_soft_on_rerun(self):
+        """Test base_loaddata re-run on a populated DB prints errors and continues"""
+        call_command("base_loaddata")
+        call_command("base_loaddata")
+        self.assertEqual(Discipline.objects.count(), 6)
+        self.assertEqual(Technique.objects.count(), 7)
+        self.assertEqual(Theme.objects.count(), 15)
+        self.assertEqual(Format.objects.count(), 6)
+        self.assertEqual(Scale.objects.count(), 2)
+
+    def test_seed_loaddata_loads_demo_content(self):
+        """Test seed_loaddata creates sample artists and artworks (run once)"""
+        call_command("seed_loaddata")
+        self.assertGreater(Artist.objects.count(), 0)
+        self.assertGreater(Artwork.objects.count(), 0)

@@ -1,0 +1,12 @@
+[
+  { "model": "artworks.artisttranslation", "pk": 1, "fields": { "artist": 1, "language": "es", "bio": "Pintora mexicana interesada en la identidad y la memoria." } },
+  { "model": "artworks.artisttranslation", "pk": 2, "fields": { "artist": 1, "language": "en", "bio": "Mexican painter interested in identity and memory." } },
+  { "model": "artworks.artisttranslation", "pk": 3, "fields": { "artist": 2, "language": "es", "bio": "Escultor y artista urbano que explora el espacio público." } },
+  { "model": "artworks.artisttranslation", "pk": 4, "fields": { "artist": 2, "language": "en", "bio": "Sculptor and street artist exploring public space." } },
+  { "model": "artworks.artisttranslation", "pk": 5, "fields": { "artist": 3, "language": "es", "bio": "Ilustradora contemporánea que mezcla fantasía y feminismo." } },
+  { "model": "artworks.artisttranslation", "pk": 6, "fields": { "artist": 3, "language": "en", "bio": "Contemporary illustrator blending fantasy and feminism." } },
+  { "model": "artworks.artisttranslation", "pk": 7, "fields": { "artist": 4, "language": "es", "bio": "Fotógrafo de paisajes y vida urbana." } },
+  { "model": "artworks.artisttranslation", "pk": 8, "fields": { "artist": 4, "language": "en", "bio": "Photographer of landscapes and urban life." } },
+  { "model": "artworks.artisttranslation", "pk": 9, "fields": { "artist": 5, "language": "es", "bio": "Artista multidisciplinaria enfocada en nostalgia y cultura popular." } },
+  { "model": "artworks.artisttranslation", "pk": 10, "fields": { "artist": 5, "language": "en", "bio": "Multidisciplinary artist focused on nostalgia and pop culture." } }
+]

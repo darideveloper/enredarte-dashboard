@@ -14,14 +14,18 @@ from artworks.models import (
     ArtworkImage,
     ArtworkStatus,
     ArtworkTranslation,
-    Category,
-    CategoryTranslation,
+    Discipline,
+    DisciplineTranslation,
+    Format,
+    FormatTranslation,
     Gallery,
     GalleryTranslation,
-    Medium,
-    MediumTranslation,
-    Surface,
-    SurfaceTranslation,
+    Scale,
+    ScaleTranslation,
+    Technique,
+    TechniqueTranslation,
+    Theme,
+    ThemeTranslation,
 )
 from project.admin_base import ModelAdminUnfoldBase
 from unfold.admin import StackedInline, TabularInline
@@ -69,23 +73,8 @@ class ArtCuratorTranslationInline(StackedInline):
         return len(settings.LANGUAGES)
 
 
-class CategoryTranslationInline(StackedInline):
-    model = CategoryTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
-    fields = ["language", "name", "description"]
-
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
-
-
-class MediumTranslationInline(StackedInline):
-    model = MediumTranslation
+class DisciplineTranslationInline(StackedInline):
+    model = DisciplineTranslation
     formset = TranslationInlineFormSet
     verbose_name = "Traducción"
     verbose_name_plural = "Traducciones (Español / Inglés)"
@@ -99,8 +88,53 @@ class MediumTranslationInline(StackedInline):
         return len(settings.LANGUAGES)
 
 
-class SurfaceTranslationInline(StackedInline):
-    model = SurfaceTranslation
+class TechniqueTranslationInline(StackedInline):
+    model = TechniqueTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
+class ThemeTranslationInline(StackedInline):
+    model = ThemeTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
+class FormatTranslationInline(StackedInline):
+    model = FormatTranslation
+    formset = TranslationInlineFormSet
+    verbose_name = "Traducción"
+    verbose_name_plural = "Traducciones (Español / Inglés)"
+    max_num = len(settings.LANGUAGES)
+    fields = ["language", "name"]
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj:
+            existing_count = obj.translations.count()
+            return max(0, len(settings.LANGUAGES) - existing_count)
+        return len(settings.LANGUAGES)
+
+
+class ScaleTranslationInline(StackedInline):
+    model = ScaleTranslation
     formset = TranslationInlineFormSet
     verbose_name = "Traducción"
     verbose_name_plural = "Traducciones (Español / Inglés)"
@@ -239,11 +273,11 @@ class ArtCuratorAdmin(ModelAdminUnfoldBase):
         return obj.is_active
 
 
-@admin.register(Category)
-class CategoryAdmin(ModelAdminUnfoldBase):
+@admin.register(Discipline)
+class DisciplineAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "label"
-    inlines = [CategoryTranslationInline]
-    search_fields = ["slug", "translations__name", "translations__description"]
+    inlines = [DisciplineTranslationInline]
+    search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
         ("System Info", {
@@ -254,7 +288,7 @@ class CategoryAdmin(ModelAdminUnfoldBase):
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
-        max_order = Category.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        max_order = Discipline.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
         initial["sort_order"] = max_order + 1
         return initial
 
@@ -271,10 +305,10 @@ class CategoryAdmin(ModelAdminUnfoldBase):
         return obj.is_active
 
 
-@admin.register(Medium)
-class MediumAdmin(ModelAdminUnfoldBase):
+@admin.register(Technique)
+class TechniqueAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "brush"
-    inlines = [MediumTranslationInline]
+    inlines = [TechniqueTranslationInline]
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
@@ -286,7 +320,7 @@ class MediumAdmin(ModelAdminUnfoldBase):
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
-        max_order = Medium.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        max_order = Technique.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
         initial["sort_order"] = max_order + 1
         return initial
 
@@ -303,10 +337,10 @@ class MediumAdmin(ModelAdminUnfoldBase):
         return obj.is_active
 
 
-@admin.register(Surface)
-class SurfaceAdmin(ModelAdminUnfoldBase):
-    sidebar_icon = "texture"
-    inlines = [SurfaceTranslationInline]
+@admin.register(Theme)
+class ThemeAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "topic"
+    inlines = [ThemeTranslationInline]
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
@@ -318,7 +352,71 @@ class SurfaceAdmin(ModelAdminUnfoldBase):
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
-        max_order = Surface.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        max_order = Theme.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
+
+    @admin.display(description="Nombre")
+    def display_name(self, obj):
+        es = obj.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = obj.translations.first()
+        return first.name if first else "-"
+
+    @admin.display(description="Activo", ordering="is_active", boolean=True)
+    def display_active(self, obj):
+        return obj.is_active
+
+
+@admin.register(Format)
+class FormatAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "view_module"
+    inlines = [FormatTranslationInline]
+    search_fields = ["slug", "translations__name"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("System Info", {
+            "fields": ("slug", "is_active", "sort_order")
+        }),
+    )
+    list_display = ["display_name", "slug", "display_active", "sort_order"]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Format.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
+        initial["sort_order"] = max_order + 1
+        return initial
+
+    @admin.display(description="Nombre")
+    def display_name(self, obj):
+        es = obj.translations.filter(language="es").first()
+        if es:
+            return es.name
+        first = obj.translations.first()
+        return first.name if first else "-"
+
+    @admin.display(description="Activo", ordering="is_active", boolean=True)
+    def display_active(self, obj):
+        return obj.is_active
+
+
+@admin.register(Scale)
+class ScaleAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "straighten"
+    inlines = [ScaleTranslationInline]
+    search_fields = ["slug", "translations__name"]
+    list_filter = ["is_active"]
+    fieldsets = (
+        ("System Info", {
+            "fields": ("slug", "is_active", "sort_order")
+        }),
+    )
+    list_display = ["display_name", "slug", "display_active", "sort_order"]
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        max_order = Scale.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
         initial["sort_order"] = max_order + 1
         return initial
 
@@ -404,14 +502,38 @@ class ArtworkImageInline(TabularInline):
 class ArtworkAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "palette"
     inlines = [ArtworkTranslationInline, ArtworkImageInline, GalleryArtworkInline]
-    search_fields = ["slug", "translations__title", "artist__name", "category__translations__name"]
-    list_filter = ["status", "is_active", "category", "medium", "surface"]
+    search_fields = [
+        "slug",
+        "translations__title",
+        "artist__name",
+        "disciplines__translations__name",
+        "techniques__translations__name",
+        "themes__translations__name",
+        "formats__translations__name",
+        "scales__translations__name",
+    ]
+    list_filter = [
+        "status",
+        "is_active",
+        "disciplines",
+        "techniques",
+        "themes",
+        "formats",
+        "scales",
+    ]
+    filter_horizontal = ["disciplines", "techniques", "themes", "formats", "scales"]
     fieldsets = (
         ("Main Attributes", {
             "fields": (("artist", "year"), "dimensions")
         }),
-        ("Taxonomies", {
-            "fields": (("category", "medium", "surface"),)
+        ("Taxonomías", {
+            "fields": (
+                "disciplines",
+                "techniques",
+                "themes",
+                "formats",
+                "scales",
+            )
         }),
         ("Commercial & Status", {
             "fields": (("price_mxn", "price_usd"), "status")
@@ -424,7 +546,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         "display_image",
         "display_title",
         "artist",
-        "category",
+        "display_taxonomies",
         "display_price",
         "status",
         "display_active",
@@ -452,6 +574,16 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         first = obj.translations.first()
         return first.title if first else "-"
 
+    @admin.display(description="Clasificación")
+    def display_taxonomies(self, obj):
+        labels = []
+        for name in ("disciplines", "techniques", "themes", "formats", "scales"):
+            values = getattr(obj, name).all()
+            if values:
+                names = [v.translations.filter(language="es").first() or v.translations.first() for v in values]
+                labels.append(", ".join(n.name for n in names if n))
+        return ", ".join(labels) or "-"
+
     @admin.display(description="Precio")
     def display_price(self, obj):
         return f"${obj.price_mxn:,.2f} MXN / ${obj.price_usd:,.2f} USD"
@@ -459,4 +591,3 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
-

@@ -1,0 +1,8 @@
+[
+  { "model": "artworks.format", "pk": 1, "fields": { "slug": "obra-original", "is_active": true, "sort_order": 1, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" } },
+  { "model": "artworks.format", "pk": 2, "fields": { "slug": "edicion-limitada", "is_active": true, "sort_order": 2, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" } },
+  { "model": "artworks.format", "pk": 3, "fields": { "slug": "prints", "is_active": true, "sort_order": 3, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" } },
+  { "model": "artworks.format", "pk": 4, "fields": { "slug": "series", "is_active": true, "sort_order": 4, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" } },
+  { "model": "artworks.format", "pk": 5, "fields": { "slug": "esculturas", "is_active": true, "sort_order": 5, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" } },
+  { "model": "artworks.format", "pk": 6, "fields": { "slug": "objetos", "is_active": true, "sort_order": 6, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" } }
+]

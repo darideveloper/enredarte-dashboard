@@ -126,6 +126,10 @@ USE_TZ = True
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 
+FIXTURE_DIRS = [
+    BASE_DIR / "artworks" / "fixtures" / "artworks",
+]
+
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]

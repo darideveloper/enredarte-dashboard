@@ -1,0 +1,16 @@
+[
+  { "model": "artworks.techniquetranslation", "pk": 1, "fields": { "technique": 1, "language": "es", "name": "Acrílico" } },
+  { "model": "artworks.techniquetranslation", "pk": 2, "fields": { "technique": 1, "language": "en", "name": "Acrylic" } },
+  { "model": "artworks.techniquetranslation", "pk": 3, "fields": { "technique": 2, "language": "es", "name": "Óleo" } },
+  { "model": "artworks.techniquetranslation", "pk": 4, "fields": { "technique": 2, "language": "en", "name": "Oil" } },
+  { "model": "artworks.techniquetranslation", "pk": 5, "fields": { "technique": 3, "language": "es", "name": "Acuarela" } },
+  { "model": "artworks.techniquetranslation", "pk": 6, "fields": { "technique": 3, "language": "en", "name": "Watercolor" } },
+  { "model": "artworks.techniquetranslation", "pk": 7, "fields": { "technique": 4, "language": "es", "name": "Mixta" } },
+  { "model": "artworks.techniquetranslation", "pk": 8, "fields": { "technique": 4, "language": "en", "name": "Mixed media" } },
+  { "model": "artworks.techniquetranslation", "pk": 9, "fields": { "technique": 5, "language": "es", "name": "Tinta" } },
+  { "model": "artworks.techniquetranslation", "pk": 10, "fields": { "technique": 5, "language": "en", "name": "Ink" } },
+  { "model": "artworks.techniquetranslation", "pk": 11, "fields": { "technique": 6, "language": "es", "name": "Lápiz" } },
+  { "model": "artworks.techniquetranslation", "pk": 12, "fields": { "technique": 6, "language": "en", "name": "Pencil" } },
+  { "model": "artworks.techniquetranslation", "pk": 13, "fields": { "technique": 7, "language": "es", "name": "Carboncillo" } },
+  { "model": "artworks.techniquetranslation", "pk": 14, "fields": { "technique": 7, "language": "en", "name": "Charcoal" } }
+]
