@@ -38,6 +38,9 @@ debug.*
 db.*
 info.txt
 
+# FUSE open-file artifacts (fuseblk / ntfs-3g)
+.fuse_hidden*
+
 # Ignore proposals
 openspec/changes/*
 
