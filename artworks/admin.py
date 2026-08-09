@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from django.db.models import Max
 from django.forms.models import BaseInlineFormSet
 from django.utils.html import format_html, format_html_join
@@ -45,20 +46,45 @@ class TranslationInlineFormSet(BaseInlineFormSet):
             if i < len(available_langs):
                 form.initial["language"] = available_langs[i]
 
+    def clean(self):
+        super().clean()
+        excluded = {"language", "DELETE", "id"}
+        if self.fk:
+            excluded.add(self.fk.name)
+        filled = 0
+        for form in self.forms:
+            data = form.cleaned_data or {}
+            if data.get("DELETE"):
+                continue
+            if any(value for key, value in data.items() if key not in excluded):
+                filled += 1
+        if filled != len(settings.LANGUAGES):
+            labels = ", ".join(name for code, name in settings.LANGUAGES)
+            raise ValidationError(
+                f"Se requieren exactamente {len(settings.LANGUAGES)} traducciones ({labels})."
+            )
 
-class ArtistTranslationInline(StackedInline):
-    model = ArtistTranslation
+
+class TranslationInline(StackedInline):
     formset = TranslationInlineFormSet
     verbose_name = "Traducción"
     verbose_name_plural = "Traducciones (Español / Inglés)"
+    can_delete = False
+    min_num = len(settings.LANGUAGES)
     max_num = len(settings.LANGUAGES)
-    fields = ["language", "bio"]
+    validate_min = True
+    validate_max = True
 
     def get_extra(self, request, obj=None, **kwargs):
         if obj:
             existing_count = obj.translations.count()
             return max(0, len(settings.LANGUAGES) - existing_count)
         return len(settings.LANGUAGES)
+
+
+class ArtistTranslationInline(TranslationInline):
+    model = ArtistTranslation
+    fields = ["language", "bio"]
 
 
 class ArtistSocialLinkInline(TabularInline):
@@ -71,124 +97,44 @@ class ArtistSocialLinkInline(TabularInline):
     extra = 1
 
 
-class ArtCuratorTranslationInline(StackedInline):
+class ArtCuratorTranslationInline(TranslationInline):
     model = ArtCuratorTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "bio"]
 
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
-
-class DisciplineTranslationInline(StackedInline):
+class DisciplineTranslationInline(TranslationInline):
     model = DisciplineTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "name"]
 
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
-
-class TechniqueTranslationInline(StackedInline):
+class TechniqueTranslationInline(TranslationInline):
     model = TechniqueTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "name"]
 
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
-
-class ThemeTranslationInline(StackedInline):
+class ThemeTranslationInline(TranslationInline):
     model = ThemeTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "name"]
 
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
-
-class FormatTranslationInline(StackedInline):
+class FormatTranslationInline(TranslationInline):
     model = FormatTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "name"]
 
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
-
-class ScaleTranslationInline(StackedInline):
+class ScaleTranslationInline(TranslationInline):
     model = ScaleTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "name"]
 
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
-
-class GalleryTranslationInline(StackedInline):
+class GalleryTranslationInline(TranslationInline):
     model = GalleryTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "name", "description"]
 
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
-
-class LocationTranslationInline(StackedInline):
+class LocationTranslationInline(TranslationInline):
     model = LocationTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "name"]
-
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
 
 class ArtworkGalleryInline(TabularInline):
@@ -622,19 +568,9 @@ class GalleryAdmin(ModelAdminUnfoldBase):
         return obj.is_active
 
 
-class ArtworkTranslationInline(StackedInline):
+class ArtworkTranslationInline(TranslationInline):
     model = ArtworkTranslation
-    formset = TranslationInlineFormSet
-    verbose_name = "Traducción"
-    verbose_name_plural = "Traducciones (Español / Inglés)"
-    max_num = len(settings.LANGUAGES)
     fields = ["language", "title", "description"]
-
-    def get_extra(self, request, obj=None, **kwargs):
-        if obj:
-            existing_count = obj.translations.count()
-            return max(0, len(settings.LANGUAGES) - existing_count)
-        return len(settings.LANGUAGES)
 
 
 class ArtworkImageInline(TabularInline):

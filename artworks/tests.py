@@ -720,3 +720,189 @@ class ArtworkDiscoveryAdminTestCase(TestCase):
         self.assertIn("is_highlighted", self.artwork_admin.list_display)
         self.assertIn("views_count", self.artwork_admin.list_display)
         self.assertIn("is_highlighted", self.artwork_admin.list_filter)
+
+
+class TranslationInlineEnforcementTestCase(TestCase):
+    ALL_TRANSLATION_INLINES = (
+        ArtistTranslationInline,
+        ArtCuratorTranslationInline,
+        DisciplineTranslationInline,
+        TechniqueTranslationInline,
+        ThemeTranslationInline,
+        FormatTranslationInline,
+        ScaleTranslationInline,
+        GalleryTranslationInline,
+        LocationTranslationInline,
+        ArtworkTranslationInline,
+    )
+    ALL_ADD_LABELS = (
+        "artist",
+        "artcurator",
+        "discipline",
+        "technique",
+        "theme",
+        "format",
+        "scale",
+        "gallery",
+        "location",
+        "artwork",
+    )
+
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+
+    def test_all_translation_inlines_disable_delete(self):
+        for inline in self.ALL_TRANSLATION_INLINES:
+            self.assertFalse(inline.can_delete, inline.__name__)
+
+    def test_all_translation_add_views_render(self):
+        for label in self.ALL_ADD_LABELS:
+            response = self.client.get(reverse(f"admin:artworks_{label}_add"))
+            self.assertEqual(response.status_code, 200, label)
+
+    def test_discipline_save_with_both_languages_succeeds(self):
+        response = self.client.post(
+            reverse("admin:artworks_discipline_add"),
+            {
+                "slug": "escultura",
+                "is_active": "on",
+                "sort_order": "1",
+                "translations-TOTAL_FORMS": "2",
+                "translations-INITIAL_FORMS": "0",
+                "translations-MIN_NUM_FORMS": "0",
+                "translations-MAX_NUM_FORMS": "2",
+                "translations-0-language": "es",
+                "translations-0-name": "Escultura",
+                "translations-1-language": "en",
+                "translations-1-name": "Sculpture",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        discipline = Discipline.objects.get(slug="escultura")
+        self.assertEqual(discipline.translations.count(), 2)
+
+    def test_discipline_save_with_one_language_rejected(self):
+        response = self.client.post(
+            reverse("admin:artworks_discipline_add"),
+            {
+                "slug": "escultura",
+                "is_active": "on",
+                "sort_order": "1",
+                "translations-TOTAL_FORMS": "2",
+                "translations-INITIAL_FORMS": "0",
+                "translations-MIN_NUM_FORMS": "0",
+                "translations-MAX_NUM_FORMS": "2",
+                "translations-0-language": "es",
+                "translations-0-name": "Escultura",
+                "translations-1-language": "en",
+                "translations-1-name": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Discipline.objects.filter(slug="escultura").exists())
+
+    def test_curator_untouched_inline_rejected(self):
+        response = self.client.post(
+            reverse("admin:artworks_artcurator_add"),
+            {
+                "name": "Curador",
+                "slug": "curador",
+                "is_active": "on",
+                "sort_order": "1",
+                "translations-TOTAL_FORMS": "2",
+                "translations-INITIAL_FORMS": "0",
+                "translations-MIN_NUM_FORMS": "0",
+                "translations-MAX_NUM_FORMS": "2",
+                "translations-0-language": "es",
+                "translations-0-bio": "",
+                "translations-1-language": "en",
+                "translations-1-bio": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(ArtCurator.objects.filter(slug="curador").exists())
+
+    def test_curator_legacy_single_language_blocked_on_edit(self):
+        curator = ArtCurator.objects.create(name="Curador", slug="curador")
+        ArtCuratorTranslation.objects.create(art_curator=curator, language="es", bio="Bio ES")
+        es_row = curator.translations.get(language="es")
+
+        response = self.client.post(
+            reverse("admin:artworks_artcurator_change", args=[curator.pk]),
+            {
+                "name": "Curador",
+                "slug": "curador",
+                "is_active": "on",
+                "sort_order": "0",
+                "translations-TOTAL_FORMS": "2",
+                "translations-INITIAL_FORMS": "1",
+                "translations-MIN_NUM_FORMS": "0",
+                "translations-MAX_NUM_FORMS": "2",
+                "translations-0-id": str(es_row.pk),
+                "translations-0-language": "es",
+                "translations-0-bio": "Bio ES",
+                "translations-1-language": "en",
+                "translations-1-bio": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(curator.translations.count(), 1)
+
+    def test_curator_legacy_zero_languages_blocked_on_edit(self):
+        curator = ArtCurator.objects.create(name="Curador", slug="curador")
+
+        response = self.client.post(
+            reverse("admin:artworks_artcurator_change", args=[curator.pk]),
+            {
+                "name": "Curador",
+                "slug": "curador",
+                "is_active": "on",
+                "sort_order": "0",
+                "translations-TOTAL_FORMS": "2",
+                "translations-INITIAL_FORMS": "0",
+                "translations-MIN_NUM_FORMS": "0",
+                "translations-MAX_NUM_FORMS": "2",
+                "translations-0-language": "es",
+                "translations-0-bio": "",
+                "translations-1-language": "en",
+                "translations-1-bio": "",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(curator.translations.count(), 0)
+
+    def test_existing_parent_with_one_translation_shows_extra_row(self):
+        curator = ArtCurator.objects.create(name="Curador", slug="curador")
+        ArtCuratorTranslation.objects.create(art_curator=curator, language="es", bio="Bio ES")
+
+        response = self.client.get(reverse("admin:artworks_artcurator_change", args=[curator.pk]))
+        self.assertEqual(response.status_code, 200)
+        formset = response.context_data["inline_admin_formsets"][0].formset
+        self.assertEqual(len(formset.initial_forms), 1)
+        self.assertEqual(len(formset.extra_forms), 1)
+        self.assertEqual(formset.extra_forms[0].initial.get("language"), "en")
+
+    def test_more_than_two_translation_rows_rejected(self):
+        response = self.client.post(
+            reverse("admin:artworks_discipline_add"),
+            {
+                "slug": "escultura",
+                "is_active": "on",
+                "sort_order": "1",
+                "translations-TOTAL_FORMS": "3",
+                "translations-INITIAL_FORMS": "0",
+                "translations-MIN_NUM_FORMS": "0",
+                "translations-MAX_NUM_FORMS": "2",
+                "translations-0-language": "es",
+                "translations-0-name": "Escultura",
+                "translations-1-language": "en",
+                "translations-1-name": "Sculpture",
+                "translations-2-language": "es",
+                "translations-2-name": "Tercera",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Discipline.objects.filter(slug="escultura").exists())
