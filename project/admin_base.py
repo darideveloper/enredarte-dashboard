@@ -12,7 +12,7 @@ class ModelAdminUnfoldBase(ModelAdmin):
     change_form_show_cancel_button = True
     actions_row = ["edit"]
 
-    @action(description="Edit", permissions=["change"])
+    @action(description="Editar", permissions=["change"])
     def edit(self, request, object_id):
         return redirect(
             reverse(

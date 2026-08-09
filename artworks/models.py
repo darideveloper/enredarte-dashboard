@@ -5,11 +5,16 @@ from core.models import BaseModel, Person, TranslationBase
 
 
 class Artist(Person):
-    birth_year = models.IntegerField(null=True, blank=True)
-    death_year = models.IntegerField(null=True, blank=True)
+    birth_year = models.IntegerField(null=True, blank=True, verbose_name="Año de nacimiento")
+    death_year = models.IntegerField(null=True, blank=True, verbose_name="Año de fallecimiento")
     location = models.ForeignKey(
-        "Location", on_delete=models.SET_NULL, null=True, blank=True, related_name="artists"
+        "Location", on_delete=models.SET_NULL, null=True, blank=True, related_name="artists",
+        verbose_name="Ubicación",
     )
+
+    class Meta:
+        verbose_name = "Artista"
+        verbose_name_plural = "Artistas"
 
     @property
     def techniques(self):
@@ -47,8 +52,8 @@ class Artist(Person):
 
 
 class ArtistTranslation(TranslationBase):
-    artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="translations")
-    bio = models.TextField(blank=True)
+    artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="translations", verbose_name="Artista")
+    bio = models.TextField(blank=True, verbose_name="Biografía")
 
     class Meta:
         unique_together = [("artist", "language")]
@@ -63,11 +68,11 @@ class ArtistSocialLink(BaseModel):
         LINKEDIN = "linkedin", "LinkedIn"
         YOUTUBE = "youtube", "YouTube"
         BEHANCE = "behance", "Behance"
-        OTHER = "other", "Other"
+        OTHER = "other", "Otra"
 
-    artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="social_links")
-    platform = models.CharField(max_length=20, choices=Platform.choices)
-    url = models.URLField()
+    artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="social_links", verbose_name="Artista")
+    platform = models.CharField(max_length=20, choices=Platform.choices, verbose_name="Plataforma")
+    url = models.URLField(verbose_name="URL")
 
     class Meta:
         ordering = ["sort_order"]
@@ -91,36 +96,43 @@ class Location(BaseModel):
 
 
 class LocationTranslation(TranslationBase):
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="translations", verbose_name="Ubicación")
+    name = models.CharField(max_length=200, verbose_name="Nombre")
 
     class Meta:
         unique_together = [("location", "language")]
 
 
 class ArtCurator(Person):
-    pass
+    class Meta:
+        verbose_name = "Curador de arte"
+        verbose_name_plural = "Curadores de arte"
 
 
 class ArtCuratorTranslation(TranslationBase):
-    art_curator = models.ForeignKey(ArtCurator, on_delete=models.CASCADE, related_name="translations")
-    bio = models.TextField(blank=True)
+    art_curator = models.ForeignKey(ArtCurator, on_delete=models.CASCADE, related_name="translations", verbose_name="Curador de arte")
+    bio = models.TextField(blank=True, verbose_name="Biografía")
 
     class Meta:
         unique_together = [("art_curator", "language")]
 
 
 class Gallery(BaseModel):
-    logo = models.ImageField(null=True, blank=True)
+    logo = models.ImageField(null=True, blank=True, verbose_name="Logotipo")
     curator = models.ForeignKey(
-        ArtCurator, on_delete=models.SET_NULL, null=True, blank=True, related_name="curated_galleries"
+        ArtCurator, on_delete=models.SET_NULL, null=True, blank=True, related_name="curated_galleries",
+        verbose_name="Curador",
     )
+
+    class Meta:
+        verbose_name = "Galería"
+        verbose_name_plural = "Galerías"
 
 
 class GalleryTranslation(TranslationBase):
-    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name="translations", verbose_name="Galería")
+    name = models.CharField(max_length=200, verbose_name="Nombre")
+    description = models.TextField(blank=True, verbose_name="Descripción")
 
     class Meta:
         unique_together = [("gallery", "language")]
@@ -133,8 +145,8 @@ class Discipline(BaseModel):
 
 
 class DisciplineTranslation(TranslationBase):
-    discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
+    discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name="translations", verbose_name="Disciplina")
+    name = models.CharField(max_length=200, verbose_name="Nombre")
 
     class Meta:
         unique_together = [("discipline", "language")]
@@ -147,8 +159,8 @@ class Technique(BaseModel):
 
 
 class TechniqueTranslation(TranslationBase):
-    technique = models.ForeignKey(Technique, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
+    technique = models.ForeignKey(Technique, on_delete=models.CASCADE, related_name="translations", verbose_name="Técnica")
+    name = models.CharField(max_length=200, verbose_name="Nombre")
 
     class Meta:
         unique_together = [("technique", "language")]
@@ -161,8 +173,8 @@ class Theme(BaseModel):
 
 
 class ThemeTranslation(TranslationBase):
-    theme = models.ForeignKey(Theme, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
+    theme = models.ForeignKey(Theme, on_delete=models.CASCADE, related_name="translations", verbose_name="Temática")
+    name = models.CharField(max_length=200, verbose_name="Nombre")
 
     class Meta:
         unique_together = [("theme", "language")]
@@ -175,8 +187,8 @@ class Format(BaseModel):
 
 
 class FormatTranslation(TranslationBase):
-    format = models.ForeignKey(Format, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
+    format = models.ForeignKey(Format, on_delete=models.CASCADE, related_name="translations", verbose_name="Tipo de pieza")
+    name = models.CharField(max_length=200, verbose_name="Nombre")
 
     class Meta:
         unique_together = [("format", "language")]
@@ -189,62 +201,66 @@ class Scale(BaseModel):
 
 
 class ScaleTranslation(TranslationBase):
-    scale = models.ForeignKey(Scale, on_delete=models.CASCADE, related_name="translations")
-    name = models.CharField(max_length=200)
+    scale = models.ForeignKey(Scale, on_delete=models.CASCADE, related_name="translations", verbose_name="Tamaño")
+    name = models.CharField(max_length=200, verbose_name="Nombre")
 
     class Meta:
         unique_together = [("scale", "language")]
 
 
 class ArtworkStatus(models.TextChoices):
-    AVAILABLE = "available", "Available"
-    SOLD = "sold", "Sold"
-    RESERVED = "reserved", "Reserved"
-    ON_LOAN = "on_loan", "On Loan"
-    NOT_AVAILABLE = "not_available", "Not Available"
+    AVAILABLE = "available", "Disponible"
+    SOLD = "sold", "Vendida"
+    RESERVED = "reserved", "Reservada"
+    ON_LOAN = "on_loan", "En préstamo"
+    NOT_AVAILABLE = "not_available", "No disponible"
 
 
 class Artwork(BaseModel):
-    artist = models.ForeignKey(Artist, on_delete=models.PROTECT, related_name="artworks")
-    year = models.IntegerField()
-    dimensions = models.CharField(max_length=100)
-    disciplines = models.ManyToManyField(Discipline, related_name="artworks", blank=True)
-    techniques = models.ManyToManyField(Technique, related_name="artworks", blank=True)
-    themes = models.ManyToManyField(Theme, related_name="artworks", blank=True)
-    formats = models.ManyToManyField(Format, related_name="artworks", blank=True)
-    scales = models.ManyToManyField(Scale, related_name="artworks", blank=True)
-    price_mxn = models.DecimalField(max_digits=10, decimal_places=2)
-    price_usd = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=ArtworkStatus.choices)
-    is_highlighted = models.BooleanField(default=False)
-    views_count = models.PositiveIntegerField(default=0)
+    artist = models.ForeignKey(Artist, on_delete=models.PROTECT, related_name="artworks", verbose_name="Artista")
+    year = models.IntegerField(verbose_name="Año")
+    dimensions = models.CharField(max_length=100, verbose_name="Dimensiones")
+    disciplines = models.ManyToManyField(Discipline, related_name="artworks", blank=True, verbose_name="Disciplinas")
+    techniques = models.ManyToManyField(Technique, related_name="artworks", blank=True, verbose_name="Técnicas")
+    themes = models.ManyToManyField(Theme, related_name="artworks", blank=True, verbose_name="Temáticas")
+    formats = models.ManyToManyField(Format, related_name="artworks", blank=True, verbose_name="Tipos de pieza")
+    scales = models.ManyToManyField(Scale, related_name="artworks", blank=True, verbose_name="Tamaños")
+    price_mxn = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio (MXN)")
+    price_usd = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Precio (USD)")
+    status = models.CharField(max_length=20, choices=ArtworkStatus.choices, verbose_name="Estado")
+    is_highlighted = models.BooleanField(default=False, verbose_name="Destacada")
+    views_count = models.PositiveIntegerField(default=0, verbose_name="Visitas")
+
+    class Meta:
+        verbose_name = "Obra de arte"
+        verbose_name_plural = "Obras de arte"
 
 
 class ArtworkTranslation(TranslationBase):
-    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="translations")
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="translations", verbose_name="Obra de arte")
+    title = models.CharField(max_length=200, verbose_name="Título")
+    description = models.TextField(blank=True, verbose_name="Descripción")
 
     class Meta:
         unique_together = [("artwork", "language")]
 
 
 class ArtworkGallery(BaseModel):
-    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="gallery_links")
-    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name="artwork_links")
-    sort_order = models.IntegerField(default=0)
+    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="gallery_links", verbose_name="Obra de arte")
+    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name="artwork_links", verbose_name="Galería")
+    sort_order = models.IntegerField(default=0, verbose_name="Orden")
 
     class Meta:
         unique_together = [("artwork", "gallery")]
 
 
 class ArtworkImage(BaseModel):
-    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="images")
-    image = models.ImageField()
-    alt_es = models.CharField(max_length=200, blank=True)
-    alt_en = models.CharField(max_length=200, blank=True)
-    is_primary = models.BooleanField(default=False)
-    sort_order = models.IntegerField(default=0)
+    artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="images", verbose_name="Obra de arte")
+    image = models.ImageField(verbose_name="Imagen")
+    alt_es = models.CharField(max_length=200, blank=True, verbose_name="Texto alternativo (ES)")
+    alt_en = models.CharField(max_length=200, blank=True, verbose_name="Texto alternativo (EN)")
+    is_primary = models.BooleanField(default=False, verbose_name="Imagen principal")
+    sort_order = models.IntegerField(default=0, verbose_name="Orden")
 
     class Meta:
         ordering = ["sort_order"]

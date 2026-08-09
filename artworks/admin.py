@@ -219,10 +219,10 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     search_fields = ["name", "email", "slug", "translations__bio"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("Personal Info", {
+        ("Datos personales", {
             "fields": (("name", "slug"), ("birth_year", "death_year"), "location")
         }),
-        ("Contact & Media", {
+        ("Contacto y medios", {
             "fields": ("email", "website", "photo")
         }),
         ("Resumen", {
@@ -235,7 +235,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
                 "display_curations_detail",
             )
         }),
-        ("System Status", {
+        ("Estado del sistema", {
             "fields": (("is_active", "sort_order"),)
         }),
     )
@@ -359,13 +359,13 @@ class ArtCuratorAdmin(ModelAdminUnfoldBase):
     search_fields = ["name", "email", "slug", "translations__bio"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("Personal Info", {
+        ("Datos personales", {
             "fields": (("name", "slug"),)
         }),
-        ("Contact & Media", {
+        ("Contacto y medios", {
             "fields": ("email", "website", "photo")
         }),
-        ("System Status", {
+        ("Estado del sistema", {
             "fields": (("is_active", "sort_order"),)
         }),
     )
@@ -402,7 +402,7 @@ class DisciplineAdmin(ModelAdminUnfoldBase):
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("System Info", {
+        ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
@@ -434,7 +434,7 @@ class TechniqueAdmin(ModelAdminUnfoldBase):
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("System Info", {
+        ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
@@ -466,7 +466,7 @@ class ThemeAdmin(ModelAdminUnfoldBase):
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("System Info", {
+        ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
@@ -498,7 +498,7 @@ class FormatAdmin(ModelAdminUnfoldBase):
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("System Info", {
+        ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
@@ -530,7 +530,7 @@ class ScaleAdmin(ModelAdminUnfoldBase):
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("System Info", {
+        ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
@@ -562,7 +562,7 @@ class LocationAdmin(ModelAdminUnfoldBase):
     search_fields = ["slug", "translations__name"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("System Info", {
+        ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
@@ -594,10 +594,10 @@ class GalleryAdmin(ModelAdminUnfoldBase):
     search_fields = ["slug", "translations__name", "translations__description"]
     list_filter = ["is_active"]
     fieldsets = (
-        ("Basic Info", {
+        ("Información básica", {
             "fields": ("curator", "logo")
         }),
-        ("System Info", {
+        ("Información del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
@@ -678,7 +678,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
     ]
     filter_horizontal = ["disciplines", "techniques", "themes", "formats", "scales"]
     fieldsets = (
-        ("Main Attributes", {
+        ("Atributos principales", {
             "fields": (("artist", "year"), "dimensions")
         }),
         ("Taxonomías", {
@@ -690,10 +690,10 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
                 "scales",
             )
         }),
-        ("Commercial & Status", {
+        ("Comercial y estado", {
             "fields": (("price_mxn", "price_usd"), "status", ("is_highlighted", "views_count"))
         }),
-        ("System Settings", {
+        ("Configuración del sistema", {
             "fields": ("slug", "is_active", "sort_order")
         }),
     )
