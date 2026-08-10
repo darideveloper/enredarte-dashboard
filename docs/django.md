@@ -20,4 +20,5 @@ Django is a high-level Python web framework that encourages rapid development an
 *   [[django-media-storage|Media Storage Configuration]]
 *   [[django-unfold-admin|Unfold Admin Theme]]
 *   [[django-image-copy-link|Image Copy Link Utility]]
+*   [[django-drf|DRF Implementation Guide]]
 *   [[20-areas/work/mermaid/mermaid-diagram-generation|Mermaid Diagram Generation]]
