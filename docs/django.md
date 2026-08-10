@@ -16,6 +16,7 @@ Django is a high-level Python web framework that encourages rapid development an
 
 ### **Internal Resources**
 *   [[django-project-setup|Project Setup Guide]]
+*   [[django-model-definitions|Model Definitions]]
 *   [[django-media-storage|Media Storage Configuration]]
 *   [[django-unfold-admin|Unfold Admin Theme]]
 *   [[django-image-copy-link|Image Copy Link Utility]]

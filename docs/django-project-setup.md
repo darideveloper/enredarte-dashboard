@@ -78,6 +78,11 @@ Once the project is initialized, create the main application.
 python manage.py startapp {app_name}
 ```
 
+> **Models:** every model created in this project (or replicated later) must
+> follow the [[django-model-definitions|Model Definitions]] convention:
+> `Meta.verbose_name`/`verbose_name_plural`, `verbose_name` on every field,
+> `help_text` when needed, and a content-based `__str__`.
+
 ### 4. Git Initialization
 Initialize a Git repository to track your changes and commit the initial project state.
 
