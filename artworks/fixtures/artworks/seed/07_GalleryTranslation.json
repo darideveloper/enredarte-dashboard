@@ -1,0 +1,6 @@
+[
+  { "model": "artworks.gallerytranslation", "pk": 1, "fields": { "gallery": 1, "language": "es", "name": "Galería Luz", "description": "Espacio dedicado a la pintura contemporánea y la identidad mexicana." } },
+  { "model": "artworks.gallerytranslation", "pk": 2, "fields": { "gallery": 1, "language": "en", "name": "Luz Gallery", "description": "Space dedicated to contemporary painting and Mexican identity." } },
+  { "model": "artworks.gallerytranslation", "pk": 3, "fields": { "gallery": 2, "language": "es", "name": "Espacio Urbano", "description": "Galería orientada a arte urbano y prácticas experimentales." } },
+  { "model": "artworks.gallerytranslation", "pk": 4, "fields": { "gallery": 2, "language": "en", "name": "Urban Space", "description": "Gallery focused on street art and experimental practices." } }
+]

@@ -73,7 +73,11 @@ The pattern used here consists of:
             ├── Category.json        # base data
             ├── Grade.json           # base data
             └── seed/                # one-time seed data
-                ├── Book.json
+                ├── 00_Author.json       # numeric prefix: loads before dependents
+                ├── 01_Book.json         # references Author PKs
+                ├── images/              # committed sample media, synced to storage
+                │   └── covers/
+                │       └── book-1.jpg
                 └── User.json
 ```
 
@@ -203,6 +207,7 @@ class Command(BaseCommand):
 import os
 
 from django.apps import apps
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
 
@@ -214,6 +219,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         for app_config in apps.get_app_configs():
+            self._sync_seed_media(app_config)
             fixture_dir = os.path.join(
                 app_config.path, "fixtures", app_config.label, "seed"
             )
@@ -230,6 +236,21 @@ class Command(BaseCommand):
         return sorted(
             name[:-5] for name in os.listdir(fixture_dir) if name.endswith(".json")
         )
+
+    def _sync_seed_media(self, app_config):
+        images_dir = os.path.join(
+            app_config.path, "fixtures", app_config.label, "seed", "images"
+        )
+        if not os.path.isdir(images_dir):
+            return
+        for root, _, files in os.walk(images_dir):
+            for name in files:
+                source_path = os.path.join(root, name)
+                relative_path = os.path.relpath(source_path, images_dir)
+                if default_storage.exists(relative_path):
+                    continue
+                with open(source_path, "rb") as source_file:
+                    default_storage.save(relative_path, source_file)
 ```
 
 Key points to keep when porting:
@@ -250,6 +271,11 @@ Key points to keep when porting:
 5. **Ordering within an app** — files load in sorted (alphabetical) order. If one
    base fixture references another's PKs, prefix the filenames with a numeric
    index (`00_` , `01_`) so the referenced file loads first.
+6. **Seed media** — sample media files (e.g. placeholder artwork images) are
+   committed under each app's `<app>/fixtures/<app>/seed/images/` directory and
+   written into the configured default storage (local `MEDIA_ROOT` or remote
+   bucket) by `seed_loaddata` before the fixtures load, so seeded image records
+   reference readable files. Files already present in storage are left untouched.
 
 ---
 
@@ -281,12 +307,13 @@ call_command("base_loaddata")
 # call_command("seed_loaddata")
 ```
 
-> Convention warning: because `loaddata` is idempotent-per-file name but **not**
-> idempotent-per-database (it will try to re-insert existing PKs and fail), the
-> commands catch and continue. `base_loaddata` is meant to run against fresh
-> databases (fresh DB, test DB, new container) on every startup. `seed_loaddata`
-> should be run **once** — re-running it on a populated database will fail with
-> duplicate-key errors (the fail-soft loop prints and skips them).
+> Convention warning: because `loaddata` matches rows by their explicit PKs, a
+> re-run **updates** the existing rows in place rather than inserting duplicates.
+> The commands catch and continue on any unexpected per-fixture failure.
+> `base_loaddata` is meant to run against fresh databases (fresh DB, test DB, new
+> container) on every startup. `seed_loaddata` should be run **once** per
+> environment — re-running it on a populated database is harmless but repeats the
+> same row updates.
 
 ---
 
@@ -422,7 +449,12 @@ Fixture `catalog/fixtures/catalog/Grade.json`:
 ### Seed data — `Book.json`, `User.json`
 
 Optional one-time rows, kept in a `seed/` subfolder. Sample books reference base
-PKs (category, grades); a sample user uses Django's built-in `auth.User`.
+PKs (category, grades); a sample user uses Django's built-in `auth.User`. When a
+seed fixture depends on another seed fixture's PKs, prefix the filenames with a
+zero-padded numeric index so the alphabetical sort loads dependencies first
+(e.g. `00_Author.json` before `01_Book.json`). Sample media files are committed
+under `seed/images/` and copied into the configured default storage by
+`seed_loaddata`.
 
 Fixture `catalog/fixtures/catalog/seed/Book.json`:
 
@@ -514,7 +546,7 @@ To port this pattern to another project:
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `No fixture named 'Category' found` | Wrong `app_label/` prefix or file not under an app `fixtures/` dir | Verify the file is at `<app>/fixtures/<app>/<Model>.json` and pass `f"{app_label}/{Model}"` |
-| `duplicate key value violates unique constraint` | PKs already exist in DB | `loaddata` is only meant for bootstrap loads; run it only on a fresh DB, or load only the missing fixtures, or clear the existing rows first. Common when `seed_loaddata` is run twice — seeds are one-time |
+| `duplicate key value violates unique constraint` | PKs already exist in DB | `loaddata` matches rows by explicit PK, so re-running updates them in place instead of failing; to force a clean reload, clear the existing rows first. Common when `seed_loaddata` is run twice — seeds are one-time but re-runs are harmless no-ops |
 | `Foreign key constraint failed` / M2M ordering error | Referenced PK not loaded yet, or wrong order within an app | Run `base_loaddata` (dependencies) **before** `seed_loaddata`; within an app, prefix filenames numerically (`00_` before `01_`) so referenced files load first |
 | Wrong PKs when referencing other fixtures | Explicit PK mismatch | Keep `pk` values coordinated across all referencing files |
 | User cannot log in after `seed_loaddata` | Fixture stored a wrong/plaintext password | Regenerate the user fixture via `set_password()` + `dumpdata` (section 8) |

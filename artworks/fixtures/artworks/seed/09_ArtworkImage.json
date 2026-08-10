@@ -1,0 +1,98 @@
+[
+  {
+    "model": "artworks.artworkimage",
+    "pk": 1,
+    "fields": {
+      "artwork": 1,
+      "image": "artworks/obra-1.jpg",
+      "alt_es": "Vista principal de la obra Memorias silentes",
+      "alt_en": "Main view of Silent Memory",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "memoria-silente-obra-1",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 2,
+    "fields": {
+      "artwork": 2,
+      "image": "artworks/obra-2.jpg",
+      "alt_es": "Vista principal de la obra Fragmento urbano",
+      "alt_en": "Main view of Urban Fragment",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "fragmento-urbano-obra-2",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 3,
+    "fields": {
+      "artwork": 3,
+      "image": "artworks/obra-3.jpg",
+      "alt_es": "Vista principal de la obra Jardín imaginado",
+      "alt_en": "Main view of Imagined Garden",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "jardin-imaginado-obra-3",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 4,
+    "fields": {
+      "artwork": 4,
+      "image": "artworks/obra-4.jpg",
+      "alt_es": "Vista principal de la obra Horizonte de concreto",
+      "alt_en": "Main view of Concrete Horizon",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "horizonte-beton-obra-4",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 5,
+    "fields": {
+      "artwork": 5,
+      "image": "artworks/obra-5.jpg",
+      "alt_es": "Vista principal de la obra Postales de ayer",
+      "alt_en": "Main view of Postcards from Yesterday",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "postales-de-ayer-obra-5",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 6,
+    "fields": {
+      "artwork": 6,
+      "image": "artworks/obra-6.jpg",
+      "alt_es": "Vista principal de la obra Flujo neón",
+      "alt_en": "Main view of Neon Flow",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "flujo-neon-obra-6",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  }
+]

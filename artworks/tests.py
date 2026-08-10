@@ -475,6 +475,36 @@ class ArtworkAdminTestCase(TestCase):
         self.assertGreater(Artwork.objects.count(), 0)
 
 
+class SeedContentCompletenessTestCase(TestCase):
+    def setUp(self):
+        call_command("base_loaddata")
+
+    def test_seed_loaddata_populates_every_business_table(self):
+        """Test seed_loaddata leaves no business table empty"""
+        call_command("seed_loaddata")
+        self.assertGreater(ArtCurator.objects.count(), 0)
+        self.assertGreater(ArtCuratorTranslation.objects.count(), 0)
+        self.assertGreater(Gallery.objects.count(), 0)
+        self.assertGreater(GalleryTranslation.objects.count(), 0)
+        self.assertGreater(ArtworkGallery.objects.count(), 0)
+        self.assertGreater(ArtworkImage.objects.count(), 0)
+
+    def test_seed_loaddata_rerun_does_not_increase_counts(self):
+        """Test seed_loaddata twice leaves row counts unchanged"""
+        call_command("seed_loaddata")
+        counts = {
+            "ArtCurator": ArtCurator.objects.count(),
+            "Gallery": Gallery.objects.count(),
+            "ArtworkGallery": ArtworkGallery.objects.count(),
+            "ArtworkImage": ArtworkImage.objects.count(),
+        }
+        call_command("seed_loaddata")
+        self.assertEqual(counts["ArtCurator"], ArtCurator.objects.count())
+        self.assertEqual(counts["Gallery"], Gallery.objects.count())
+        self.assertEqual(counts["ArtworkGallery"], ArtworkGallery.objects.count())
+        self.assertEqual(counts["ArtworkImage"], ArtworkImage.objects.count())
+
+
 class ArtistSocialLinkModelTestCase(TestCase):
     def setUp(self):
         self.artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")

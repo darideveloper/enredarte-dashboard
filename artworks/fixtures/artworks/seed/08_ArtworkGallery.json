@@ -1,0 +1,106 @@
+[
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 1,
+    "fields": {
+      "artwork": 1,
+      "gallery": 1,
+      "slug": "memoria-silente-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 2,
+    "fields": {
+      "artwork": 1,
+      "gallery": 2,
+      "slug": "memoria-silente-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 3,
+    "fields": {
+      "artwork": 2,
+      "gallery": 2,
+      "slug": "fragmento-urbano-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 4,
+    "fields": {
+      "artwork": 3,
+      "gallery": 1,
+      "slug": "jardin-imaginado-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 5,
+    "fields": {
+      "artwork": 4,
+      "gallery": 2,
+      "slug": "horizonte-beton-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 6,
+    "fields": {
+      "artwork": 5,
+      "gallery": 1,
+      "slug": "postales-de-ayer-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 7,
+    "fields": {
+      "artwork": 6,
+      "gallery": 1,
+      "slug": "flujo-neon-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 8,
+    "fields": {
+      "artwork": 6,
+      "gallery": 2,
+      "slug": "flujo-neon-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  }
+]
