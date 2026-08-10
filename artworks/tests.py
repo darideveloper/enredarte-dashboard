@@ -1,6 +1,9 @@
+import base64
+
 from django.contrib import admin
 from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
@@ -60,6 +63,10 @@ from artworks.models import (
     TechniqueTranslation,
     Theme,
     ThemeTranslation,
+)
+
+_1PX_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
 
 
@@ -406,6 +413,30 @@ class ArtworkAdminTestCase(TestCase):
         """Test fallback when no translations exist"""
         self.assertEqual(self.artwork_admin.display_title(self.artwork), "-")
 
+    def test_artwork_display_image_uses_primary(self):
+        """Test display_image prefers the primary image from the prefetch cache"""
+        other = ArtworkImage.objects.create(
+            artwork=self.artwork,
+            image=SimpleUploadedFile("other.png", _1PX_PNG),
+        )
+        primary = ArtworkImage.objects.create(
+            artwork=self.artwork,
+            image=SimpleUploadedFile("primary.png", _1PX_PNG),
+            is_primary=True,
+        )
+        html = self.artwork_admin.display_image(self.artwork)
+        self.assertIn(primary.image.url, html)
+        self.assertNotIn(other.image.url, html)
+
+    def test_artwork_display_image_falls_back_to_first(self):
+        """Test display_image renders the first image when none is primary"""
+        first = ArtworkImage.objects.create(
+            artwork=self.artwork,
+            image=SimpleUploadedFile("first.png", _1PX_PNG),
+        )
+        html = self.artwork_admin.display_image(self.artwork)
+        self.assertIn(first.image.url, html)
+
     def test_artwork_display_price(self):
         """Test price formatting method"""
         self.assertEqual(
@@ -423,11 +454,30 @@ class ArtworkAdminTestCase(TestCase):
         self.assertEqual(list(self.artwork.formats.all()), [self.format])
         self.assertEqual(list(self.artwork.scales.all()), [self.scale])
 
-    def test_artwork_admin_has_filter_horizontal(self):
-        """Test ArtworkAdmin uses filter_horizontal for the five taxonomy M2M fields"""
+    def test_artwork_admin_uses_autocomplete_fields(self):
+        """Test ArtworkAdmin uses autocomplete_fields for the five taxonomy M2M fields"""
         self.assertEqual(
-            self.artwork_admin.filter_horizontal,
+            self.artwork_admin.autocomplete_fields,
             ["disciplines", "techniques", "themes", "formats", "scales"],
+        )
+        self.assertFalse(self.artwork_admin.filter_horizontal)
+
+    def test_taxonomy_autocomplete_searches_translated_name(self):
+        """Test taxonomy autocomplete matches by translated name"""
+        url = reverse("admin:autocomplete")
+        response = self.client.get(
+            url,
+            {
+                "app_label": "artworks",
+                "model_name": "artwork",
+                "field_name": "disciplines",
+                "term": "Pintura",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            str(self.discipline.pk),
+            [result["id"] for result in response.json()["results"]],
         )
 
     def test_artwork_add_form_renders_taxonomies(self):
@@ -851,11 +901,55 @@ class ArtistAdminProfileTestCase(TestCase):
         self.assertIn(ArtistSocialLinkInline, self.artist_admin.inlines)
 
     def test_artist_changelist_count_columns(self):
-        self.assertEqual(self.artist_admin.display_artworks_count(self.artist), 1)
-        self.assertEqual(self.artist_admin.display_available_count(self.artist), 1)
-        self.assertEqual(self.artist_admin.display_techniques_count(self.artist), 1)
-        self.assertEqual(self.artist_admin.display_highlighted_count(self.artist), 1)
-        self.assertEqual(self.artist_admin.display_galleries_count(self.artist), 1)
+        request = RequestFactory().get("/")
+        artist = self.artist_admin.get_queryset(request).get(pk=self.artist.pk)
+        self.assertEqual(self.artist_admin.display_artworks_count(artist), 1)
+        self.assertEqual(self.artist_admin.display_available_count(artist), 1)
+        self.assertEqual(self.artist_admin.display_techniques_count(artist), 1)
+        self.assertEqual(self.artist_admin.display_highlighted_count(artist), 1)
+        self.assertEqual(self.artist_admin.display_galleries_count(artist), 1)
+
+    def test_artist_count_columns_issue_no_per_row_queries(self):
+        """Changelist count columns must read annotations, not query per row."""
+        request = RequestFactory().get("/")
+        with self.assertNumQueries(1):
+            artists = list(self.artist_admin.get_queryset(request))
+        with self.assertNumQueries(0):
+            for artist in artists:
+                for method in (
+                    self.artist_admin.display_artworks_count,
+                    self.artist_admin.display_available_count,
+                    self.artist_admin.display_techniques_count,
+                    self.artist_admin.display_highlighted_count,
+                    self.artist_admin.display_galleries_count,
+                ):
+                    method(artist)
+
+    def test_artist_count_annotations_handle_multi_relation_fanout(self):
+        """Counts must not over-count when artworks/techniques/galleries joins fan out."""
+        technique = Technique.objects.get(slug="oleo")
+        gallery = Gallery.objects.create(slug="galeria-b")
+        for i in range(3):
+            artwork = Artwork.objects.create(
+                artist=self.artist,
+                year=2021,
+                dimensions="10x10",
+                price_mxn=100,
+                price_usd=5,
+                status=ArtworkStatus.AVAILABLE,
+                slug=f"art-fanout-{i}",
+                is_highlighted=True,
+            )
+            artwork.techniques.set([technique])
+            ArtworkGallery.objects.create(artwork=artwork, gallery=gallery, slug=f"fl-{i}")
+
+        request = RequestFactory().get("/")
+        artist = self.artist_admin.get_queryset(request).get(pk=self.artist.pk)
+        self.assertEqual(self.artist_admin.display_artworks_count(artist), 4)
+        self.assertEqual(self.artist_admin.display_available_count(artist), 4)
+        self.assertEqual(self.artist_admin.display_techniques_count(artist), 1)
+        self.assertEqual(self.artist_admin.display_highlighted_count(artist), 4)
+        self.assertEqual(self.artist_admin.display_galleries_count(artist), 2)
 
     def test_artist_changelist_view(self):
         url = reverse("admin:artworks_artist_changelist")
@@ -1029,6 +1123,10 @@ class AdminFilterBehaviorTestCase(TestCase):
         lookups = filter_.lookups(self.request, self.artwork_admin)
         self.assertEqual(lookups, [("1970", "1970–1979"), ("1980", "1980–1989"), ("1990", "1990–1999")])
 
+    def test_year_filter_lookups_empty_table(self):
+        filter_ = YearFilter(self.request, {}, Artwork, self.artwork_admin)
+        self.assertEqual(filter_.lookups(self.request, self.artwork_admin), [])
+
     def test_artist_available_works_filter(self):
         artist_available = Artist.objects.create(name="Disponible", slug="disponible")
         artist_sold = Artist.objects.create(name="Vendida", slug="vendida")
@@ -1064,6 +1162,25 @@ class AdminFilterBehaviorTestCase(TestCase):
         result = without_filter.queryset(self.request, Artist.objects.all())
         self.assertIn(artist_sold, result)
         self.assertNotIn(artist_available, result)
+
+
+class StaticfilesBackendTestCase(TestCase):
+    def test_test_suite_uses_plain_staticfiles_storage(self):
+        from django.conf import settings
+
+        self.assertEqual(
+            settings.STORAGES["staticfiles"]["BACKEND"],
+            "django.contrib.staticfiles.storage.StaticFilesStorage",
+        )
+
+    def test_production_staticfiles_backend_is_whitenoise(self):
+        import project.settings as settings_module
+
+        if not settings_module.IS_TESTING:
+            self.assertEqual(
+                settings_module.STORAGES["staticfiles"]["BACKEND"],
+                "whitenoise.storage.CompressedManifestStaticFilesStorage",
+            )
 
 
 class TranslationInlineEnforcementTestCase(TestCase):

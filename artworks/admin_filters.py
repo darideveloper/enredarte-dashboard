@@ -1,4 +1,5 @@
 from django.contrib.admin import SimpleListFilter
+from django.db.models import Exists, Max, Min, OuterRef
 
 
 class HasRelatedFilter(SimpleListFilter):
@@ -17,10 +18,14 @@ class HasRelatedFilter(SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
+        def has():
+            lookup = {f"{self.related}__isnull": False}
+            return queryset.model.objects.filter(pk=OuterRef("pk"), **lookup)
+
         if self.value() == "with":
-            return queryset.filter(**{f"{self.related}__isnull": False}).distinct()
+            return queryset.filter(Exists(has()))
         if self.value() == "without":
-            return queryset.filter(**{f"{self.related}__isnull": True}).distinct()
+            return queryset.filter(~Exists(has()))
         return queryset
 
 
@@ -37,20 +42,20 @@ def has_related_filter(related, title, parameter_name):
 
 
 class YearFilter(SimpleListFilter):
-    """Filter integer `year` fields by decade buckets derived from distinct years."""
+    """Filter integer `year` fields by decade buckets derived from min/max years."""
 
     title = "Año"
     parameter_name = "decade"
 
     def lookups(self, request, model_admin):
-        years = (
-            model_admin.get_queryset(request)
-            .values_list("year", flat=True)
-            .distinct()
-            .order_by("year")
+        stats = model_admin.model.objects.aggregate(
+            min_year=Min("year"), max_year=Max("year")
         )
-        decades = sorted({(y // 10) * 10 for y in years})
-        return [(str(start), f"{start}–{start + 9}") for start in decades]
+        if stats["min_year"] is None:
+            return []
+        start = (stats["min_year"] // 10) * 10
+        end = (stats["max_year"] // 10) * 10
+        return [(str(d), f"{d}–{d + 9}") for d in range(start, end + 10, 10)]
 
     def queryset(self, request, queryset):
         if not self.value():

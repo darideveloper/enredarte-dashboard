@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.core.exceptions import ValidationError
-from django.db.models import Max
+from django.db.models import Count, Exists, Max, OuterRef, Q
 from django.forms.models import BaseInlineFormSet
 from django.utils.html import format_html, format_html_join
 
@@ -33,7 +33,7 @@ from artworks.models import (
     Theme,
     ThemeTranslation,
 )
-from project.admin_base import ModelAdminUnfoldBase
+from project.admin_base import ModelAdminUnfoldBase, TranslatableNameAdminMixin
 from unfold.admin import StackedInline, TabularInline
 
 
@@ -170,14 +170,17 @@ class ArtistAvailableWorksFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
+        def has_available():
+            return queryset.model.objects.filter(
+                pk=OuterRef("pk"),
+                artworks__is_active=True,
+                artworks__status=ArtworkStatus.AVAILABLE,
+            )
+
         if self.value() == "with":
-            return queryset.filter(
-                artworks__is_active=True, artworks__status=ArtworkStatus.AVAILABLE
-            ).distinct()
+            return queryset.filter(Exists(has_available()))
         if self.value() == "without":
-            return queryset.exclude(
-                artworks__is_active=True, artworks__status=ArtworkStatus.AVAILABLE
-            ).distinct()
+            return queryset.filter(~Exists(has_available()))
         return queryset
 
 
@@ -244,6 +247,30 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
+    def get_queryset(self, request):
+        return (
+            super().get_queryset(request)
+            .annotate(
+                _artworks_count=Count("artworks", filter=Q(artworks__is_active=True), distinct=True),
+                _available_count=Count(
+                    "artworks",
+                    filter=Q(artworks__is_active=True, artworks__status=ArtworkStatus.AVAILABLE),
+                    distinct=True,
+                ),
+                _techniques_count=Count("artworks__techniques", distinct=True),
+                _highlighted_count=Count(
+                    "artworks",
+                    filter=Q(artworks__is_active=True, artworks__is_highlighted=True),
+                    distinct=True,
+                ),
+                _galleries_count=Count(
+                    "artworks__gallery_links__gallery",
+                    filter=Q(artworks__gallery_links__gallery__is_active=True),
+                    distinct=True,
+                ),
+            )
+        )
+
     @admin.display(description="Nombre", ordering="name")
     def display_name(self, obj):
         return obj.name
@@ -274,23 +301,23 @@ class ArtistAdmin(ModelAdminUnfoldBase):
 
     @admin.display(description="Obras")
     def display_artworks_count(self, obj):
-        return obj.artworks.filter(is_active=True).count()
+        return obj._artworks_count
 
     @admin.display(description="Disponibles")
     def display_available_count(self, obj):
-        return obj.available_artworks.count()
+        return obj._available_count
 
     @admin.display(description="Técnicas")
     def display_techniques_count(self, obj):
-        return obj.techniques.count()
+        return obj._techniques_count
 
     @admin.display(description="Destacadas")
     def display_highlighted_count(self, obj):
-        return obj.highlighted_artworks.count()
+        return obj._highlighted_count
 
     @admin.display(description="Galerías")
     def display_galleries_count(self, obj):
-        return obj.curations.count()
+        return obj._galleries_count
 
     @admin.display(description="Técnicas")
     def display_techniques_detail(self, obj):
@@ -376,7 +403,7 @@ class ArtCuratorAdmin(ModelAdminUnfoldBase):
 
 
 @admin.register(Discipline)
-class DisciplineAdmin(ModelAdminUnfoldBase):
+class DisciplineAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "label"
     inlines = [DisciplineTranslationInline]
     search_fields = ["slug", "translations__name"]
@@ -397,21 +424,13 @@ class DisciplineAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
-    @admin.display(description="Nombre")
-    def display_name(self, obj):
-        es = obj.translations.filter(language="es").first()
-        if es:
-            return es.name
-        first = obj.translations.first()
-        return first.name if first else "-"
-
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
 
 
 @admin.register(Technique)
-class TechniqueAdmin(ModelAdminUnfoldBase):
+class TechniqueAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "brush"
     inlines = [TechniqueTranslationInline]
     search_fields = ["slug", "translations__name"]
@@ -432,21 +451,13 @@ class TechniqueAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
-    @admin.display(description="Nombre")
-    def display_name(self, obj):
-        es = obj.translations.filter(language="es").first()
-        if es:
-            return es.name
-        first = obj.translations.first()
-        return first.name if first else "-"
-
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
 
 
 @admin.register(Theme)
-class ThemeAdmin(ModelAdminUnfoldBase):
+class ThemeAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "topic"
     inlines = [ThemeTranslationInline]
     search_fields = ["slug", "translations__name"]
@@ -467,21 +478,13 @@ class ThemeAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
-    @admin.display(description="Nombre")
-    def display_name(self, obj):
-        es = obj.translations.filter(language="es").first()
-        if es:
-            return es.name
-        first = obj.translations.first()
-        return first.name if first else "-"
-
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
 
 
 @admin.register(Format)
-class FormatAdmin(ModelAdminUnfoldBase):
+class FormatAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "view_module"
     inlines = [FormatTranslationInline]
     search_fields = ["slug", "translations__name"]
@@ -502,21 +505,13 @@ class FormatAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
-    @admin.display(description="Nombre")
-    def display_name(self, obj):
-        es = obj.translations.filter(language="es").first()
-        if es:
-            return es.name
-        first = obj.translations.first()
-        return first.name if first else "-"
-
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
 
 
 @admin.register(Scale)
-class ScaleAdmin(ModelAdminUnfoldBase):
+class ScaleAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "straighten"
     inlines = [ScaleTranslationInline]
     search_fields = ["slug", "translations__name"]
@@ -537,21 +532,13 @@ class ScaleAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
-    @admin.display(description="Nombre")
-    def display_name(self, obj):
-        es = obj.translations.filter(language="es").first()
-        if es:
-            return es.name
-        first = obj.translations.first()
-        return first.name if first else "-"
-
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
 
 
 @admin.register(Location)
-class LocationAdmin(ModelAdminUnfoldBase):
+class LocationAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "location_on"
     inlines = [LocationTranslationInline]
     search_fields = ["slug", "translations__name"]
@@ -572,21 +559,13 @@ class LocationAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
-    @admin.display(description="Nombre")
-    def display_name(self, obj):
-        es = obj.translations.filter(language="es").first()
-        if es:
-            return es.name
-        first = obj.translations.first()
-        return first.name if first else "-"
-
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
 
 
 @admin.register(Gallery)
-class GalleryAdmin(ModelAdminUnfoldBase):
+class GalleryAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "storefront"
     inlines = [GalleryTranslationInline, ArtworkGalleryInline]
     search_fields = ["slug", "translations__name", "translations__description"]
@@ -610,14 +589,6 @@ class GalleryAdmin(ModelAdminUnfoldBase):
         max_order = Gallery.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
         initial["sort_order"] = max_order + 1
         return initial
-
-    @admin.display(description="Nombre")
-    def display_name(self, obj):
-        es = obj.translations.filter(language="es").first()
-        if es:
-            return es.name
-        first = obj.translations.first()
-        return first.name if first else "-"
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -672,7 +643,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         ("formats", RelatedOnlyFieldListFilter),
         ("scales", RelatedOnlyFieldListFilter),
     ]
-    filter_horizontal = ["disciplines", "techniques", "themes", "formats", "scales"]
+    autocomplete_fields = ["disciplines", "techniques", "themes", "formats", "scales"]
     list_per_page = 25
     fieldsets = (
         ("Atributos principales", {
@@ -713,29 +684,51 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         initial["sort_order"] = max_order + 1
         return initial
 
+    def get_queryset(self, request):
+        return (
+            super().get_queryset(request)
+            .prefetch_related(
+                "images",
+                "translations",
+                "disciplines__translations",
+                "techniques__translations",
+                "themes__translations",
+                "formats__translations",
+                "scales__translations",
+            )
+        )
+
     @admin.display(description="Imagen")
     def display_image(self, obj):
-        primary = obj.images.filter(is_primary=True).first() or obj.images.first()
-        if primary and primary.image:
-            return format_html('<img src="{}" class="img-preview" style="height: 40px; width: 40px; object-fit: cover; border-radius: 6px;" />', primary.image.url)
+        images = list(obj.images.all())
+        img = next((i for i in images if i.is_primary), None) or (images[0] if images else None)
+        if img and img.image:
+            return format_html('<img src="{}" class="img-preview" style="height: 40px; width: 40px; object-fit: cover; border-radius: 6px;" />', img.image.url)
         return "-"
 
     @admin.display(description="Título")
     def display_title(self, obj):
-        es = obj.translations.filter(language="es").first()
+        translations = list(obj.translations.all())
+        es = next((t for t in translations if t.language == "es"), None)
         if es:
             return es.title
-        first = obj.translations.first()
-        return first.title if first else "-"
+        return translations[0].title if translations else "-"
 
     @admin.display(description="Clasificación")
     def display_taxonomies(self, obj):
         labels = []
         for name in ("disciplines", "techniques", "themes", "formats", "scales"):
-            values = getattr(obj, name).all()
+            values = list(getattr(obj, name).all())
             if values:
-                names = [v.translations.filter(language="es").first() or v.translations.first() for v in values]
-                labels.append(", ".join(n.name for n in names if n))
+                names = []
+                for v in values:
+                    translations = list(v.translations.all())
+                    es = next((t for t in translations if t.language == "es"), None)
+                    t = es or (translations[0] if translations else None)
+                    if t:
+                        names.append(t.name)
+                if names:
+                    labels.append(", ".join(names))
         return ", ".join(labels) or "-"
 
     @admin.display(description="Precio")
