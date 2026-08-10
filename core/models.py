@@ -29,6 +29,26 @@ class TranslationBase(models.Model):
         abstract = True
 
 
+class TranslatableName(BaseModel):
+    """Mixin for models whose display name lives in translation rows.
+
+    Extends BaseModel so subclasses keep slug / is_active / sort_order while
+    gaining the translated display lookup. `translated_name` prefers the
+    Spanish translation, falls back to any available translation, and finally
+    to the slug.
+    """
+
+    class Meta:
+        abstract = True
+
+    def translated_name(self, language="es"):
+        t = self.translations.filter(language=language).first() or self.translations.first()
+        return t.name if t else self.slug
+
+    def __str__(self):
+        return self.translated_name()
+
+
 class Person(BaseModel):
     name = models.CharField(max_length=200, verbose_name="Nombre")
     email = models.EmailField(null=True, blank=True, verbose_name="Correo electrónico")

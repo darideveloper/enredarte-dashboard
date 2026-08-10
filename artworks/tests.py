@@ -537,6 +537,152 @@ class LocationModelTestCase(TestCase):
         self.assertIn(artist, location.artists.all())
 
 
+class ModelStrTestCase(TestCase):
+    TAXONOMIES = (
+        (Location, LocationTranslation, "location"),
+        (Gallery, GalleryTranslation, "gallery"),
+        (Discipline, DisciplineTranslation, "discipline"),
+        (Technique, TechniqueTranslation, "technique"),
+        (Theme, ThemeTranslation, "theme"),
+        (Format, FormatTranslation, "format"),
+        (Scale, ScaleTranslation, "scale"),
+    )
+
+    def test_taxonomy_prefers_spanish_translation(self):
+        for model, translation_model, field in self.TAXONOMIES:
+            with self.subTest(model=model.__name__):
+                obj = model.objects.create(slug="muestra")
+                translation_model.objects.create(**{field: obj}, language="en", name="Sample")
+                translation_model.objects.create(**{field: obj}, language="es", name="Muestra")
+                self.assertEqual(str(obj), "Muestra")
+
+    def test_taxonomy_falls_back_to_non_spanish(self):
+        for model, translation_model, field in self.TAXONOMIES:
+            with self.subTest(model=model.__name__):
+                obj = model.objects.create(slug="muestra")
+                translation_model.objects.create(**{field: obj}, language="en", name="Sample")
+                self.assertEqual(str(obj), "Sample")
+
+    def test_taxonomy_falls_back_to_slug(self):
+        for model, translation_model, field in self.TAXONOMIES:
+            with self.subTest(model=model.__name__):
+                obj = model.objects.create(slug="sin-traducir")
+                self.assertEqual(str(obj), "sin-traducir")
+
+    def test_artwork_prefers_spanish_title(self):
+        artist = Artist.objects.create(name="Frida", slug="frida")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="las-dos-fridas",
+        )
+        ArtworkTranslation.objects.create(artwork=artwork, language="en", title="The Two Fridas")
+        ArtworkTranslation.objects.create(artwork=artwork, language="es", title="Las Dos Fridas")
+        self.assertEqual(str(artwork), "Las Dos Fridas")
+
+    def test_artwork_falls_back_to_non_spanish_title(self):
+        artist = Artist.objects.create(name="Frida", slug="frida")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="las-dos-fridas",
+        )
+        ArtworkTranslation.objects.create(artwork=artwork, language="en", title="The Two Fridas")
+        self.assertEqual(str(artwork), "The Two Fridas")
+
+    def test_artwork_falls_back_to_slug(self):
+        artist = Artist.objects.create(name="Frida", slug="frida")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="las-dos-fridas",
+        )
+        self.assertEqual(str(artwork), "las-dos-fridas")
+
+    def test_translation_rows_render_parent_and_language(self):
+        artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")
+        curator = ArtCurator.objects.create(name="Hans Ulrich Obrist", slug="hans")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="las-dos-fridas",
+        )
+        location = Location.objects.create(slug="guadalajara")
+        gallery = Gallery.objects.create(slug="galeria-arte")
+        discipline = Discipline.objects.create(slug="pintura")
+        technique = Technique.objects.create(slug="oleo")
+        theme = Theme.objects.create(slug="feminismo")
+        format_ = Format.objects.create(slug="obra-original")
+        scale = Scale.objects.create(slug="gran-formato")
+
+        cases = (
+            (ArtistTranslation.objects.create(artist=artist, language="es", bio="Pintora."), artist),
+            (LocationTranslation.objects.create(location=location, language="es", name="Guadalajara"), location),
+            (ArtCuratorTranslation.objects.create(art_curator=curator, language="es", bio="Curador."), curator),
+            (GalleryTranslation.objects.create(gallery=gallery, language="es", name="Galería de Arte"), gallery),
+            (DisciplineTranslation.objects.create(discipline=discipline, language="es", name="Pintura"), discipline),
+            (TechniqueTranslation.objects.create(technique=technique, language="es", name="Óleo"), technique),
+            (ThemeTranslation.objects.create(theme=theme, language="es", name="Feminismo"), theme),
+            (FormatTranslation.objects.create(format=format_, language="es", name="Obra original"), format_),
+            (ScaleTranslation.objects.create(scale=scale, language="es", name="Gran formato"), scale),
+            (ArtworkTranslation.objects.create(artwork=artwork, language="es", title="Las Dos Fridas"), artwork),
+        )
+        for row, parent in cases:
+            with self.subTest(model=row.__class__.__name__):
+                self.assertEqual(str(row), f"{parent} ({row.language})")
+
+    def test_artist_social_link_str(self):
+        artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")
+        link = ArtistSocialLink.objects.create(
+            artist=artist,
+            platform=ArtistSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/frida",
+        )
+        self.assertEqual(str(link), "Instagram — Frida Kahlo")
+
+    def test_artwork_gallery_str(self):
+        artist = Artist.objects.create(name="Frida", slug="frida")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="memoria-silente",
+        )
+        ArtworkTranslation.objects.create(artwork=artwork, language="es", title="Memoria silente")
+        gallery = Gallery.objects.create(slug="galeria-arte")
+        GalleryTranslation.objects.create(gallery=gallery, language="es", name="Galería de Arte")
+        link = ArtworkGallery.objects.create(artwork=artwork, gallery=gallery, slug="link-1")
+        self.assertEqual(str(link), "Memoria silente en Galería de Arte")
+
+    def test_artwork_image_str_with_alt(self):
+        artist = Artist.objects.create(name="Frida", slug="frida")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="memoria-silente",
+        )
+        image = ArtworkImage.objects.create(
+            artwork=artwork, image="artworks/placeholder.png", alt_es="Descripción de la obra",
+        )
+        self.assertEqual(str(image), "Descripción de la obra")
+
+    def test_artwork_image_str_without_alt(self):
+        artist = Artist.objects.create(name="Frida", slug="frida")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="memoria-silente",
+        )
+        ArtworkTranslation.objects.create(artwork=artwork, language="es", title="Memoria silente")
+        image = ArtworkImage.objects.create(artwork=artwork, image="artworks/placeholder.png")
+        self.assertEqual(str(image), "Imagen de Memoria silente")
+
+    def test_artist_and_artcurator_use_name(self):
+        artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")
+        curator = ArtCurator.objects.create(name="Hans Ulrich Obrist", slug="hans")
+        self.assertEqual(str(artist), "Frida Kahlo")
+        self.assertEqual(str(curator), "Hans Ulrich Obrist")
+
+
 class ArtworkDiscoveryFlagsTestCase(TestCase):
     def setUp(self):
         self.artist = Artist.objects.create(name="Frida", slug="frida")

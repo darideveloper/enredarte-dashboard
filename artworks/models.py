@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 
-from core.models import BaseModel, Person, TranslationBase
+from core.models import BaseModel, Person, TranslatableName, TranslationBase
 
 
 class Artist(Person):
@@ -58,6 +58,9 @@ class ArtistTranslation(TranslationBase):
     class Meta:
         unique_together = [("artist", "language")]
 
+    def __str__(self):
+        return f"{self.artist} ({self.language})"
+
 
 class ArtistSocialLink(BaseModel):
     class Platform(models.TextChoices):
@@ -88,8 +91,11 @@ class ArtistSocialLink(BaseModel):
             self.slug = slug
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"{self.get_platform_display()} — {self.artist}"
 
-class Location(BaseModel):
+
+class Location(TranslatableName):
     class Meta:
         verbose_name = "Ubicación"
         verbose_name_plural = "Ubicaciones"
@@ -101,6 +107,9 @@ class LocationTranslation(TranslationBase):
 
     class Meta:
         unique_together = [("location", "language")]
+
+    def __str__(self):
+        return f"{self.location} ({self.language})"
 
 
 class ArtCurator(Person):
@@ -116,8 +125,11 @@ class ArtCuratorTranslation(TranslationBase):
     class Meta:
         unique_together = [("art_curator", "language")]
 
+    def __str__(self):
+        return f"{self.art_curator} ({self.language})"
 
-class Gallery(BaseModel):
+
+class Gallery(TranslatableName):
     logo = models.ImageField(null=True, blank=True, verbose_name="Logotipo")
     curator = models.ForeignKey(
         ArtCurator, on_delete=models.SET_NULL, null=True, blank=True, related_name="curated_galleries",
@@ -137,8 +149,11 @@ class GalleryTranslation(TranslationBase):
     class Meta:
         unique_together = [("gallery", "language")]
 
+    def __str__(self):
+        return f"{self.gallery} ({self.language})"
 
-class Discipline(BaseModel):
+
+class Discipline(TranslatableName):
     class Meta:
         verbose_name = "Disciplina"
         verbose_name_plural = "Disciplinas"
@@ -151,8 +166,11 @@ class DisciplineTranslation(TranslationBase):
     class Meta:
         unique_together = [("discipline", "language")]
 
+    def __str__(self):
+        return f"{self.discipline} ({self.language})"
 
-class Technique(BaseModel):
+
+class Technique(TranslatableName):
     class Meta:
         verbose_name = "Técnica"
         verbose_name_plural = "Técnicas"
@@ -165,8 +183,11 @@ class TechniqueTranslation(TranslationBase):
     class Meta:
         unique_together = [("technique", "language")]
 
+    def __str__(self):
+        return f"{self.technique} ({self.language})"
 
-class Theme(BaseModel):
+
+class Theme(TranslatableName):
     class Meta:
         verbose_name = "Temática"
         verbose_name_plural = "Temáticas"
@@ -179,8 +200,11 @@ class ThemeTranslation(TranslationBase):
     class Meta:
         unique_together = [("theme", "language")]
 
+    def __str__(self):
+        return f"{self.theme} ({self.language})"
 
-class Format(BaseModel):
+
+class Format(TranslatableName):
     class Meta:
         verbose_name = "Tipo de pieza"
         verbose_name_plural = "Tipos de pieza"
@@ -193,8 +217,11 @@ class FormatTranslation(TranslationBase):
     class Meta:
         unique_together = [("format", "language")]
 
+    def __str__(self):
+        return f"{self.format} ({self.language})"
 
-class Scale(BaseModel):
+
+class Scale(TranslatableName):
     class Meta:
         verbose_name = "Tamaño"
         verbose_name_plural = "Tamaños"
@@ -206,6 +233,9 @@ class ScaleTranslation(TranslationBase):
 
     class Meta:
         unique_together = [("scale", "language")]
+
+    def __str__(self):
+        return f"{self.scale} ({self.language})"
 
 
 class ArtworkStatus(models.TextChoices):
@@ -235,6 +265,13 @@ class Artwork(BaseModel):
         verbose_name = "Obra de arte"
         verbose_name_plural = "Obras de arte"
 
+    def translated_title(self, language="es"):
+        t = self.translations.filter(language=language).first() or self.translations.first()
+        return t.title if t else self.slug
+
+    def __str__(self):
+        return self.translated_title()
+
 
 class ArtworkTranslation(TranslationBase):
     artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="translations", verbose_name="Obra de arte")
@@ -244,6 +281,9 @@ class ArtworkTranslation(TranslationBase):
     class Meta:
         unique_together = [("artwork", "language")]
 
+    def __str__(self):
+        return f"{self.artwork} ({self.language})"
+
 
 class ArtworkGallery(BaseModel):
     artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="gallery_links", verbose_name="Obra de arte")
@@ -252,6 +292,9 @@ class ArtworkGallery(BaseModel):
 
     class Meta:
         unique_together = [("artwork", "gallery")]
+
+    def __str__(self):
+        return f"{self.artwork} en {self.gallery}"
 
 
 class ArtworkImage(BaseModel):
@@ -264,3 +307,6 @@ class ArtworkImage(BaseModel):
 
     class Meta:
         ordering = ["sort_order"]
+
+    def __str__(self):
+        return self.alt_es or f"Imagen de {self.artwork}"

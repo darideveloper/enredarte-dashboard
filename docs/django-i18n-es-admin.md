@@ -141,6 +141,110 @@ Rules:
 
 Same pattern for every model of the project (users, products, orders, …).
 
+### Translated content — `__str__` with a Spanish-first lookup
+
+When a model's display name lives in **translation rows** (its own `*Translation`
+model instead of a direct `name`/`title` column), return the translated value
+from `__str__` so related dropdowns, M2M widgets and inline rows show Spanish
+too. The convention: **prefer `es`, fall back to any available language, then to
+the slug**. Prefer a shared abstract mixin so every translated model reuses the
+lookup:
+
+```python
+# common/models.py
+from django.db import models
+
+
+class TranslatableName(models.Model):
+    class Meta:
+        abstract = True
+
+    def translated_name(self, language="es"):
+        t = self.translations.filter(language=language).first() or self.translations.first()
+        return t.name if t else self.slug
+
+    def __str__(self):
+        return self.translated_name()
+
+
+class Genre(TranslatableName):
+    slug = models.SlugField(max_length=200, unique=True)
+    # ...direct fields...
+
+
+class GenreTranslation(models.Model):
+    language = models.CharField(max_length=5, choices=[("es", "Español"), ("en", "English")])
+    genre = models.ForeignKey(Genre, on_delete=models.CASCADE, related_name="translations")
+    name = models.CharField(max_length=200)
+    class Meta:
+        unique_together = [("genre", "language")]
+```
+
+If the project already has a shared abstract base that provides `slug` (and
+other common fields), have `TranslatableName` extend **that** instead of
+declaring `slug` on each model:
+
+```python
+# common/models.py
+class BaseModel(models.Model):
+    slug = models.SlugField(max_length=200, unique=True)
+    class Meta:
+        abstract = True
+
+
+class TranslatableName(BaseModel):
+    class Meta:
+        abstract = True
+
+    def translated_name(self, language="es"):
+        t = self.translations.filter(language=language).first() or self.translations.first()
+        return t.name if t else self.slug
+
+    def __str__(self):
+        return self.translated_name()
+
+
+class Genre(TranslatableName):
+    pass   # slug comes from BaseModel
+```
+
+Models whose translated field has a **different name** (e.g. `title` instead of
+`name`) define the same lookup on the class itself:
+
+```python
+class Book(TranslatableName):
+    # ...direct fields...
+    def translated_title(self, language="es"):
+        t = self.translations.filter(language=language).first() or self.translations.first()
+        return t.title if t else self.slug
+
+    def __str__(self):
+        return self.translated_title()
+```
+
+Make **translation rows** self-describing too — Django admin inlines render them
+through `__str__`:
+
+```python
+class BookTranslation(models.Model):
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="translations")
+    language = models.CharField(...)
+    title = models.CharField(max_length=200)
+    class Meta:
+        unique_together = [("book", "language")]
+
+    def __str__(self):
+        return f"{self.book} ({self.language})"   # e.g. "Cien años (es)"
+```
+
+Django renders M2M `filter_horizontal` widgets, related dropdowns and FK columns
+via `__str__`, so overriding it is what makes the **admin UI** — not just the
+model — show `"Pintura"` / `"Óleo"` instead of raw slugs.
+
+> The **language-neutral rule** for these texts (English by default, Spanish when
+> this recipe is adopted) lives in [[django-model-definitions|Model Definitions]];
+> this section is its Spanish-literal variant.
+
 ---
 
 ## 5. Step 3 — the app's name in the admin
