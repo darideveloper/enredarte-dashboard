@@ -96,3 +96,9 @@
 label.grow.relative {
     display: flex;
 }
+
+/* Remove Django's SelectFilter2 M2M helptext ("Elija ... use el botón Elegir") — the widget is self-explanatory */
+.selector-available-title .helptext,
+.selector-chosen-title .helptext {
+    display: none;
+}

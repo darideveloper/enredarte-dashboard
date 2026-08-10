@@ -380,6 +380,19 @@ label.grow.relative {
 
 The `label.grow.relative` selector matches only the two Unfold file-input widget templates (`clearable_file_input.html` and `clearable_file_input_small.html`), so it covers both the change-form widget and the small inline widget without touching other inputs. Do **not** use `width: 100%` on the input instead: it regresses the small inline widget (a circular flex/percentage sizing collapses the label and truncates the text).
 
+### M2M FilterWidget Helptext Removal (`static/css/style.css`)
+
+Django's `filter_horizontal`/`filter_vertical` widgets inject a `<p class="helptext">` into each side's title bar. The Spanish admin JS catalog translates the English hint ("…select the 'Choose' arrow button") as *"use el botón 'Elegir'"*, and the "Remove" side as *"use el botón 'Eliminar'"* — referencing labelled buttons that don't exist (the move controls are only arrows between the lists). The widget is self-explanatory (labelled lists + filters + arrows), so both hints are removed:
+
+```css
+.selector-available-title .helptext,
+.selector-chosen-title .helptext {
+    display: none;
+}
+```
+
+`display:none` also drops the hints from the accessibility tree. The selectors match only the two hint paragraphs `SelectFilter2.js` injects; no other element in the admin uses `class="helptext"` inside `.selector-*-title`.
+
 ## 6. Admin Interface Overrides
 
 Override the base admin template to inject SimpleMDE and other custom assets. To ensure Unfold's sticky bottom bar and responsive layout logic are preserved, always extend `"admin/base.html"` instead of the internal layout directly.
