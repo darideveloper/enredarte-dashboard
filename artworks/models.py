@@ -1,7 +1,8 @@
-from django.db import models
-from django.utils.text import slugify
+from uuid import uuid4
 
-from core.models import BaseModel, Person, TranslatableName, TranslationBase
+from django.db import models
+
+from core.models import BaseModel, Person, SlugBackfillMixin, TranslatableName, TranslationBase, unique_slugify
 
 
 class Artist(Person):
@@ -82,13 +83,9 @@ class ArtistSocialLink(BaseModel):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            base = slugify(f"{self.artist.slug}-{self.platform}")
-            slug = base
-            counter = 1
-            while ArtistSocialLink.objects.filter(slug=slug).exists():
-                slug = f"{base}-{counter}"
-                counter += 1
-            self.slug = slug
+            self.slug = unique_slugify(
+                f"{self.artist.slug}-{self.platform}", ArtistSocialLink.objects.all()
+            )
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -101,7 +98,7 @@ class Location(TranslatableName):
         verbose_name_plural = "Ubicaciones"
 
 
-class LocationTranslation(TranslationBase):
+class LocationTranslation(SlugBackfillMixin, TranslationBase):
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name="translations", verbose_name="Ubicación")
     name = models.CharField(max_length=200, verbose_name="Nombre")
 
@@ -141,7 +138,7 @@ class Gallery(TranslatableName):
         verbose_name_plural = "Galerías"
 
 
-class GalleryTranslation(TranslationBase):
+class GalleryTranslation(SlugBackfillMixin, TranslationBase):
     gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE, related_name="translations", verbose_name="Galería")
     name = models.CharField(max_length=200, verbose_name="Nombre")
     description = models.TextField(blank=True, verbose_name="Descripción")
@@ -159,7 +156,7 @@ class Discipline(TranslatableName):
         verbose_name_plural = "Disciplinas"
 
 
-class DisciplineTranslation(TranslationBase):
+class DisciplineTranslation(SlugBackfillMixin, TranslationBase):
     discipline = models.ForeignKey(Discipline, on_delete=models.CASCADE, related_name="translations", verbose_name="Disciplina")
     name = models.CharField(max_length=200, verbose_name="Nombre")
 
@@ -176,7 +173,7 @@ class Technique(TranslatableName):
         verbose_name_plural = "Técnicas"
 
 
-class TechniqueTranslation(TranslationBase):
+class TechniqueTranslation(SlugBackfillMixin, TranslationBase):
     technique = models.ForeignKey(Technique, on_delete=models.CASCADE, related_name="translations", verbose_name="Técnica")
     name = models.CharField(max_length=200, verbose_name="Nombre")
 
@@ -193,7 +190,7 @@ class Theme(TranslatableName):
         verbose_name_plural = "Temáticas"
 
 
-class ThemeTranslation(TranslationBase):
+class ThemeTranslation(SlugBackfillMixin, TranslationBase):
     theme = models.ForeignKey(Theme, on_delete=models.CASCADE, related_name="translations", verbose_name="Temática")
     name = models.CharField(max_length=200, verbose_name="Nombre")
 
@@ -210,7 +207,7 @@ class Format(TranslatableName):
         verbose_name_plural = "Tipos de pieza"
 
 
-class FormatTranslation(TranslationBase):
+class FormatTranslation(SlugBackfillMixin, TranslationBase):
     format = models.ForeignKey(Format, on_delete=models.CASCADE, related_name="translations", verbose_name="Tipo de pieza")
     name = models.CharField(max_length=200, verbose_name="Nombre")
 
@@ -227,7 +224,7 @@ class Scale(TranslatableName):
         verbose_name_plural = "Tamaños"
 
 
-class ScaleTranslation(TranslationBase):
+class ScaleTranslation(SlugBackfillMixin, TranslationBase):
     scale = models.ForeignKey(Scale, on_delete=models.CASCADE, related_name="translations", verbose_name="Tamaño")
     name = models.CharField(max_length=200, verbose_name="Nombre")
 
@@ -273,13 +270,18 @@ class Artwork(BaseModel):
         return self.translated_title()
 
 
-class ArtworkTranslation(TranslationBase):
+class ArtworkTranslation(SlugBackfillMixin, TranslationBase):
+    slug_source = "title"
+
     artwork = models.ForeignKey(Artwork, on_delete=models.CASCADE, related_name="translations", verbose_name="Obra de arte")
     title = models.CharField(max_length=200, verbose_name="Título")
     description = models.TextField(blank=True, verbose_name="Descripción")
 
     class Meta:
         unique_together = [("artwork", "language")]
+
+    def build_slug_base(self):
+        return f"{self.artwork.artist.slug}-{self.title}"
 
     def __str__(self):
         return f"{self.artwork} ({self.language})"
@@ -292,6 +294,11 @@ class ArtworkGallery(BaseModel):
 
     class Meta:
         unique_together = [("artwork", "gallery")]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(uuid4().hex[:12], ArtworkGallery.objects.all())
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.artwork} en {self.gallery}"
@@ -307,6 +314,11 @@ class ArtworkImage(BaseModel):
 
     class Meta:
         ordering = ["sort_order"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(uuid4().hex[:12], ArtworkImage.objects.all())
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.alt_es or f"Imagen de {self.artwork}"

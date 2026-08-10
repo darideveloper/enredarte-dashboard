@@ -1,5 +1,18 @@
 from django.conf import settings
 from django.db import models
+from django.utils.text import slugify
+
+
+def unique_slugify(base, queryset):
+    """Return a slugified, queryset-unique slug (appending -1, -2, ... on collision)."""
+    base_slug = slugify(base)[:200]
+    slug = base_slug
+    counter = 1
+    while queryset.filter(slug=slug).exists():
+        suffix = f"-{counter}"
+        slug = f"{base_slug[: max(1, 200 - len(suffix))]}{suffix}"
+        counter += 1
+    return slug
 
 
 class TimeStampedModel(models.Model):
@@ -11,7 +24,7 @@ class TimeStampedModel(models.Model):
 
 
 class BaseModel(TimeStampedModel):
-    slug = models.SlugField(max_length=200, unique=True, verbose_name="Slug")
+    slug = models.SlugField(max_length=200, unique=True, blank=True, verbose_name="Slug")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
     sort_order = models.IntegerField(default=0, verbose_name="Orden")
 
@@ -27,6 +40,43 @@ class TranslationBase(models.Model):
 
     class Meta:
         abstract = True
+
+
+class SlugBackfillMixin(models.Model):
+    """Backfill the parent's slug from this translation row's ES content.
+
+    Applied to translation models whose parent's slug is auto-generated. After
+    saving an ES translation, if the parent's slug is empty it is set from
+    `build_slug_base()` (default: the `slug_source` field) via `unique_slugify`.
+    Non-ES translations and already-slugged parents are left untouched.
+    """
+
+    slug_source = "name"
+
+    class Meta:
+        abstract = True
+
+    def _parent(self):
+        for field in self._meta.get_fields():
+            if isinstance(field, models.ForeignKey) and not field.auto_created:
+                return getattr(self, field.name)
+        return None
+
+    def build_slug_base(self):
+        return getattr(self, self.slug_source)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.language != "es":
+            return
+        parent = self._parent()
+        if parent is None or parent.slug:
+            return
+        source = getattr(self, self.slug_source, None)
+        if not source:
+            return
+        parent.slug = unique_slugify(self.build_slug_base(), type(parent)._default_manager.all())
+        parent.save(update_fields=["slug"])
 
 
 class TranslatableName(BaseModel):

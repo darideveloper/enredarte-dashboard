@@ -5,6 +5,8 @@ from django.core.management import call_command
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+from core.models import unique_slugify
+
 from artworks.admin import (
     ArtistAvailableWorksFilter,
     ArtCuratorAdmin,
@@ -1218,3 +1220,137 @@ class TranslationInlineEnforcementTestCase(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Discipline.objects.filter(slug="escultura").exists())
+
+
+class UniqueSlugifyTestCase(TestCase):
+    def test_no_collision_returns_base(self):
+        self.assertEqual(unique_slugify("pintura", Discipline.objects.all()), "pintura")
+
+    def test_collision_appends_suffix(self):
+        Discipline.objects.create(slug="oleo")
+        Discipline.objects.create(slug="oleo-1")
+        self.assertEqual(unique_slugify("oleo", Discipline.objects.all()), "oleo-2")
+
+    def test_input_is_slugified(self):
+        self.assertEqual(unique_slugify("Arte Abstracto", Discipline.objects.all()), "arte-abstracto")
+
+
+class SlugBackfillMixinTestCase(TestCase):
+    def test_orm_creation_backfills_from_es_name(self):
+        discipline = Discipline.objects.create()
+        DisciplineTranslation.objects.create(discipline=discipline, language="es", name="Pintura")
+        self.assertEqual(discipline.slug, "pintura")
+
+    def test_admin_creation_backfills_without_typed_slug(self):
+        superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+        response = self.client.post(
+            reverse("admin:artworks_discipline_add"),
+            {
+                "is_active": "on",
+                "sort_order": "1",
+                "translations-TOTAL_FORMS": "2",
+                "translations-INITIAL_FORMS": "0",
+                "translations-MIN_NUM_FORMS": "0",
+                "translations-MAX_NUM_FORMS": "2",
+                "translations-0-language": "es",
+                "translations-0-name": "Pintura",
+                "translations-1-language": "en",
+                "translations-1-name": "Painting",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        discipline = Discipline.objects.latest("id")
+        self.assertEqual(discipline.slug, "pintura")
+
+    def test_colliding_translated_slugs_get_suffix(self):
+        first = Discipline.objects.create()
+        DisciplineTranslation.objects.create(discipline=first, language="es", name="Óleo")
+        second = Discipline.objects.create()
+        DisciplineTranslation.objects.create(discipline=second, language="es", name="Óleo")
+        self.assertEqual(first.slug, "oleo")
+        self.assertEqual(second.slug, "oleo-1")
+
+    def test_non_es_translation_does_not_backfill(self):
+        discipline = Discipline.objects.create()
+        DisciplineTranslation.objects.create(discipline=discipline, language="en", name="Painting")
+        self.assertEqual(discipline.slug, "")
+
+    def test_existing_slug_is_preserved(self):
+        discipline = Discipline.objects.create(slug="escultura")
+        DisciplineTranslation.objects.create(discipline=discipline, language="es", name="Pintura")
+        self.assertEqual(discipline.slug, "escultura")
+
+
+class ArtworkCompositeSlugTestCase(TestCase):
+    def setUp(self):
+        self.artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")
+
+    def _artwork(self, **kwargs):
+        defaults = dict(
+            artist=self.artist, year=1939, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+        )
+        defaults.update(kwargs)
+        return Artwork.objects.create(**defaults)
+
+    def test_composite_slug_from_artist_and_title(self):
+        artwork = self._artwork()
+        ArtworkTranslation.objects.create(artwork=artwork, language="es", title="Las Dos Fridas")
+        self.assertEqual(artwork.slug, "frida-kahlo-las-dos-fridas")
+
+    def test_cross_artist_titles_are_distinct(self):
+        other = Artist.objects.create(name="Diego Rivera", slug="diego-rivera")
+        a = self._artwork()
+        ArtworkTranslation.objects.create(artwork=a, language="es", title="Las Dos Fridas")
+        b = Artwork.objects.create(
+            artist=other, year=1935, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+        )
+        ArtworkTranslation.objects.create(artwork=b, language="es", title="Las Dos Fridas")
+        self.assertEqual(a.slug, "frida-kahlo-las-dos-fridas")
+        self.assertEqual(b.slug, "diego-rivera-las-dos-fridas")
+
+    def test_same_artist_title_collision_gets_suffix(self):
+        a = self._artwork()
+        ArtworkTranslation.objects.create(artwork=a, language="es", title="Las Dos Fridas")
+        b = self._artwork()
+        ArtworkTranslation.objects.create(artwork=b, language="es", title="Las Dos Fridas")
+        self.assertEqual(a.slug, "frida-kahlo-las-dos-fridas")
+        self.assertEqual(b.slug, "frida-kahlo-las-dos-fridas-1")
+
+
+class InlineTokenSlugTestCase(TestCase):
+    def setUp(self):
+        self.artist = Artist.objects.create(name="Frida Kahlo", slug="frida-kahlo")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=1939, dimensions="10x10",
+            price_mxn=100, price_usd=5, status=ArtworkStatus.AVAILABLE,
+            slug="las-dos-fridas",
+        )
+        self.gallery = Gallery.objects.create(slug="galeria-arte")
+
+    def test_artwork_image_gets_token_slug(self):
+        image = ArtworkImage.objects.create(artwork=self.artwork, image="artworks/a.png")
+        self.assertTrue(image.slug)
+        self.assertNotEqual(image.slug, "")
+
+    def test_artwork_gallery_gets_token_slug(self):
+        link = ArtworkGallery.objects.create(artwork=self.artwork, gallery=self.gallery)
+        self.assertTrue(link.slug)
+        self.assertNotEqual(link.slug, "")
+
+    def test_multiple_images_get_distinct_slugs(self):
+        first = ArtworkImage.objects.create(artwork=self.artwork, image="artworks/a.png")
+        second = ArtworkImage.objects.create(artwork=self.artwork, image="artworks/b.png")
+        third = ArtworkImage.objects.create(artwork=self.artwork, image="artworks/c.png")
+        slugs = {first.slug, second.slug, third.slug}
+        self.assertEqual(len(slugs), 3)
+
+    def test_multiple_gallery_links_get_distinct_slugs(self):
+        other = Gallery.objects.create(slug="otra-galeria")
+        first = ArtworkGallery.objects.create(artwork=self.artwork, gallery=self.gallery)
+        second = ArtworkGallery.objects.create(artwork=self.artwork, gallery=other)
+        self.assertNotEqual(first.slug, second.slug)
