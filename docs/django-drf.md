@@ -66,13 +66,13 @@ All global behaviour is configured through the `REST_FRAMEWORK` dictionary in `s
 ```python
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "DEFAULT_PAGINATION_CLASS": "myproject.pagination.CustomPageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "project.pagination.CustomPageNumberPagination",
     "PAGE_SIZE": 12,
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
-    "EXCEPTION_HANDLER": "myproject.handlers.custom_exception_handler",
+    "EXCEPTION_HANDLER": "project.handlers.custom_exception_handler",
 }
 ```
 
@@ -90,7 +90,7 @@ REST_FRAMEWORK = {
 
 A custom pagination class gives every list endpoint the same paginated envelope and lets clients control page size per request.
 
-Create `myproject/pagination.py`:
+Create `project/pagination.py`:
 
 ```python
 from rest_framework.pagination import PageNumberPagination
@@ -151,7 +151,7 @@ GET /api/articles/?page_size=50   # 50 items per page (≤ 100)
 
 A global exception handler guarantees that **all** errors — validation errors, not-found, permission denied, etc. — share the same JSON envelope.
 
-Create `myproject/handlers.py`:
+Create `project/handlers.py`:
 
 ```python
 from rest_framework.views import exception_handler
@@ -271,11 +271,13 @@ from django.db import models
 
 
 class Article(models.Model):
-    LANGS = {"en": "English", "es": "Spanish"}
+    class Lang(models.TextChoices):
+        EN = "en", "English"
+        ES = "es", "Spanish"
 
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True, blank=True, null=True)
-    lang = models.CharField(max_length=2, choices=LANGS, default="en")
+    lang = models.CharField(max_length=2, choices=Lang.choices, default=Lang.EN)
     banner_image_url = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField()
     author = models.CharField(max_length=255)
@@ -435,7 +437,7 @@ Key points:
 
 Use a DRF router so the viewset maps to RESTful URLs automatically, including a browsable API-root listing.
 
-Create `myproject/urls.py`:
+Create `project/urls.py`:
 
 ```python
 from django.urls import path, include
@@ -624,12 +626,12 @@ self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 
 | Piece | Where it lives | Purpose |
 | --- | --- | --- |
-| `REST_FRAMEWORK` dict | `myproject/settings.py` | Global permissions, pagination, auth, exception handler |
-| `CustomPageNumberPagination` | `myproject/pagination.py` | Consistent paginated envelope for all lists |
-| `custom_exception_handler` | `myproject/handlers.py` | Uniform `{status, message, data}` error format |
+| `REST_FRAMEWORK` dict | `project/settings.py` | Global permissions, pagination, auth, exception handler |
+| `CustomPageNumberPagination` | `project/pagination.py` | Consistent paginated envelope for all lists |
+| `custom_exception_handler` | `project/handlers.py` | Uniform `{status, message, data}` error format |
 | Serializers | `myapp/serializers.py` | Field mapping, validation, computed fields |
 | Viewsets | `myapp/views.py` | Grouped list/detail logic, read-only by default |
-| Router | `myproject/urls.py` | Auto-generates RESTful URLs under `/api/` |
+| Router | `project/urls.py` | Auto-generates RESTful URLs under `/api/` |
 | Public `APIView` classes | `myapp/api_views.py` | Anonymous endpoints, upstream proxying |
 | `APITestCase` base | `myapp/tests/` | Auth + pagination + serializer coverage |
 

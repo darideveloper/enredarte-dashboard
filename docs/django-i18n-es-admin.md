@@ -437,6 +437,37 @@ applies unchanged:
   - add `UNFOLD = {"SHOW_LANGUAGES": True}`.
   But a Spanish-only admin skips all of that.
 
+#### `range_date_filter_es.js` — Spanish placeholders for Unfold's range date filters
+
+Unfold's range date filters render placeholder inputs with English text. The
+`static/js/range_date_filter_es.js` script localizes them to Spanish:
+
+```javascript
+document.addEventListener("DOMContentLoaded", function () {
+  const texts = [
+    { names: ["created_at_from", "updated_at_from"], text: "Desde" },
+    { names: ["created_at_to", "updated_at_to"], text: "Hasta" },
+  ]
+
+  texts.forEach((text) => {
+    text.names.forEach((name) => {
+      const elem = document.querySelector(`[name="${name}"]`)
+      if (!elem) return
+      elem.placeholder = text.text
+    })
+  })
+})
+```
+
+Load it from your `project/templates/admin/base.html` override (Spanish admin
+only — do not include it in an English-default project):
+
+```html
+<script src="{% static 'js/range_date_filter_es.js' %}"></script>
+```
+
+Extend the `texts` array with additional `[name]`→placeholder pairs as needed.
+
 ---
 
 ## 10. Checklist — replicating the system in your project

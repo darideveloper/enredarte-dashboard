@@ -12,11 +12,11 @@ status: active
 
 # Redis in Django Integration Guide
 
-This guide details how to implement [[30-resources/redis/redis.md|Redis]] in a Django project for caching and background tasks.
+This guide details how to implement Redis (external) in a Django project for caching and background tasks.
 
 ## 📦 Dependencies
 
-Add these to your `requirements.txt` (see [[20-areas/work/django/django-project-setup.md]]):
+Add these to your `requirements.txt` (see [[django-project-setup|Django Project Setup]]):
 
 ```text
 django-redis>=5.4.0
@@ -55,7 +55,7 @@ CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://127.0.0.1:6379") + "/1"
 ## 🚀 Use Cases
 
 ### A. View Caching
-Cache entire views to avoid hitting [[30-resources/postgresql/postgresql.md|PostgreSQL]].
+Cache entire views to avoid hitting PostgreSQL (external).
 
 ```python
 from django.views.decorators.cache import cache_page
@@ -66,14 +66,14 @@ def my_expensive_view(request):
 ```
 
 ### B. Background Tasks
-Offload heavy tasks as described in [[20-areas/work/django/django-local-subdomain-setup.md]].
+Offload heavy tasks as described in [[django-local-subdomain-setup|Local Development & Subdomain Setup]].
 
 ```python
 from celery import shared_task
 
 @shared_task
 def process_media_upload(file_id):
-    # Logic for processing files (see [[20-areas/work/django/django-media-storage.md]])
+    # Logic for processing files (see [[django-media-storage|Media Storage Configuration]])
     ...
 ```
 
@@ -97,6 +97,6 @@ def get_data():
 
 ---
 **Related:**
-- [[30-resources/redis/redis.md|General Redis Resource]]
-- [[20-areas/work/django/django-project-setup.md|Django Project Setup]]
-- [[30-resources/docs/coolify-services.md|Coolify Services]]
+- Redis (external)
+- [[django-project-setup|Django Project Setup]]
+- Coolify (external)

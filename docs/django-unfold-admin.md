@@ -164,10 +164,10 @@ Resulting `SIDEBAR` block in `project/settings.py`:
     "show_all_applications": True,
     "navigation": [],
 },
+# No `permission` callback, no Python helper, no custom `AdminSite` subclass,
+# and no `core/admin.py` changes are required.
 ```
 
-No `permission` callback, no Python helper, no custom `AdminSite` subclass, and no `core/admin.py` changes are required.
-```
 
 ## 4. Custom Callbacks (`utils/callbacks.py`)
 

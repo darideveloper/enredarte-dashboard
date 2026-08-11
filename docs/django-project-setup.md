@@ -270,6 +270,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 ```
 
 **Conditional Storage (AWS S3 vs Local):**
+> Full storage configuration details are available in the
+> [[django-media-storage|Media Storage Configuration]] guide.
 ```python
 STORAGE_AWS = os.getenv("STORAGE_AWS") == "True"
 
@@ -281,6 +283,11 @@ if STORAGE_AWS:
     AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
     AWS_PROJECT_FOLDER = os.getenv("AWS_PROJECT_FOLDER")
+
+    # Folder isolation inside the shared bucket
+    STATIC_LOCATION = f"{AWS_PROJECT_FOLDER}/static"
+    PUBLIC_MEDIA_LOCATION = f"{AWS_PROJECT_FOLDER}/media"
+    PRIVATE_MEDIA_LOCATION = f"{AWS_PROJECT_FOLDER}/private"
 
     STORAGES = {
         "default": {
@@ -301,6 +308,12 @@ else:
         },
         "staticfiles": {
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+        "private": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {
+                "location": os.path.join(MEDIA_ROOT, "private-media"),
+            },
         },
     }
 ```
@@ -378,6 +391,8 @@ These files are essential for the infrastructure and global behaviors defined in
 #### project/urls.py
 Global URL configuration featuring DRF router, root redirects, and static/media file serving.
 ```python
+import project.admin  # required: `project` is not in INSTALLED_APPS, so Django does not auto-discover its admin module; without this import the custom UserAdmin/GroupAdmin/TokenAdmin are silently ignored
+
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -477,42 +492,12 @@ def custom_exception_handler(exc, context):
 #### project/admin.py
 Customizes the Django Admin for User and Group models using Unfold's components. Always use `ModelAdminUnfoldBase` (not raw `ModelAdmin`) for all admin classes to inherit `compressed_fields`, `warn_unsaved_form`, `sidebar_icon`, and the `edit` row action.
 
+The full `UserAdmin`/`GroupAdmin`/`TokenAdmin` code lives in the
+[[django-unfold-admin|Unfold Admin Theme]] guide (§7.1), which also documents
+the required `import project.admin` in `urls.py`. Keep it there — this guide
+does not duplicate it.
+
 > **DRF-only**: `TokenAdmin` / `TokenProxy` (from `rest_framework.authtoken`) are only required if the project uses DRF's `TokenAuthentication`. If not using DRF, omit those imports, the `unregister(TokenProxy)` call, and the `TokenAdmin` class.
-```python
-from django.contrib import admin
-from django.contrib.auth.admin import GroupAdmin as BaseGroupAdmin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.contrib.auth.models import Group, User
-from rest_framework.authtoken.admin import TokenAdmin as BaseTokenAdmin
-from rest_framework.authtoken.models import TokenProxy
-
-from project.admin_base import ModelAdminUnfoldBase
-from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
-
-admin.site.unregister(User)
-admin.site.unregister(Group)
-admin.site.unregister(TokenProxy)
-
-
-@admin.register(User)
-class UserAdmin(BaseUserAdmin, ModelAdminUnfoldBase):
-    sidebar_icon = "person"
-    form = UserChangeForm
-    add_form = UserCreationForm
-    change_password_form = AdminPasswordChangeForm
-    list_display = ("username", "email", "first_name", "is_staff")
-    list_display_links = ("username", "email")
-
-
-@admin.register(Group)
-class GroupAdmin(BaseGroupAdmin, ModelAdminUnfoldBase):
-    sidebar_icon = "group"
-
-
-@admin.register(TokenProxy)
-class TokenAdmin(BaseTokenAdmin):
-    sidebar_icon = "key"
-```
 
 #### project/templates/admin/base.html
 Customizes the Django Unfold admin theme by loading additional CSS and JavaScript libraries. Always extend `"admin/base.html"` — never extend `unfold/layouts/base.html` directly, as this breaks Unfold's sticky bottom bar and responsive layout logic.
@@ -530,7 +515,6 @@ Customizes the Django Unfold admin theme by loading additional CSS and JavaScrip
 <!-- Load Unfold custom scripts -->
 <script src="{% static 'js/add_tailwind_styles.js' %}"></script>
 <script src="{% static 'js/load_markdown.js' %}"></script>
-<script src="{% static 'js/range_date_filter_es.js' %}"></script>
 {% endblock %}
 ```
 
@@ -637,7 +621,7 @@ General-purpose logic.
 
 #### Other Required Files
 - **static/css/style.css**: Create an empty file for custom CSS.
-- **static/logo.svg** and **static/favicon.png**: Add your project's logo and favicon. 
+- **static/logo.webp** and **static/favicon.png**: Add your project's logo and favicon. 
   > **Note:** Prompt the user to check if they have specific logo and favicon files to use, or if they would like to create placeholders or new ones now.
 - **media/**: Create an empty directory in the root for local file uploads.
 
@@ -769,8 +753,15 @@ The `start.sh` script handles database migrations and starts the Gunicorn server
 set -e
 
 echo "Running migrations..."
-python manage.py makemigrations --noinput
+# Validate that migrations are committed (fail loudly if any are missing).
+# Run `makemigrations` locally before building the image and commit the files.
+python manage.py makemigrations --check --noinput
 python manage.py migrate --noinput
+
+# Base data (reference/lookup rows) is required for the system to work.
+# NOTE: do NOT run seed_loaddata here — it is environment-specific and should
+# be loaded once manually.
+python manage.py base_loaddata
 
 echo "Starting Gunicorn..."
 exec gunicorn --bind 0.0.0.0:80 project.wsgi:application
