@@ -1,0 +1,7 @@
+vars {
+  @description('''Base URL of the local dev server, reachable via the portless subdomain started by ./dev.sh. The subdomain derives from the project dir name (enredarte-dashboard). Fallback: http://localhost:8000 (only usable when port 8000 is free, since dev.sh auto-increments on conflict).''')
+  base_url: https://enredarte-dashboard.localhost
+
+  @description('''DRF Token placeholder. Mint a real token from the Django shell (see docs/django-drf.md, section 6) and paste it here. Never commit a real token.''')
+  token: <paste-token-here>
+}
