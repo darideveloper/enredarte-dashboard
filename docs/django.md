@@ -25,6 +25,7 @@ Django is a high-level Python web framework that encourages rapid development an
 *   [[django-redis|Redis in Django Integration Guide]]
 *   [[django-local-subdomain-setup|Local Development & Subdomain Setup]]
 *   [[django-i18n-es-admin|Spanish Django Admin]]
+*   [[django-bruno|Bruno API Client Guide]]
 *   [[20-areas/work/mermaid/mermaid-diagram-generation|Mermaid Diagram Generation]]
 
 ### **Wikilinks & Portability**
