@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     "storages",
     "core",
     "artworks",
+    "blog",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
