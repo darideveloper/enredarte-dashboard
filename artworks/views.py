@@ -1,65 +1,94 @@
-from django.utils import timezone
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework import viewsets
 
-from artworks.models import Artwork, ArtworkStatus
-from artworks.serializers import ArtistRefSerializer, ArtworkSerializer, RefSerializer
+from artworks.models import (
+    ArtCurator,
+    Artist,
+    Artwork,
+    Discipline,
+    Format,
+    Gallery,
+    Location,
+    Scale,
+    Technique,
+    Theme,
+)
+from artworks.serializers import (
+    ArtCuratorSerializer,
+    ArtistSerializer,
+    ArtworkSerializer,
+    DisciplineSerializer,
+    FormatSerializer,
+    GallerySerializer,
+    LocationSerializer,
+    ScaleSerializer,
+    TechniqueSerializer,
+    ThemeSerializer,
+)
 
-TAXONOMY_FIELDS = ("disciplines", "techniques", "themes", "formats", "scales")
+
+class ArtistViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Artist.objects.filter(is_active=True).prefetch_related(
+        "location", "translations", "social_links"
+    ).order_by("sort_order")
+    serializer_class = ArtistSerializer
 
 
-class CatalogAPIView(APIView):
-    """Authenticated, unpaginated snapshot of the buyable catalogue for the SSG build."""
+class ArtCuratorViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ArtCurator.objects.filter(is_active=True).prefetch_related(
+        "translations"
+    ).order_by("sort_order")
+    serializer_class = ArtCuratorSerializer
 
-    pagination_class = None
 
-    def get(self, request):
-        artworks = list(
-            Artwork.objects.filter(is_active=True, status=ArtworkStatus.AVAILABLE)
-            .order_by("sort_order", "id")
-            .select_related("artist", "artist__location")
-            .prefetch_related(
-                "disciplines__translations",
-                "techniques__translations",
-                "themes__translations",
-                "formats__translations",
-                "scales__translations",
-                "translations",
-                "images",
-                "artist__location__translations",
-            )
-        )
+class LocationViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Location.objects.filter(is_active=True).prefetch_related(
+        "translations"
+    ).order_by("sort_order")
+    serializer_class = LocationSerializer
 
-        artists = {}
-        for artwork in artworks:
-            artists[artwork.artist_id] = artwork.artist
 
-        locations = {}
-        for artist in artists.values():
-            if artist.location_id:
-                locations[artist.location_id] = artist.location
+class GalleryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Gallery.objects.filter(is_active=True).prefetch_related(
+        "curator", "translations", "artwork_links__artwork"
+    ).order_by("sort_order")
+    serializer_class = GallerySerializer
 
-        taxonomies = {name: {} for name in TAXONOMY_FIELDS}
-        for artwork in artworks:
-            for name in TAXONOMY_FIELDS:
-                for item in getattr(artwork, name).all():
-                    taxonomies[name][item.id] = item
 
-        return Response(
-            {
-                "generated_at": timezone.now().isoformat().replace("+00:00", "Z"),
-                "artists": ArtistRefSerializer(
-                    sorted(artists.values(), key=lambda a: (a.sort_order, a.id)), many=True
-                ).data,
-                "taxonomies": {
-                    name: RefSerializer(
-                        sorted(items.values(), key=lambda o: (o.sort_order, o.id)), many=True
-                    ).data
-                    for name, items in taxonomies.items()
-                },
-                "locations": RefSerializer(
-                    sorted(locations.values(), key=lambda l: (l.sort_order, l.id)), many=True
-                ).data,
-                "artworks": ArtworkSerializer(artworks, many=True).data,
-            }
-        )
+class _TaxonomyViewSet(viewsets.ReadOnlyModelViewSet):
+    def get_queryset(self):
+        return self.model.objects.filter(is_active=True).prefetch_related(
+            "translations"
+        ).order_by("sort_order")
+
+
+class DisciplineViewSet(_TaxonomyViewSet):
+    model = Discipline
+    serializer_class = DisciplineSerializer
+
+
+class TechniqueViewSet(_TaxonomyViewSet):
+    model = Technique
+    serializer_class = TechniqueSerializer
+
+
+class ThemeViewSet(_TaxonomyViewSet):
+    model = Theme
+    serializer_class = ThemeSerializer
+
+
+class FormatViewSet(_TaxonomyViewSet):
+    model = Format
+    serializer_class = FormatSerializer
+
+
+class ScaleViewSet(_TaxonomyViewSet):
+    model = Scale
+    serializer_class = ScaleSerializer
+
+
+class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Artwork.objects.filter(is_active=True).prefetch_related(
+        "artist", "disciplines", "techniques", "themes", "formats", "scales",
+        "translations", "images", "gallery_links__gallery",
+    ).order_by("sort_order")
+    serializer_class = ArtworkSerializer

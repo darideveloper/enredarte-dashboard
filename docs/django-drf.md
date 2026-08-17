@@ -232,9 +232,24 @@ token, created = Token.objects.get_or_create(user=user)
 print(token.key)
 ```
 
-### Build / API client credential (SSG catalog)
+### Build / API client credential (SSG build)
 
-`GET /api/catalog/` requires authentication (`IsAuthenticated`) like every other endpoint; the SSG build authenticates with a DRF Token sent as an API key.
+Every endpoint under `/apis/artworks/` requires authentication (`IsAuthenticated`) like every other endpoint; the SSG build authenticates with a DRF Token sent as an API key.
+
+The build no longer fetches a single monolithic catalog. Instead it paginates through the 10 per-model read-only endpoints:
+
+- `GET /apis/artworks/artists/`
+- `GET /apis/artworks/art-curators/`
+- `GET /apis/artworks/locations/`
+- `GET /apis/artworks/galleries/`
+- `GET /apis/artworks/disciplines/`
+- `GET /apis/artworks/techniques/`
+- `GET /apis/artworks/themes/`
+- `GET /apis/artworks/formats/`
+- `GET /apis/artworks/scales/`
+- `GET /apis/artworks/artworks/`
+
+Each list response is paginated (`page_size` query param, max 100); translations are nested as `{language: {field: value}}` dicts, related models are referenced via `{id, slug}` objects, and artwork images use absolute URLs.
 
 To provision the build credential in the Django admin:
 

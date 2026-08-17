@@ -1,57 +1,35 @@
 # Bruno API Collection Specification
 
 ## Purpose
-To define a Bruno API collection committed to the repository so developers can exercise the REST API (authenticated catalog endpoint and DRF router root) against the local dev server without hard-coding hostnames or credentials. The workspace lives in `bruno/` as plain-text `.bru` files, uses a `dev.bru` environment exposing `base_url` and `token` variables (gitignored; only the `dev.bru.example` template is committed), and ships a `bruno/README.md` explaining how to open the workspace and obtain a DRF Token.
+To define a Bruno API collection committed to the repository so developers can exercise the REST API (10 per-model endpoints under `/apis/artworks/`) against the local dev server without hard-coding hostnames or credentials. The workspace lives in `bruno/` as plain-text `.bru` files, uses a `dev.bru` environment exposing `base_url` and `token` variables (gitignored; only the `dev.bru.example` template is committed), and ships a `bruno/README.md` explaining how to open the workspace and obtain a DRF Token.
 
 ## Requirements
 
 ### Requirement: Collection committed to git
-The system SHALL store a Bruno workspace in the `bruno/` directory at the repository root, so every request is a plain-text `.bru` file tracked in version control. `bruno/workspace.yml` SHALL declare the workspace with a `collections` list pointing at the collection folder. Nothing in `bruno/` SHALL require a runtime dependency or an entry in `requirements.txt`.
+The system SHALL store a Bruno workspace in the `bruno/` directory at the repository root, so every request is a plain-text `.bru` file tracked in version control. `bruno/workspace.yml` SHALL declare the workspace with a `collections` list pointing at the collection folder. The collection SHALL contain 10 model-specific folders (`Artists/`, `ArtCurators/`, `Locations/`, `Galleries/`, `Disciplines/`, `Techniques/`, `Themes/`, `Formats/`, `Scales/`, `Artworks/`), each with `GET list.bru` and `GET detail.bru` files. Nothing in `bruno/` SHALL require a runtime dependency or an entry in `requirements.txt`.
 
-#### Scenario: Collection exists in repo
+#### Scenario: Collection exists with per-model folders
 - **WHEN** the repository is cloned
-- **THEN** the `bruno/` directory exists and contains a `workspace.yml` file declaring the workspace, and a `collections/enredarte-dashboard-api/` folder whose `bruno.json` declares the collection metadata (name, type, version)
+- **THEN** the `bruno/` directory exists with `workspace.yml`, `README.md`, and `collections/enredarte-dashboard-api/` containing 10 subdirectories (one per model) each with two `.bru` files.
 
 #### Scenario: No runtime dependency introduced
 - **WHEN** the change is applied
-- **THEN** `requirements.txt` and Python runtime code are unchanged
+- **THEN** `requirements.txt` and Python runtime code are unchanged.
 
 ### Requirement: Environment variables for base URL and auth token
-The system SHALL define a local environment file at `bruno/collections/enredarte-dashboard-api/environments/dev.bru` exposing two variables: `base_url` (the local dev server, reachable via the portless subdomain `https://enredarte-dashboard.localhost` started by `dev.sh`) and `token` (a DRF Token placeholder to be filled by the developer). The `.bru` environment file SHALL be gitignored; the committed template is `dev.bru.example` with a placeholder `token`, copied to `dev.bru` locally. Request files SHALL reference only these variables (e.g. `{{base_url}}`, `{{token}}`) and SHALL NOT hard-code hostnames or tokens.
+The system SHALL preserve the local environment file at `bruno/collections/enredarte-dashboard-api/environments/dev.bru` exposing two variables: `base_url` (the local dev server) and `token` (a DRF Token placeholder to be filled by the developer). The `.bru` environment file SHALL be gitignored; the committed template is `dev.bru.example` with a placeholder `token`, copied to `dev.bru` locally. All request files SHALL reference `{{base_url}}/apis/artworks/<resource>/` or `{{base_url}}/apis/artworks/<resource>/1/` and `{{token}}`, and SHALL NOT hard-code hostnames or tokens.
 
 #### Scenario: Local environment defines base_url and token
 - **WHEN** the `dev.bru` environment is opened in Bruno
-- **THEN** it exposes `base_url` (defaulting to `https://enredarte-dashboard.localhost`) and `token` variables with descriptive comments, and `dev.bru` is untracked while `dev.bru.example` holds the placeholder template
+- **THEN** it exposes `base_url` and `token` variables with descriptive comments, and `dev.bru` is untracked while `dev.bru.example` holds the placeholder template
 
 #### Scenario: Request uses variables, not literals
 - **WHEN** any request file is inspected
-- **THEN** its URL and headers reference `{{base_url}}` and `{{token}}` and contain no hard-coded host or credential
-
-### Requirement: Authenticated catalog request
-The system SHALL provide a request file for `GET /api/catalog/` that sends the header `Authorization: Token {{token}}` and targets `{{base_url}}/api/catalog/`.
-
-#### Scenario: Catalog request hits the authenticated endpoint
-- **WHEN** the catalog request runs against the local server with the `dev` environment and a valid token
-- **THEN** the request sends `GET {{base_url}}/api/catalog/` with the `Authorization: Token {{token}}` header and the server returns `200` with the catalog payload (`generated_at`, `artists`, `taxonomies`, `locations`, `artworks`)
-
-#### Scenario: Catalog request without valid token
-- **WHEN** the catalog request runs with an empty or invalid token
-- **THEN** the server returns `401`
-
-### Requirement: Authenticated router-root request
-The system SHALL provide a request file for `GET /api/` (DRF router root) that sends the header `Authorization: Token {{token}}`.
-
-#### Scenario: Router-root request with token
-- **WHEN** the router-root request runs with the `dev` environment and a valid token value
-- **THEN** the request sends `GET {{base_url}}/api/` with `Authorization: Token {{token}}` and the server returns `200` with the (currently empty) list of registered API routes
-
-#### Scenario: Router-root request without valid token
-- **WHEN** the router-root request runs with an empty or invalid token
-- **THEN** the server returns `401` with the `{status, message, data}` error envelope
+- **THEN** its URL SHALL reference `{{base_url}}/apis/artworks/<resource>/` or `{{base_url}}/apis/artworks/<resource>/1/` and its headers SHALL reference `{{token}}`.
 
 ### Requirement: README documents usage
-The system SHALL provide `bruno/README.md` explaining how to open the workspace in the Bruno desktop app (via **Workspace dropdown → Open workspace**, selecting the `bruno/` folder) and how to obtain a DRF Token (Django shell command per `docs/django-drf.md` §6) to place in `dev.bru` (copied from the `dev.bru.example` template).
+The system SHALL provide `bruno/README.md` documenting the new 10-model endpoint structure under `/apis/artworks/` and how to use the per-model request files. It SHALL describe the `/apis/artworks/` URL prefix and SHALL include instructions for obtaining a DRF Token (Django shell command per `docs/django-drf.md` §6) to place in `dev.bru`.
 
-#### Scenario: README explains opening and token creation
+#### Scenario: README explains new structure
 - **WHEN** a developer reads `bruno/README.md`
-- **THEN** it contains steps to open the `bruno/` workspace in Bruno, and a shell snippet to create a DRF Token and paste it into `dev.bru` after copying `dev.bru.example`
+- **THEN** it SHALL describe the 10 model-specific request folders and how to use them, and SHALL include instructions for obtaining a DRF Token.

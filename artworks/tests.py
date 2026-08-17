@@ -1506,249 +1506,133 @@ class InlineTokenSlugTestCase(TestCase):
         self.assertNotEqual(first.slug, second.slug)
 
 
-class PublicCatalogAPITestCase(APITestCase):
+class ArtworksAPITestCase(APITestCase):
     def setUp(self):
         self.client = APIClient()
-
-        self.user = User.objects.create_user(username="catalog-user", password="unused")
+        self.user = User.objects.create_user(username="api-user", password="unused")
         self.token = Token.objects.create(user=self.user)
 
-        self.location_cdmx = Location.objects.create(slug="ciudad-de-mexico", sort_order=1)
+        self.location = Location.objects.create(slug="ciudad-de-mexico", sort_order=1)
         LocationTranslation.objects.create(
-            location=self.location_cdmx, language="es", name="Ciudad de México"
+            location=self.location, language="es", name="Ciudad de México"
         )
         LocationTranslation.objects.create(
-            location=self.location_cdmx, language="en", name="Mexico City"
+            location=self.location, language="en", name="Mexico City"
         )
 
-        self.artist_a = Artist.objects.create(
-            name="Ana Álvarez", slug="ana-alvarez", sort_order=1, location=self.location_cdmx
+        self.artist = Artist.objects.create(
+            name="Ana Álvarez", slug="ana-alvarez", sort_order=1, location=self.location,
+            photo=SimpleUploadedFile("ana.webp", _1PX_PNG),
         )
-        self.artist_b = Artist.objects.create(name="Benito Báez", slug="benito-baez", sort_order=2)
+        ArtistTranslation.objects.create(artist=self.artist, language="es", bio="Biografía ES")
+        ArtistTranslation.objects.create(artist=self.artist, language="en", bio="Bio EN")
 
-        self.discipline_pintura = Discipline.objects.create(slug="pintura", sort_order=1)
+        self.inactive_artist = Artist.objects.create(
+            name="Inactiva", slug="inactiva", sort_order=2, is_active=False
+        )
+
+        self.discipline = Discipline.objects.create(slug="pintura", sort_order=1)
         DisciplineTranslation.objects.create(
-            discipline=self.discipline_pintura, language="es", name="Pintura"
+            discipline=self.discipline, language="es", name="Pintura"
         )
         DisciplineTranslation.objects.create(
-            discipline=self.discipline_pintura, language="en", name="Painting"
-        )
-        self.discipline_escultura = Discipline.objects.create(slug="escultura", sort_order=2)
-        DisciplineTranslation.objects.create(
-            discipline=self.discipline_escultura, language="es", name="Escultura"
+            discipline=self.discipline, language="en", name="Painting"
         )
 
-        self.technique_oleo = Technique.objects.create(slug="oleo", sort_order=1)
-        TechniqueTranslation.objects.create(
-            technique=self.technique_oleo, language="es", name="Óleo"
-        )
-        TechniqueTranslation.objects.create(technique=self.technique_oleo, language="en", name="Oil")
-        self.technique_acuarela = Technique.objects.create(slug="acuarela", sort_order=2)
-        TechniqueTranslation.objects.create(
-            technique=self.technique_acuarela, language="en", name="Watercolor"
-        )
-        self.technique_acrilico = Technique.objects.create(slug="acrilico", sort_order=3)
-
-        self.theme_feminismo = Theme.objects.create(slug="feminismo", sort_order=1)
-        ThemeTranslation.objects.create(theme=self.theme_feminismo, language="es", name="Feminismo")
-        ThemeTranslation.objects.create(theme=self.theme_feminismo, language="en", name="Feminism")
-
-        self.scale_gran_formato = Scale.objects.create(slug="gran-formato", sort_order=1)
-        ScaleTranslation.objects.create(
-            scale=self.scale_gran_formato, language="es", name="Gran formato"
-        )
-        ScaleTranslation.objects.create(
-            scale=self.scale_gran_formato, language="en", name="Large format"
-        )
-
-        self.format_obra_original = Format.objects.create(slug="obra-original", sort_order=1)
-
-        self.available = self._artwork(
-            "obra-available", artist=self.artist_a, title_es="Obra Disponible", title_en="Available Work"
-        )
-        self.available.disciplines.set([self.discipline_pintura, self.discipline_escultura])
-        self.available.techniques.set([self.technique_oleo, self.technique_acuarela, self.technique_acrilico])
-        self.available.themes.set([self.theme_feminismo])
-        self.available.scales.set([self.scale_gran_formato])
-
-        self.fallback = self._artwork(
-            "obra-fallback", artist=self.artist_b, title_es="Obra Sin Principal", title_en="No Primary Work"
-        )
-        self.no_images = self._artwork(
-            "obra-sin-imagen", artist=self.artist_a, title_es="Sin Imagen", title_en="No Image"
-        )
-
-    def _artwork(self, slug, artist=None, title_es=None, title_en=None, status=ArtworkStatus.AVAILABLE, **kwargs):
-        defaults = dict(
-            artist=artist or self.artist_a,
-            slug=slug,
-            year=2020,
+        self.artwork = Artwork.objects.create(
+            artist=self.artist,
+            slug="obra-1",
+            year=2024,
             dimensions="10x10",
-            price_mxn=100.00,
-            price_usd=5.00,
-            status=status,
+            price_mxn=1000,
+            price_usd=50,
+            status=ArtworkStatus.AVAILABLE,
+            is_highlighted=True,
+            views_count=5,
         )
-        defaults.update(kwargs)
-        artwork = Artwork.objects.create(**defaults)
-        if title_es:
-            ArtworkTranslation.objects.create(artwork=artwork, language="es", title=title_es)
-        if title_en:
-            ArtworkTranslation.objects.create(artwork=artwork, language="en", title=title_en)
-        return artwork
-
-    def _image(self, artwork, name, sort_order=0, is_primary=False, alt_es="", alt_en=""):
-        return ArtworkImage.objects.create(
-            artwork=artwork,
-            image=SimpleUploadedFile(name, _1PX_PNG),
-            sort_order=sort_order,
-            is_primary=is_primary,
-            alt_es=alt_es,
-            alt_en=alt_en,
+        self.artwork.disciplines.set([self.discipline])
+        ArtworkTranslation.objects.create(
+            artwork=self.artwork, language="es", title="Obra Uno", description="Desc ES"
+        )
+        ArtworkTranslation.objects.create(artwork=self.artwork, language="en", title="Work One")
+        ArtworkImage.objects.create(
+            artwork=self.artwork,
+            image=SimpleUploadedFile("obra1.png", _1PX_PNG),
+            alt_es="Alt ES",
+            alt_en="Alt EN",
+            is_primary=True,
+            sort_order=1,
         )
 
-    def _get(self):
+    def _auth_get(self, path):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
-        return self.client.get("/api/catalog/")
+        return self.client.get(path)
 
     def test_anonymous_request_rejected(self):
-        response = APIClient().get("/api/catalog/")
+        response = APIClient().get("/apis/artworks/artworks/")
         self.assertEqual(response.status_code, 401)
 
-    def test_token_authenticated_and_unpaginated(self):
-        response = self._get()
+    def test_router_root_lists_all_endpoints(self):
+        response = self._auth_get("/apis/artworks/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 10)
+
+    def test_artwork_list_paginated_envelope(self):
+        response = self._auth_get("/apis/artworks/artworks/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertNotIn("count", data)
-        self.assertNotIn("results", data)
-        self.assertIsInstance(data["artworks"], list)
-        self.assertEqual(len(data["artworks"]), 3)
-
-    def test_session_authenticated_succeeds(self):
-        self.client.credentials()
-        self.client.force_login(self.user)
-        response = self.client.get("/api/catalog/")
-        self.assertEqual(response.status_code, 200)
-        self.assertIsInstance(response.json()["artworks"], list)
-
-    def test_non_buyable_artworks_excluded(self):
-        self._artwork("obra-sold", status=ArtworkStatus.SOLD)
-        self._artwork("obra-reserved", status=ArtworkStatus.RESERVED)
-        self._artwork("obra-loan", status=ArtworkStatus.ON_LOAN)
-        self._artwork("obra-not-available", status=ArtworkStatus.NOT_AVAILABLE)
-        self._artwork("obra-inactive", is_active=False)
-
-        data = self._get().json()
-        slugs = [a["slug"] for a in data["artworks"]]
-        self.assertIn("obra-available", slugs)
-        for excluded in (
-            "obra-sold",
-            "obra-reserved",
-            "obra-loan",
-            "obra-not-available",
-            "obra-inactive",
-        ):
-            self.assertNotIn(excluded, slugs)
-        self.assertEqual(len(slugs), 3)
-
-    def test_all_top_level_keys_present(self):
-        data = self._get().json()
-        for key in ("generated_at", "artists", "taxonomies", "locations", "artworks"):
+        for key in ("count", "next", "previous", "page", "page_size", "total_pages", "results"):
             self.assertIn(key, data)
-        self.assertRegex(data["generated_at"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
-        for group in ("disciplines", "techniques", "themes", "formats", "scales"):
-            self.assertIn(group, data["taxonomies"])
+        self.assertEqual(data["count"], 1)
 
-    def test_unreferenced_taxonomy_group_present_empty(self):
-        data = self._get().json()
-        self.assertEqual(data["taxonomies"]["formats"], [])
+    def test_page_size_param_respected(self):
+        response = self._auth_get("/apis/artworks/artworks/?page_size=50")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["page_size"], 50)
 
-    def test_bilingual_names_and_fallbacks(self):
-        data = self._get().json()
-        disciplines = {d["slug"]: d for d in data["taxonomies"]["disciplines"]}
-        self.assertEqual(disciplines["pintura"]["name_es"], "Pintura")
-        self.assertEqual(disciplines["pintura"]["name_en"], "Painting")
-        self.assertEqual(disciplines["escultura"]["name_es"], "Escultura")
-        self.assertEqual(disciplines["escultura"]["name_en"], "Escultura")
+    def test_inactive_artists_excluded(self):
+        response = self._auth_get("/apis/artworks/artists/")
+        self.assertEqual(response.status_code, 200)
+        slugs = [a["slug"] for a in response.json()["results"]]
+        self.assertIn("ana-alvarez", slugs)
+        self.assertNotIn("inactiva", slugs)
 
-        techniques = {t["slug"]: t for t in data["taxonomies"]["techniques"]}
-        self.assertEqual(techniques["acuarela"]["name_es"], "Watercolor")
-        self.assertEqual(techniques["acuarela"]["name_en"], "Watercolor")
-        self.assertEqual(techniques["acrilico"]["name_es"], "acrilico")
-        self.assertEqual(techniques["acrilico"]["name_en"], "acrilico")
+    def test_artist_detail_shape(self):
+        response = self._auth_get(f"/apis/artworks/artists/{self.artist.id}/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["location"], {"id": self.location.id, "slug": "ciudad-de-mexico"})
+        self.assertEqual(data["translations"]["es"], {"bio": "Biografía ES"})
+        self.assertEqual(data["translations"]["en"], {"bio": "Bio EN"})
+        self.assertTrue(data["photo"].startswith("http"))
 
-    def test_artist_names_and_locations(self):
-        data = self._get().json()
-        artists = {a["slug"]: a for a in data["artists"]}
-        self.assertEqual(artists["ana-alvarez"]["name_es"], "Ana Álvarez")
-        self.assertEqual(artists["ana-alvarez"]["name_en"], "Ana Álvarez")
-        self.assertEqual(artists["ana-alvarez"]["location_id"], self.location_cdmx.id)
-        self.assertIsNone(artists["benito-baez"]["location_id"])
-
-        self.assertEqual(len(data["locations"]), 1)
-        location = data["locations"][0]
-        self.assertEqual(location["id"], self.location_cdmx.id)
-        self.assertEqual(location["slug"], "ciudad-de-mexico")
-        self.assertEqual(location["name_es"], "Ciudad de México")
-        self.assertEqual(location["name_en"], "Mexico City")
-
-    def test_taxonomy_groups_ordered_by_sort_order(self):
-        data = self._get().json()
+    def test_artwork_detail_shape(self):
+        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["artist"], {"id": self.artist.id, "slug": "ana-alvarez"})
         self.assertEqual(
-            [d["slug"] for d in data["taxonomies"]["disciplines"]], ["pintura", "escultura"]
+            data["disciplines"], [{"id": self.discipline.id, "slug": "pintura"}]
         )
-        self.assertEqual(
-            [t["slug"] for t in data["taxonomies"]["techniques"]],
-            ["oleo", "acuarela", "acrilico"],
+        self.assertEqual(data["translations"]["es"]["title"], "Obra Uno")
+        self.assertIsInstance(data["price_mxn"], (int, float))
+        self.assertNotIsInstance(data["price_mxn"], str)
+        self.assertEqual(len(data["images"]), 1)
+        self.assertTrue(data["images"][0]["image"].startswith("http"))
+
+    def test_gallery_translation_blank_description_excluded(self):
+        gallery = Gallery.objects.create(slug="galeria-x", sort_order=1)
+        GalleryTranslation.objects.create(
+            gallery=gallery, language="es", name="Galería X", description=""
         )
+        response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["translations"], {"es": {"name": "Galería X"}})
 
-    def test_primary_image_selected_first(self):
-        self._image(self.available, "other.png", sort_order=1)
-        primary = self._image(
-            self.available, "primary.png", sort_order=2, is_primary=True,
-            alt_es="Alt principal ES", alt_en="Alt primary EN",
-        )
-        data = self._get().json()
-        entry = next(a for a in data["artworks"] if a["slug"] == "obra-available")
-        self.assertEqual(entry["image"], primary.image.url)
-        self.assertEqual(entry["image_alt_es"], "Alt principal ES")
-        self.assertEqual(entry["image_alt_en"], "Alt primary EN")
-
-    def test_image_fallback_to_first_by_sort_order_and_title_alt(self):
-        self._image(self.fallback, "second.png", sort_order=2)
-        first = self._image(self.fallback, "first.png", sort_order=1)
-        data = self._get().json()
-        entry = next(a for a in data["artworks"] if a["slug"] == "obra-fallback")
-        self.assertEqual(entry["image"], first.image.url)
-        self.assertEqual(entry["image_alt_es"], "Obra Sin Principal")
-        self.assertEqual(entry["image_alt_en"], "No Primary Work")
-
-    def test_artwork_without_images_has_null_image_and_alt(self):
-        data = self._get().json()
-        entry = next(a for a in data["artworks"] if a["slug"] == "obra-sin-imagen")
-        self.assertIsNone(entry["image"])
-        self.assertIsNone(entry["image_alt_es"])
-        self.assertIsNone(entry["image_alt_en"])
-
-    def test_artwork_denormalized_shape_and_taxonomy_arrays(self):
-        data = self._get().json()
-        entry = next(a for a in data["artworks"] if a["slug"] == "obra-available")
-        self.assertEqual(entry["id"], self.available.id)
-        self.assertEqual(entry["slug"], "obra-available")
-        self.assertEqual(entry["title_es"], "Obra Disponible")
-        self.assertEqual(entry["title_en"], "Available Work")
-        self.assertEqual(entry["artist_id"], self.artist_a.id)
-        self.assertEqual(entry["year"], 2020)
-        self.assertEqual(entry["dimensions"], "10x10")
-        self.assertEqual(entry["price_mxn"], 100.0)
-        self.assertEqual(entry["price_usd"], 5.0)
-        self.assertIsInstance(entry["price_mxn"], (int, float))
-        self.assertIsInstance(entry["price_usd"], (int, float))
-        self.assertNotIsInstance(entry["price_mxn"], str)
-        self.assertEqual(entry["disciplines"], [self.discipline_pintura.id, self.discipline_escultura.id])
-        self.assertEqual(
-            entry["techniques"],
-            [self.technique_oleo.id, self.technique_acuarela.id, self.technique_acrilico.id],
-        )
-        self.assertEqual(entry["themes"], [self.theme_feminismo.id])
-        self.assertEqual(entry["formats"], [])
-        self.assertEqual(entry["scales"], [self.scale_gran_formato.id])
+    def test_404_returns_error_envelope(self):
+        response = self._auth_get("/apis/artworks/artworks/9999/")
+        self.assertEqual(response.status_code, 404)
+        data = response.json()
+        self.assertEqual(data["status"], "error")
+        self.assertIn("message", data)
+        self.assertIn("data", data)

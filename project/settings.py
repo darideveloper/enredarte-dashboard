@@ -16,6 +16,8 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 
+HOST = os.getenv("HOST")
+
 INSTALLED_APPS = [
     "unfold",
     "unfold.contrib.filters",

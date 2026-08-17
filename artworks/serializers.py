@@ -1,118 +1,205 @@
 from rest_framework import serializers
 
-
-def _translation_value(obj, language, attr):
-    translations = list(obj.translations.all())
-    row = next((t for t in translations if t.language == language), None)
-    row = row or (translations[0] if translations else None)
-    return getattr(row, attr) if row else obj.slug
-
-
-def _name_es(obj):
-    return _translation_value(obj, "es", "name")
-
-
-def _name_en(obj):
-    return _translation_value(obj, "en", "name")
-
-
-def _title_es(obj):
-    return _translation_value(obj, "es", "title")
+from artworks.models import (
+    ArtCurator,
+    Artist,
+    ArtistSocialLink,
+    Artwork,
+    ArtworkGallery,
+    ArtworkImage,
+    Discipline,
+    Format,
+    Gallery,
+    Location,
+    Scale,
+    Technique,
+    Theme,
+)
+from utils.media import get_media_url
 
 
-def _title_en(obj):
-    return _translation_value(obj, "en", "title")
+def _build_translation_dict(translations, fields):
+    return {
+        t.language: {f: getattr(t, f) for f in fields if getattr(t, f, None)}
+        for t in translations
+    }
 
 
-def _primary_image(obj):
-    images = list(obj.images.all())
-    return next((i for i in images if i.is_primary), None) or (images[0] if images else None)
+def _absolute_url(field_value):
+    return get_media_url(field_value) if field_value else None
 
 
 class RefSerializer(serializers.Serializer):
-    """Reference entry for taxonomy terms and locations: id, slug, bilingual name."""
-
     id = serializers.IntegerField()
     slug = serializers.CharField()
-    name_es = serializers.SerializerMethodField()
-    name_en = serializers.SerializerMethodField()
-
-    def get_name_es(self, obj):
-        return _name_es(obj)
-
-    def get_name_en(self, obj):
-        return _name_en(obj)
 
 
-class ArtistRefSerializer(serializers.Serializer):
-    """Artist entry: id, slug, name (language-independent) and location reference."""
-
-    id = serializers.IntegerField()
-    slug = serializers.CharField()
-    name_es = serializers.SerializerMethodField()
-    name_en = serializers.SerializerMethodField()
-    location_id = serializers.IntegerField(allow_null=True)
-
-    def get_name_es(self, obj):
-        return obj.name
-
-    def get_name_en(self, obj):
-        return obj.name
+class ArtistSocialLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ArtistSocialLink
+        fields = ["id", "platform", "url"]
 
 
-class ArtworkSerializer(serializers.Serializer):
-    """Denormalized artwork entry for client-side faceting."""
-
-    id = serializers.IntegerField()
-    slug = serializers.CharField()
-    title_es = serializers.SerializerMethodField()
-    title_en = serializers.SerializerMethodField()
+class ArtworkImageSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
-    image_alt_es = serializers.SerializerMethodField()
-    image_alt_en = serializers.SerializerMethodField()
-    artist_id = serializers.IntegerField()
-    year = serializers.IntegerField()
-    dimensions = serializers.CharField()
-    price_mxn = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)
-    price_usd = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)
-    disciplines = serializers.SerializerMethodField()
-    techniques = serializers.SerializerMethodField()
-    themes = serializers.SerializerMethodField()
-    formats = serializers.SerializerMethodField()
-    scales = serializers.SerializerMethodField()
 
-    def get_title_es(self, obj):
-        return _title_es(obj)
-
-    def get_title_en(self, obj):
-        return _title_en(obj)
+    class Meta:
+        model = ArtworkImage
+        fields = ["id", "image", "alt_es", "alt_en", "is_primary", "sort_order"]
 
     def get_image(self, obj):
-        img = _primary_image(obj)
-        return img.image.url if img else None
+        return _absolute_url(obj.image)
 
-    def get_image_alt_es(self, obj):
-        img = _primary_image(obj)
-        return (img.alt_es or _title_es(obj)) if img else None
 
-    def get_image_alt_en(self, obj):
-        img = _primary_image(obj)
-        return (img.alt_en or _title_en(obj)) if img else None
+class ArtworkGalleryLinkSerializer(serializers.ModelSerializer):
+    gallery = RefSerializer()
 
-    def _ids(self, obj, field):
-        return [item.id for item in getattr(obj, field).all()]
+    class Meta:
+        model = ArtworkGallery
+        fields = ["id", "gallery", "sort_order"]
 
-    def get_disciplines(self, obj):
-        return self._ids(obj, "disciplines")
 
-    def get_techniques(self, obj):
-        return self._ids(obj, "techniques")
+class GalleryArtworkLinkSerializer(serializers.ModelSerializer):
+    artwork = RefSerializer()
 
-    def get_themes(self, obj):
-        return self._ids(obj, "themes")
+    class Meta:
+        model = ArtworkGallery
+        fields = ["id", "artwork", "sort_order"]
 
-    def get_formats(self, obj):
-        return self._ids(obj, "formats")
 
-    def get_scales(self, obj):
-        return self._ids(obj, "scales")
+class ArtistSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField()
+    location = RefSerializer(allow_null=True)
+    translations = serializers.SerializerMethodField()
+    social_links = ArtistSocialLinkSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Artist
+        fields = [
+            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "name", "email", "website", "photo", "birth_year", "death_year",
+            "location", "translations", "social_links",
+        ]
+
+    def get_photo(self, obj):
+        return _absolute_url(obj.photo)
+
+    def get_translations(self, obj):
+        return _build_translation_dict(obj.translations.all(), ["bio"])
+
+
+class ArtCuratorSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField()
+    translations = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArtCurator
+        fields = [
+            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "name", "email", "website", "photo", "translations",
+        ]
+
+    def get_photo(self, obj):
+        return _absolute_url(obj.photo)
+
+    def get_translations(self, obj):
+        return _build_translation_dict(obj.translations.all(), ["bio"])
+
+
+class LocationSerializer(serializers.ModelSerializer):
+    translations = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Location
+        fields = [
+            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "translations",
+        ]
+
+    def get_translations(self, obj):
+        return _build_translation_dict(obj.translations.all(), ["name"])
+
+
+class GallerySerializer(serializers.ModelSerializer):
+    logo = serializers.SerializerMethodField()
+    curator = RefSerializer(allow_null=True)
+    translations = serializers.SerializerMethodField()
+    artwork_links = GalleryArtworkLinkSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Gallery
+        fields = [
+            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "logo", "curator", "translations", "artwork_links",
+        ]
+
+    def get_logo(self, obj):
+        return _absolute_url(obj.logo)
+
+    def get_translations(self, obj):
+        return _build_translation_dict(obj.translations.all(), ["name", "description"])
+
+
+class _TaxonomySerializer(serializers.ModelSerializer):
+    translations = serializers.SerializerMethodField()
+
+    class Meta:
+        fields = [
+            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "translations",
+        ]
+
+    def get_translations(self, obj):
+        return _build_translation_dict(obj.translations.all(), ["name"])
+
+
+class DisciplineSerializer(_TaxonomySerializer):
+    class Meta(_TaxonomySerializer.Meta):
+        model = Discipline
+
+
+class TechniqueSerializer(_TaxonomySerializer):
+    class Meta(_TaxonomySerializer.Meta):
+        model = Technique
+
+
+class ThemeSerializer(_TaxonomySerializer):
+    class Meta(_TaxonomySerializer.Meta):
+        model = Theme
+
+
+class FormatSerializer(_TaxonomySerializer):
+    class Meta(_TaxonomySerializer.Meta):
+        model = Format
+
+
+class ScaleSerializer(_TaxonomySerializer):
+    class Meta(_TaxonomySerializer.Meta):
+        model = Scale
+
+
+class ArtworkSerializer(serializers.ModelSerializer):
+    artist = RefSerializer()
+    disciplines = RefSerializer(many=True)
+    techniques = RefSerializer(many=True)
+    themes = RefSerializer(many=True)
+    formats = RefSerializer(many=True)
+    scales = RefSerializer(many=True)
+    price_mxn = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)
+    price_usd = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)
+    translations = serializers.SerializerMethodField()
+    images = ArtworkImageSerializer(many=True, read_only=True)
+    gallery_links = ArtworkGalleryLinkSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Artwork
+        fields = [
+            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "artist", "year", "dimensions",
+            "disciplines", "techniques", "themes", "formats", "scales",
+            "price_mxn", "price_usd", "status", "is_highlighted", "views_count",
+            "translations", "images", "gallery_links",
+        ]
+
+    def get_translations(self, obj):
+        return _build_translation_dict(obj.translations.all(), ["title", "description"])

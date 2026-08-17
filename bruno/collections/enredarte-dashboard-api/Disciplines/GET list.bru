@@ -1,0 +1,15 @@
+meta {
+  name: GET list
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/apis/artworks/disciplines/
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Token {{token}}
+}

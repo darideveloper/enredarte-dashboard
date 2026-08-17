@@ -37,13 +37,15 @@ bruno/
     └── <collection-name>/               # one folder per collection
         ├── bruno.json                   # collection metadata
         ├── environments/dev.bru        # environment variables (gitignored; dev.bru.example is the tracked template)
-        ├── Authenticated Catalog/
-        │   └── GET catalog.bru         # request files
-        └── Auth/
-            └── GET api root.bru
+        ├── Artists/
+        │   ├── GET list.bru
+        │   └── GET detail.bru          # request files
+        └── Artworks/
+            ├── GET list.bru
+            └── GET detail.bru
 ```
 
-- Area folders under the collection root (`Public Catalog/`, `Auth/`) are plain subdirectories; Bruno uses them to group requests.
+- Area folders under the collection root (`Artists/`, `Artworks/`, …) are plain subdirectories; Bruno uses them to group requests.
 - A per-folder `folder.bru` file is optional — only needed when a folder carries its own settings/auth/scripts. None of the folders here need it.
 - A `collection.bru` file is also optional — it only carries collection-level settings (e.g. pre-request scripts). `bruno.json` alone is enough for this setup.
 
@@ -109,19 +111,19 @@ vars {
 
 Each request is a single `.bru` file. Every request begins with a `meta` block (`seq` orders the tab) followed by an HTTP method block.
 
-### 6.1 Authenticated GET — DRF Token header
+### 6.1 Authenticated GET — DRF Token header (per-model list)
 
-The catalog endpoint (`/api/catalog/`) requires authentication. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset.
+Every endpoint under `/apis/artworks/` requires authentication. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset. The collection ships one folder per model, each with `GET list.bru` and `GET detail.bru` (e.g. the artworks list):
 
 ```bru
 meta {
-  name: GET catalog
+  name: GET list
   type: http
   seq: 1
 }
 
 get {
-  url: {{base_url}}/api/catalog/
+  url: {{base_url}}/apis/artworks/artworks/
   body: none
   auth: none
 }
@@ -141,7 +143,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/api/
+  url: {{base_url}}/apis/artworks/
   body: none
   auth: none
 }

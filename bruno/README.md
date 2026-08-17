@@ -48,10 +48,27 @@ a placeholder is tracked.
 
 ## Requests
 
-| Request | URL | Auth |
+The API exposes 10 per-model, read-only, paginated endpoints under
+`/apis/artworks/` — one folder per model, each with a `GET list.bru` and a
+`GET detail.bru` request (detail uses the hardcoded ID `1`; change it to any
+existing record id):
+
+| Model | List URL | Detail URL |
 | --- | --- | --- |
-| Catalog | `GET {{base_url}}/api/catalog/` | `Authorization: Token {{token}}` |
-| API Root | `GET {{base_url}}/api/` | `Authorization: Token {{token}}` |
+| Artists | `GET {{base_url}}/apis/artworks/artists/` | `GET {{base_url}}/apis/artworks/artists/1/` |
+| ArtCurators | `GET {{base_url}}/apis/artworks/art-curators/` | `GET {{base_url}}/apis/artworks/art-curators/1/` |
+| Locations | `GET {{base_url}}/apis/artworks/locations/` | `GET {{base_url}}/apis/artworks/locations/1/` |
+| Galleries | `GET {{base_url}}/apis/artworks/galleries/` | `GET {{base_url}}/apis/artworks/galleries/1/` |
+| Disciplines | `GET {{base_url}}/apis/artworks/disciplines/` | `GET {{base_url}}/apis/artworks/disciplines/1/` |
+| Techniques | `GET {{base_url}}/apis/artworks/techniques/` | `GET {{base_url}}/apis/artworks/techniques/1/` |
+| Themes | `GET {{base_url}}/apis/artworks/themes/` | `GET {{base_url}}/apis/artworks/themes/1/` |
+| Formats | `GET {{base_url}}/apis/artworks/formats/` | `GET {{base_url}}/apis/artworks/formats/1/` |
+| Scales | `GET {{base_url}}/apis/artworks/scales/` | `GET {{base_url}}/apis/artworks/scales/1/` |
+| Artworks | `GET {{base_url}}/apis/artworks/artworks/` | `GET {{base_url}}/apis/artworks/artworks/1/` |
+
+All requests send `Authorization: Token {{token}}`. The router root
+`GET {{base_url}}/apis/artworks/` lists the registered endpoints. Every list
+response is paginated (`page_size` query param, max 100).
 
 ## Add a new endpoint
 
