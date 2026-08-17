@@ -13,3 +13,61 @@ get {
 headers {
   Authorization: Token {{token}}
 }
+
+docs {
+  # GET /apis/artworks/artists/ — List artists
+
+  Returns the paginated list of artists. Requires `Authorization: Token`.
+
+  ## Status codes
+
+  - `200 OK` — success
+  - `401 Unauthorized` — missing or invalid token
+
+  ## Response (200)
+
+  ```json
+  {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "page": 1,
+    "page_size": 12,
+    "total_pages": 1,
+    "results": [
+      {
+        "id": 1,
+        "slug": "frida-kahlo",
+        "is_active": true,
+        "sort_order": 0,
+        "created_at": "2026-08-17T10:00:00Z",
+        "updated_at": "2026-08-17T10:00:00Z",
+        "name": "Frida Kahlo",
+        "email": "frida@example.com",
+        "website": "https://example.com",
+        "photo": "https://enredarte-dashboard.localhost/media/artists/frida.webp",
+        "birth_year": 1907,
+        "death_year": 1954,
+        "location": { "id": 1, "slug": "coyoacan" },
+        "translations": {
+          "es": { "bio": "Pintora mexicana." },
+          "en": { "bio": "Mexican painter." }
+        },
+        "social_links": [
+          { "id": 1, "platform": "instagram", "url": "https://instagram.com/frida" }
+        ]
+      }
+    ]
+  }
+  ```
+
+  ## Error (401)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid token.",
+    "data": {}
+  }
+  ```
+}

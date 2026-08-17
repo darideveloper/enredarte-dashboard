@@ -13,3 +13,51 @@ get {
 headers {
   Authorization: Token {{token}}
 }
+
+docs {
+  # GET /apis/artworks/themes/ — List themes
+
+  Returns the paginated list of themes. Requires `Authorization: Token`.
+
+  ## Status codes
+
+  - `200 OK` — success
+  - `401 Unauthorized` — missing or invalid token
+
+  ## Response (200)
+
+  ```json
+  {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "page": 1,
+    "page_size": 12,
+    "total_pages": 1,
+    "results": [
+      {
+        "id": 1,
+        "slug": "landscape",
+        "is_active": true,
+        "sort_order": 0,
+        "created_at": "2026-08-17T10:00:00Z",
+        "updated_at": "2026-08-17T10:00:00Z",
+        "translations": {
+          "es": { "name": "Paisaje" },
+          "en": { "name": "Landscape" }
+        }
+      }
+    ]
+  }
+  ```
+
+  ## Error (401)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid token.",
+    "data": {}
+  }
+  ```
+}

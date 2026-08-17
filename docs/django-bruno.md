@@ -180,6 +180,56 @@ body:json {
 
 Other request types follow the same shape (`put`, `patch`, `delete`) with their own block names.
 
+### 6.4 Mandatory `docs` block for expected responses
+
+Every request file in the collection SHALL carry a `docs { ... }` block documenting the expected API response, so a developer can see the status codes and response shape without running the request. The convention is a requirement of the `bruno-request-docs` spec (see the change `openspec/changes/bruno-api-response-docs/`); any future endpoint added to the collection must follow it too.
+
+The block is raw Markdown, placed after the `headers` block, and documents at minimum:
+
+- The endpoint purpose and the `Authorization: Token` requirement.
+- The expected status codes: `200`, `401`, and (for detail requests) `404`.
+- A short JSON example of the response derived from `artworks/serializers.py` — the paginated envelope (`count`, `next`, `previous`, `page`, `page_size`, `total_pages`, `results`) for lists, the resource object for detail.
+- The project-wide error envelope `{status: "error", message, data}` for each error status code.
+
+```bru
+docs {
+  # GET /apis/artworks/artworks/ — List artworks
+
+  Returns the paginated list of artworks. Requires `Authorization: Token`.
+
+  ## Status codes
+
+  - `200 OK` — success
+  - `401 Unauthorized` — missing or invalid token
+
+  ## Response (200)
+
+  ```json
+  {
+    "count": 1,
+    "next": null,
+    "previous": null,
+    "page": 1,
+    "page_size": 12,
+    "total_pages": 1,
+    "results": []
+  }
+  ```
+
+  ## Error (401)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid token.",
+    "data": {}
+  }
+  ```
+}
+```
+
+Keep the example abbreviated (one list item / one object) and faithful to the serializers — no invented fields, prices as numbers, media URLs absolute. When a serializer changes, update the matching `docs` block in the same change.
+
 ---
 
 ## 7. Opening the workspace
