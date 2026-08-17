@@ -17,6 +17,10 @@ venv
 .env.*
 !.env*.example
 
+# Bruno environments (hold real tokens; templates tracked as .bru.example)
+bruno/collections/*/environments/*.bru
+!bruno/collections/*/environments/*.bru.example
+
 # Database
 *.sqlite3
 

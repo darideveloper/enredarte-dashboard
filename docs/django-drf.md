@@ -232,6 +232,29 @@ token, created = Token.objects.get_or_create(user=user)
 print(token.key)
 ```
 
+### Build / API client credential (SSG catalog)
+
+`GET /api/catalog/` requires authentication (`IsAuthenticated`) like every other endpoint; the SSG build authenticates with a DRF Token sent as an API key.
+
+To provision the build credential in the Django admin:
+
+1. Create a dedicated machine user (e.g. `catalog-ssg`) — non-staff, not a superuser, with an unusable password (no need for login).
+2. Under **Auth tokens → Add token**, select that user and save; copy the generated key once.
+3. The frontend sends it on every build:
+
+   ```
+   Authorization: Token ${CATALOG_API_TOKEN}
+   ```
+
+   The key lives only in the build environment (e.g. `CATALOG_API_TOKEN`); never commit it.
+
+Revocation: delete the token in the Django admin (Auth tokens), or from a shell:
+
+```python
+from rest_framework.authtoken.models import Token
+Token.objects.get(user__username="catalog-ssg").delete()
+```
+
 ---
 
 ## 7. Permissions

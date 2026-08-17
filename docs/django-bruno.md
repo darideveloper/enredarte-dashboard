@@ -36,8 +36,8 @@ bruno/
 └── collections/
     └── <collection-name>/               # one folder per collection
         ├── bruno.json                   # collection metadata
-        ├── environments/dev.bru        # environment variables
-        ├── Public Catalog/
+        ├── environments/dev.bru        # environment variables (gitignored; dev.bru.example is the tracked template)
+        ├── Authenticated Catalog/
         │   └── GET catalog.bru         # request files
         └── Auth/
             └── GET api root.bru
@@ -101,7 +101,7 @@ vars {
 - `@description('''...''')` documents a variable; the `'''...'''` form supports multiline strings, while `@description("...")` is the single-line variant.
 - Adding `dev`, `prod`, or `staging` environments is a **one-file copy** of this template with new values.
 
-> **Security note:** the environment template IS committed (the `.gitignore` intentionally does NOT exclude it) so every clone gets the file with a placeholder. A real token must never be stored — developers paste it locally, and because the file is plain text any accidental commit is visible in review.
+> **Security note:** environment files (e.g. `dev.bru`) hold real tokens and are gitignored — never commit them. The committed template is the `dev.bru.example` sibling: copy it to `dev.bru`, paste a real token, and keep the `.bru` file local. Because the template is committed as `.example`, every clone gets the placeholder with no risk of committing a live credential.
 
 ---
 
@@ -109,7 +109,9 @@ vars {
 
 Each request is a single `.bru` file. Every request begins with a `meta` block (`seq` orders the tab) followed by an HTTP method block.
 
-### 6.1 Public GET — no auth
+### 6.1 Authenticated GET — DRF Token header
+
+The catalog endpoint (`/api/catalog/`) requires authentication. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset.
 
 ```bru
 meta {
@@ -123,11 +125,13 @@ get {
   body: none
   auth: none
 }
+
+headers {
+  Authorization: Token {{token}}
+}
 ```
 
-### 6.2 Authenticated GET — DRF Token header
-
-DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset.
+### 6.2 Authenticated GET — DRF Token header (router root)
 
 ```bru
 meta {
@@ -199,7 +203,7 @@ If the request fails with a *connection error* while the proxy is down, that is 
 ## 9. Adding endpoints & environments
 
 - **New request:** create a `.bru` file under a new or existing area folder in the collection, referencing only `{{base_url}}` / `{{token}}` (never hard-coded hosts or credentials). Assign the next `seq`.
-- **New environment:** copy `dev.bru` to `prod.bru` / `staging.bru` and edit the values; `workspace.yml` needs no change for collection-level environments.
+- **New environment:** copy `dev.bru.example` to `dev.bru` (or `prod.bru` / `staging.bru`), paste the real token, and edit the values; `workspace.yml` needs no change for collection-level environments.
 
 ---
 
@@ -238,6 +242,6 @@ This guide does not automate Bruno. When the API grows a login/token endpoint, t
 - **`Invalid workspace: workspace.yml not found`** — the folder must be opened as a workspace at the `workspace.yml` level, not at a standalone collection.
 - **Environment name = file basename** — renaming `local.bru` → `dev.bru` is how you rename an environment; there is no in-file name field.
 - **Subdomain derives from the project dir name**, not from any `HOST` env var: with the repo folder named `enredarte-dashboard`, the portless URL is `https://enredarte-dashboard.localhost`, even though both subdomains sit in `ALLOWED_HOSTS`.
-- **Environment template is committed** with a placeholder token; real tokens are never committed. `.gitignore` does NOT exclude `bruno/` so the template stays available to every clone.
+- **Environment files are gitignored; the template is committed as `.example`** — copy `dev.bru.example` to `dev.bru` and paste a real token locally; never commit the `.bru` file itself.
 - **Two different `version` concepts** — `opencollection: 1.0.0` (spec version in `workspace.yml`) vs `"version": "1"` (file format version in `bruno.json`).
 - **`.bru` format drifts across Bruno versions** — files are plain text, so a Bruno upgrade that changes the format is a small, reviewable diff.

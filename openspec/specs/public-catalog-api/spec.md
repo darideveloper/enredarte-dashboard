@@ -1,15 +1,23 @@
 # Public Catalog API Specification
 
 ## Purpose
-To define the public, read-only `GET /api/catalog/` endpoint that returns the entire buyable catalogue in a single, unpaginated, unauthenticated fetch — artworks (`is_active=True`, `status="available"`), artists, taxonomy groups (disciplines, techniques, themes, formats, scales), and locations, denormalized and bilingual (es/en) so the frontend static build can render both locale routes from one payload.
+To define the authenticated, read-only `GET /api/catalog/` endpoint that returns the entire buyable catalogue in a single, unpaginated fetch requiring an authenticated user — artworks (`is_active=True`, `status="available"`), artists, taxonomy groups (disciplines, techniques, themes, formats, scales), and locations, denormalized and bilingual (es/en) so the frontend static build can render both locale routes from one payload. The DRF `Token` acts as the API key for the frontend static build.
 
 ## Requirements
 
-### Requirement: Public catalog endpoint
-The system SHALL expose a public, read-only endpoint `GET /api/catalog/` that returns the entire buyable catalogue in a single response, without requiring authentication and without pagination.
+### Requirement: Authenticated catalog endpoint
+The system SHALL expose a read-only endpoint `GET /api/catalog/` that returns the entire buyable catalogue in a single response, **requiring authentication** and without pagination. The endpoint SHALL use the global default dual authentication (`TokenAuthentication` and `SessionAuthentication`) and SHALL require an authenticated user (`IsAuthenticated`). The DRF `Token` acts as the API key for the SSG build.
 
-#### Scenario: Unauthenticated request succeeds
+#### Scenario: Anonymous request rejected
 - **WHEN** a request with no authentication credentials hits `GET /api/catalog/`
+- **THEN** the response SHALL be `401 Unauthorized`.
+
+#### Scenario: Token-authenticated request succeeds
+- **WHEN** a request with a valid `Authorization: Token <key>` header hits `GET /api/catalog/`
+- **THEN** the response SHALL be `200 OK` with the full catalog payload.
+
+#### Scenario: Session-authenticated request succeeds
+- **WHEN** a logged-in user's session requests `GET /api/catalog/`
 - **THEN** the response SHALL be `200 OK` with the full catalog payload.
 
 #### Scenario: Response is not paginated
@@ -85,8 +93,8 @@ Each artwork entry SHALL contain: `id`, `slug`, `title_es`, `title_en`, `image` 
 - **THEN** the corresponding key (`disciplines`, `techniques`, `themes`, `formats`, `scales`) SHALL be an array of taxonomy ids, empty when the artwork has none.
 
 ### Requirement: Catalog is stable for the frontend contract
-The endpoint SHALL return consistent key names and value types across requests. Tests SHALL assert the full key contract and the available-only scoping.
+The endpoint SHALL return consistent key names and value types across requests. Tests SHALL assert the full key contract, the available-only scoping, and the authentication requirement.
 
 #### Scenario: Contract asserted by tests
 - **WHEN** the test suite runs
-- **THEN** tests SHALL assert the endpoint responds without authentication, excludes non-buyable artworks, and returns every top-level key with the expected types.
+- **THEN** tests SHALL assert the endpoint rejects anonymous requests, accepts a valid token, excludes non-buyable artworks, and returns every top-level key with the expected types.

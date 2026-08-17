@@ -8,6 +8,7 @@ from django.core.management import call_command
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
 
 from core.models import unique_slugify
@@ -1509,6 +1510,9 @@ class PublicCatalogAPITestCase(APITestCase):
     def setUp(self):
         self.client = APIClient()
 
+        self.user = User.objects.create_user(username="catalog-user", password="unused")
+        self.token = Token.objects.create(user=self.user)
+
         self.location_cdmx = Location.objects.create(slug="ciudad-de-mexico", sort_order=1)
         LocationTranslation.objects.create(
             location=self.location_cdmx, language="es", name="Ciudad de México"
@@ -1603,9 +1607,14 @@ class PublicCatalogAPITestCase(APITestCase):
         )
 
     def _get(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
         return self.client.get("/api/catalog/")
 
-    def test_public_and_unpaginated(self):
+    def test_anonymous_request_rejected(self):
+        response = APIClient().get("/api/catalog/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_token_authenticated_and_unpaginated(self):
         response = self._get()
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -1613,6 +1622,13 @@ class PublicCatalogAPITestCase(APITestCase):
         self.assertNotIn("results", data)
         self.assertIsInstance(data["artworks"], list)
         self.assertEqual(len(data["artworks"]), 3)
+
+    def test_session_authenticated_succeeds(self):
+        self.client.credentials()
+        self.client.force_login(self.user)
+        response = self.client.get("/api/catalog/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.json()["artworks"], list)
 
     def test_non_buyable_artworks_excluded(self):
         self._artwork("obra-sold", status=ArtworkStatus.SOLD)

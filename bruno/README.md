@@ -41,15 +41,16 @@ token, created = Token.objects.get_or_create(user=user)
 print(token.key)
 ```
 
-Paste the printed key into `collections/enredarte-dashboard-api/environments/dev.bru`
-as the `token` value. Never commit a real token — the file ships with a
-placeholder.
+Copy `collections/enredarte-dashboard-api/environments/dev.bru.example` to
+`dev.bru` (the `.bru` file is gitignored) and paste the printed key as the
+`token` value. Never commit a real token — only the `.bru.example` template with
+a placeholder is tracked.
 
 ## Requests
 
 | Request | URL | Auth |
 | --- | --- | --- |
-| Public Catalog | `GET {{base_url}}/api/catalog/` | none |
+| Catalog | `GET {{base_url}}/api/catalog/` | `Authorization: Token {{token}}` |
 | API Root | `GET {{base_url}}/api/` | `Authorization: Token {{token}}` |
 
 ## Add a new endpoint

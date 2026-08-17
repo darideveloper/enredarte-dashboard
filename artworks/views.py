@@ -1,5 +1,4 @@
 from django.utils import timezone
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -10,9 +9,8 @@ TAXONOMY_FIELDS = ("disciplines", "techniques", "themes", "formats", "scales")
 
 
 class CatalogAPIView(APIView):
-    """Public, unpaginated snapshot of the buyable catalogue for the SSG build."""
+    """Authenticated, unpaginated snapshot of the buyable catalogue for the SSG build."""
 
-    permission_classes = [AllowAny]
     pagination_class = None
 
     def get(self, request):
