@@ -37,20 +37,20 @@ class ArtistViewSet(viewsets.ReadOnlyModelViewSet):
         return Artist.objects.filter(is_active=True).select_related("location").prefetch_related(
             Prefetch("social_links", queryset=ArtistSocialLink.objects.filter(is_active=True)),
             "translations",
-        ).order_by("sort_order")
+        ).order_by("-created_at")
 
 
 class ArtCuratorViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ArtCurator.objects.filter(is_active=True).prefetch_related(
         "translations"
-    ).order_by("sort_order")
+    ).order_by("-created_at")
     serializer_class = ArtCuratorSerializer
 
 
 class LocationViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Location.objects.filter(is_active=True).prefetch_related(
         "translations"
-    ).order_by("sort_order")
+    ).order_by("-created_at")
     serializer_class = LocationSerializer
 
 
@@ -66,14 +66,14 @@ class GalleryViewSet(viewsets.ReadOnlyModelViewSet):
                 ).select_related("artwork").order_by("sort_order"),
             ),
             "translations",
-        ).order_by("sort_order")
+        ).order_by("-created_at")
 
 
 class _TaxonomyViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return self.model.objects.filter(is_active=True).prefetch_related(
             "translations"
-        ).order_by("sort_order")
+        ).order_by("-created_at")
 
 
 class DisciplineViewSet(_TaxonomyViewSet):
@@ -124,4 +124,4 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
                 ).select_related("gallery").order_by("sort_order"),
             ),
             "translations",
-        ).order_by("sort_order")
+        ).order_by("-created_at")

@@ -132,22 +132,6 @@ class ArtistAdminTestCase(TestCase):
         self.assertEqual(len(formset.extra_forms), 0)
         self.assertEqual(len(formset.forms), 2)
 
-    def test_artist_add_view_sort_order_initial_when_empty(self):
-        url = reverse("admin:artworks_artist_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
-
-    def test_artist_add_view_sort_order_initial_when_artists_exist(self):
-        Artist.objects.create(name="Artist 1", slug="artist-1", sort_order=5)
-        Artist.objects.create(name="Artist 2", slug="artist-2", sort_order=10)
-
-        url = reverse("admin:artworks_artist_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 11)
-
-
 class ArtCuratorAdminTestCase(TestCase):
     def setUp(self):
         self.superuser = User.objects.create_superuser(
@@ -184,20 +168,7 @@ class ArtCuratorAdminTestCase(TestCase):
         self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
         self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
 
-    def test_curator_add_view_sort_order_initial_when_empty(self):
-        url = reverse("admin:artworks_artcurator_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
 
-    def test_curator_add_view_sort_order_initial_when_curators_exist(self):
-        ArtCurator.objects.create(name="Curator 1", slug="curator-1", sort_order=3)
-        ArtCurator.objects.create(name="Curator 2", slug="curator-2", sort_order=7)
-
-        url = reverse("admin:artworks_artcurator_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 8)
 
 
 class TaxonomyAdminMixin:
@@ -241,12 +212,6 @@ class TaxonomyAdminMixin:
         self.assertEqual(len(formset.extra_forms), 2)
         self.assertEqual(formset.extra_forms[0].initial.get("language"), "es")
         self.assertEqual(formset.extra_forms[1].initial.get("language"), "en")
-
-    def test_add_view_sort_order_initial(self):
-        url = reverse(f"admin:artworks_{self.changelist_label}_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 1)
 
 
 class DisciplineAdminTestCase(TaxonomyAdminMixin, TestCase):
@@ -301,7 +266,7 @@ class GalleryAdminTestCase(TestCase):
         )
         self.client.login(username="admin", password="password123")
 
-        self.gallery = Gallery.objects.create(slug="galeria-de-arte", sort_order=1)
+        self.gallery = Gallery.objects.create(slug="galeria-de-arte")
         self.gallery_admin = admin.site._registry[Gallery]
 
     def test_gallery_registered(self):
@@ -313,13 +278,6 @@ class GalleryAdminTestCase(TestCase):
         """Test GalleryAdmin uses GalleryTranslationInline and ArtworkGalleryInline"""
         self.assertIn(GalleryTranslationInline, self.gallery_admin.inlines)
         self.assertIn(ArtworkGalleryInline, self.gallery_admin.inlines)
-
-    def test_gallery_initial_sort_order(self):
-        """Test auto-population of sort_order"""
-        url = reverse("admin:artworks_gallery_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 2)
 
     def test_gallery_display_name_spanish(self):
         """Test display_name prefers Spanish translation"""
@@ -368,7 +326,6 @@ class ArtworkAdminTestCase(TestCase):
             price_usd=2500.00,
             status=ArtworkStatus.AVAILABLE,
             slug="las-dos-fridas",
-            sort_order=1,
         )
         self.artwork.disciplines.set([self.discipline])
         self.artwork.techniques.set([self.technique])
@@ -387,13 +344,6 @@ class ArtworkAdminTestCase(TestCase):
         self.assertIn(ArtworkTranslationInline, self.artwork_admin.inlines)
         self.assertIn(ArtworkImageInline, self.artwork_admin.inlines)
         self.assertIn(GalleryArtworkInline, self.artwork_admin.inlines)
-
-    def test_artwork_initial_sort_order(self):
-        """Test auto-population of sort_order"""
-        url = reverse("admin:artworks_artwork_add")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context_data["adminform"].form.initial.get("sort_order"), 2)
 
     def test_artwork_display_title_spanish(self):
         """Test display_title prefers Spanish translation"""
@@ -1233,7 +1183,6 @@ class TranslationInlineEnforcementTestCase(TestCase):
             {
                 "slug": "escultura",
                 "is_active": "on",
-                "sort_order": "1",
                 "translations-TOTAL_FORMS": "2",
                 "translations-INITIAL_FORMS": "0",
                 "translations-MIN_NUM_FORMS": "0",
@@ -1254,7 +1203,6 @@ class TranslationInlineEnforcementTestCase(TestCase):
             {
                 "slug": "escultura",
                 "is_active": "on",
-                "sort_order": "1",
                 "translations-TOTAL_FORMS": "2",
                 "translations-INITIAL_FORMS": "0",
                 "translations-MIN_NUM_FORMS": "0",
@@ -1275,7 +1223,6 @@ class TranslationInlineEnforcementTestCase(TestCase):
                 "name": "Curador",
                 "slug": "curador",
                 "is_active": "on",
-                "sort_order": "1",
                 "translations-TOTAL_FORMS": "2",
                 "translations-INITIAL_FORMS": "0",
                 "translations-MIN_NUM_FORMS": "0",
@@ -1300,7 +1247,6 @@ class TranslationInlineEnforcementTestCase(TestCase):
                 "name": "Curador",
                 "slug": "curador",
                 "is_active": "on",
-                "sort_order": "0",
                 "translations-TOTAL_FORMS": "2",
                 "translations-INITIAL_FORMS": "1",
                 "translations-MIN_NUM_FORMS": "0",
@@ -1324,7 +1270,6 @@ class TranslationInlineEnforcementTestCase(TestCase):
                 "name": "Curador",
                 "slug": "curador",
                 "is_active": "on",
-                "sort_order": "0",
                 "translations-TOTAL_FORMS": "2",
                 "translations-INITIAL_FORMS": "0",
                 "translations-MIN_NUM_FORMS": "0",
@@ -1355,7 +1300,6 @@ class TranslationInlineEnforcementTestCase(TestCase):
             {
                 "slug": "escultura",
                 "is_active": "on",
-                "sort_order": "1",
                 "translations-TOTAL_FORMS": "3",
                 "translations-INITIAL_FORMS": "0",
                 "translations-MIN_NUM_FORMS": "0",
@@ -1400,7 +1344,6 @@ class SlugBackfillMixinTestCase(TestCase):
             reverse("admin:artworks_discipline_add"),
             {
                 "is_active": "on",
-                "sort_order": "1",
                 "translations-TOTAL_FORMS": "2",
                 "translations-INITIAL_FORMS": "0",
                 "translations-MIN_NUM_FORMS": "0",
@@ -1512,7 +1455,7 @@ class ArtworksAPITestCase(APITestCase):
         self.user = User.objects.create_user(username="api-user", password="unused")
         self.token = Token.objects.create(user=self.user)
 
-        self.location = Location.objects.create(slug="ciudad-de-mexico", sort_order=1)
+        self.location = Location.objects.create(slug="ciudad-de-mexico")
         LocationTranslation.objects.create(
             location=self.location, language="es", name="Ciudad de México"
         )
@@ -1521,17 +1464,17 @@ class ArtworksAPITestCase(APITestCase):
         )
 
         self.artist = Artist.objects.create(
-            name="Ana Álvarez", slug="ana-alvarez", sort_order=1, location=self.location,
+            name="Ana Álvarez", slug="ana-alvarez", location=self.location,
             photo=SimpleUploadedFile("ana.webp", _1PX_PNG),
         )
         ArtistTranslation.objects.create(artist=self.artist, language="es", bio="Biografía ES")
         ArtistTranslation.objects.create(artist=self.artist, language="en", bio="Bio EN")
 
         self.inactive_artist = Artist.objects.create(
-            name="Inactiva", slug="inactiva", sort_order=2, is_active=False
+            name="Inactiva", slug="inactiva", is_active=False
         )
 
-        self.discipline = Discipline.objects.create(slug="pintura", sort_order=1)
+        self.discipline = Discipline.objects.create(slug="pintura")
         DisciplineTranslation.objects.create(
             discipline=self.discipline, language="es", name="Pintura"
         )
@@ -1605,6 +1548,7 @@ class ArtworksAPITestCase(APITestCase):
         self.assertEqual(data["translations"]["es"], {"bio": "Biografía ES"})
         self.assertEqual(data["translations"]["en"], {"bio": "Bio EN"})
         self.assertTrue(data["photo"].startswith("http"))
+        self.assertNotIn("sort_order", data)
 
     def test_artwork_detail_shape(self):
         response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
@@ -1621,7 +1565,7 @@ class ArtworksAPITestCase(APITestCase):
         self.assertTrue(data["images"][0]["image"].startswith("http"))
 
     def test_gallery_translation_blank_description_excluded(self):
-        gallery = Gallery.objects.create(slug="galeria-x", sort_order=1)
+        gallery = Gallery.objects.create(slug="galeria-x")
         GalleryTranslation.objects.create(
             gallery=gallery, language="es", name="Galería X", description=""
         )
@@ -1663,14 +1607,14 @@ class ArtworksAPITestCase(APITestCase):
 
     def test_inactive_curator_returns_null(self):
         curator = ArtCurator.objects.create(name="Curador", slug="curador")
-        gallery = Gallery.objects.create(slug="galeria-a", sort_order=1, curator=curator)
+        gallery = Gallery.objects.create(slug="galeria-a", curator=curator)
         ArtCurator.objects.filter(pk=curator.pk).update(is_active=False)
         response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["curator"])
 
     def test_gallery_artwork_links_exclude_inactive(self):
-        gallery = Gallery.objects.create(slug="galeria-a", sort_order=1)
+        gallery = Gallery.objects.create(slug="galeria-a")
         artwork2 = Artwork.objects.create(
             artist=self.artist,
             slug="obra-2",
@@ -1691,13 +1635,13 @@ class ArtworksAPITestCase(APITestCase):
             is_active=False,
         )
         active_link = ArtworkGallery.objects.create(
-            artwork=self.artwork, gallery=gallery, sort_order=1
+            artwork=self.artwork, gallery=gallery
         )
         ArtworkGallery.objects.create(
-            artwork=inactive_artwork, gallery=gallery, sort_order=2
+            artwork=inactive_artwork, gallery=gallery
         )
         ArtworkGallery.objects.create(
-            artwork=artwork2, gallery=gallery, sort_order=3, is_active=False
+            artwork=artwork2, gallery=gallery, is_active=False
         )
         response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
         self.assertEqual(response.status_code, 200)
@@ -1705,19 +1649,19 @@ class ArtworksAPITestCase(APITestCase):
         self.assertEqual([l["id"] for l in links], [active_link.id])
 
     def test_artwork_gallery_links_exclude_inactive_gallery(self):
-        gallery = Gallery.objects.create(slug="galeria-a", sort_order=1)
+        gallery = Gallery.objects.create(slug="galeria-a")
         inactive_gallery = Gallery.objects.create(
-            slug="galeria-b", sort_order=2, is_active=False
+            slug="galeria-b", is_active=False
         )
-        third_gallery = Gallery.objects.create(slug="galeria-c", sort_order=3)
+        third_gallery = Gallery.objects.create(slug="galeria-c")
         active_link = ArtworkGallery.objects.create(
-            artwork=self.artwork, gallery=gallery, sort_order=1
+            artwork=self.artwork, gallery=gallery
         )
         ArtworkGallery.objects.create(
-            artwork=self.artwork, gallery=inactive_gallery, sort_order=2
+            artwork=self.artwork, gallery=inactive_gallery
         )
         ArtworkGallery.objects.create(
-            artwork=self.artwork, gallery=third_gallery, sort_order=3, is_active=False
+            artwork=self.artwork, gallery=third_gallery, is_active=False
         )
         response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
         self.assertEqual(response.status_code, 200)
@@ -1726,7 +1670,7 @@ class ArtworksAPITestCase(APITestCase):
 
     def test_inactive_taxonomy_term_excluded(self):
         inactive = Discipline.objects.create(
-            slug="escultura", sort_order=2, is_active=False
+            slug="escultura", is_active=False
         )
         self.artwork.disciplines.add(inactive)
         response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")

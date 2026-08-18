@@ -5,7 +5,6 @@
     "fields": {
       "slug": "pintura",
       "is_active": true,
-      "sort_order": 1,
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z"
     }
@@ -16,7 +15,6 @@
     "fields": {
       "slug": "collage",
       "is_active": true,
-      "sort_order": 2,
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z"
     }
@@ -27,7 +25,6 @@
     "fields": {
       "slug": "ilustracion",
       "is_active": true,
-      "sort_order": 3,
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z"
     }
@@ -38,7 +35,6 @@
     "fields": {
       "slug": "fotografia",
       "is_active": true,
-      "sort_order": 4,
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z"
     }
@@ -49,7 +45,6 @@
     "fields": {
       "slug": "escultura",
       "is_active": true,
-      "sort_order": 5,
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z"
     }
@@ -60,7 +55,6 @@
     "fields": {
       "slug": "street-art",
       "is_active": true,
-      "sort_order": 6,
       "created_at": "2026-01-01T00:00:00Z",
       "updated_at": "2026-01-01T00:00:00Z"
     }

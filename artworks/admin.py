@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Exists, Max, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.forms.models import BaseInlineFormSet
 from django.utils.html import format_html, format_html_join
 
@@ -94,8 +94,6 @@ class ArtistSocialLinkInline(TabularInline):
     fields = ["platform", "url"]
     verbose_name = "Red social"
     verbose_name_plural = "Redes sociales"
-    ordering_field = "sort_order"
-    hide_ordering_field = True
     extra = 1
 
 
@@ -216,7 +214,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             )
         }),
         ("Estado del sistema", {
-            "fields": (("is_active", "sort_order"),)
+            "fields": (("is_active",),)
         }),
     )
     readonly_fields = [
@@ -238,14 +236,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         "display_highlighted_count",
         "display_galleries_count",
         "display_active",
-        "sort_order",
     ]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Artist.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
 
     def get_queryset(self, request):
         return (
@@ -373,21 +364,14 @@ class ArtCuratorAdmin(ModelAdminUnfoldBase):
             "fields": ("email", "website", "photo")
         }),
         ("Estado del sistema", {
-            "fields": (("is_active", "sort_order"),)
+            "fields": (("is_active",),)
         }),
     )
     list_display = [
         "display_name",
         "display_email",
         "display_active",
-        "sort_order",
     ]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = ArtCurator.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
 
     @admin.display(description="Nombre", ordering="name")
     def display_name(self, obj):
@@ -413,16 +397,10 @@ class DisciplineAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     ]
     fieldsets = (
         ("Información del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "display_active", "sort_order"]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Discipline.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
+    list_display = ["display_name", "slug", "display_active"]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -440,16 +418,10 @@ class TechniqueAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     ]
     fieldsets = (
         ("Información del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "display_active", "sort_order"]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Technique.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
+    list_display = ["display_name", "slug", "display_active"]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -467,16 +439,10 @@ class ThemeAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     ]
     fieldsets = (
         ("Información del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "display_active", "sort_order"]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Theme.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
+    list_display = ["display_name", "slug", "display_active"]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -494,16 +460,10 @@ class FormatAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     ]
     fieldsets = (
         ("Información del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "display_active", "sort_order"]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Format.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
+    list_display = ["display_name", "slug", "display_active"]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -521,16 +481,10 @@ class ScaleAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     ]
     fieldsets = (
         ("Información del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "display_active", "sort_order"]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Scale.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
+    list_display = ["display_name", "slug", "display_active"]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -548,16 +502,10 @@ class LocationAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     ]
     fieldsets = (
         ("Información del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "display_active", "sort_order"]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Location.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
+    list_display = ["display_name", "slug", "display_active"]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -579,16 +527,10 @@ class GalleryAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
             "fields": ("curator", "logo")
         }),
         ("Información del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "curator", "display_active", "sort_order"]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Gallery.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
+    list_display = ["display_name", "slug", "curator", "display_active"]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
@@ -662,7 +604,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
             "fields": (("price_mxn", "price_usd"), "status", ("is_highlighted", "views_count"))
         }),
         ("Configuración del sistema", {
-            "fields": ("slug", "is_active", "sort_order")
+            "fields": ("slug", "is_active")
         }),
     )
     list_display = [
@@ -675,14 +617,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         "is_highlighted",
         "views_count",
         "display_active",
-        "sort_order",
     ]
-
-    def get_changeform_initial_data(self, request):
-        initial = super().get_changeform_initial_data(request)
-        max_order = Artwork.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
-        return initial
 
     def get_queryset(self, request):
         return (

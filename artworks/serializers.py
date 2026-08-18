@@ -83,7 +83,7 @@ class ArtistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Artist
         fields = [
-            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "id", "slug", "is_active", "created_at", "updated_at",
             "name", "email", "website", "photo", "birth_year", "death_year",
             "location", "translations", "social_links",
         ]
@@ -102,7 +102,7 @@ class ArtCuratorSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArtCurator
         fields = [
-            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "id", "slug", "is_active", "created_at", "updated_at",
             "name", "email", "website", "photo", "translations",
         ]
 
@@ -119,7 +119,7 @@ class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = [
-            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "id", "slug", "is_active", "created_at", "updated_at",
             "translations",
         ]
 
@@ -136,7 +136,7 @@ class GallerySerializer(serializers.ModelSerializer):
     class Meta:
         model = Gallery
         fields = [
-            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "id", "slug", "is_active", "created_at", "updated_at",
             "logo", "curator", "translations", "artwork_links",
         ]
 
@@ -152,7 +152,7 @@ class _TaxonomySerializer(serializers.ModelSerializer):
 
     class Meta:
         fields = [
-            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "id", "slug", "is_active", "created_at", "updated_at",
             "translations",
         ]
 
@@ -201,7 +201,7 @@ class ArtworkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Artwork
         fields = [
-            "id", "slug", "is_active", "sort_order", "created_at", "updated_at",
+            "id", "slug", "is_active", "created_at", "updated_at",
             "artist", "year", "dimensions",
             "disciplines", "techniques", "themes", "formats", "scales",
             "price_mxn", "price_usd", "status", "is_highlighted", "views_count",

@@ -8,7 +8,6 @@
       "email": "renata@example.com",
       "website": "https://renataortega.example",
       "is_active": true,
-      "sort_order": 1,
       "created_at": "2026-01-02T00:00:00Z",
       "updated_at": "2026-01-02T00:00:00Z"
     }
@@ -22,7 +21,6 @@
       "email": "hugo@example.com",
       "website": "https://hugosalinas.example",
       "is_active": true,
-      "sort_order": 2,
       "created_at": "2026-01-02T00:00:00Z",
       "updated_at": "2026-01-02T00:00:00Z"
     }

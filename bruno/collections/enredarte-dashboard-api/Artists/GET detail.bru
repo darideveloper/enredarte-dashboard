@@ -16,25 +16,24 @@ headers {
 
 docs {
   # GET /apis/artworks/artists/1/ — Retrieve an artist
-
+  
   Returns a single artist by ID. Requires `Authorization: Token`.
-
+  
   ## Status codes
-
+  
   - `200 OK` — success
   - `401 Unauthorized` — missing or invalid token
   - `404 Not Found` — artist does not exist
-
+  
   ## Response (200)
-
+  
   `location` is `null` when the referenced Location is inactive; otherwise `{id, slug}`.
-
+  
   ```json
   {
     "id": 1,
     "slug": "frida-kahlo",
     "is_active": true,
-    "sort_order": 0,
     "created_at": "2026-08-17T10:00:00Z",
     "updated_at": "2026-08-17T10:00:00Z",
     "name": "Frida Kahlo",
@@ -53,11 +52,11 @@ docs {
     ]
   }
   ```
-
+  
   `social_links` contains only active links.
-
+  
   ## Error (401)
-
+  
   ```json
   {
     "status": "error",
@@ -65,9 +64,9 @@ docs {
     "data": {}
   }
   ```
-
+  
   ## Error (404)
-
+  
   ```json
   {
     "status": "error",

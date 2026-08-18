@@ -8,7 +8,6 @@
       "url": "https://instagram.com/marianarios",
       "slug": "mariana-rios-instagram",
       "is_active": true,
-      "sort_order": 1,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -22,7 +21,6 @@
       "url": "https://behance.net/marianarios",
       "slug": "mariana-rios-behance",
       "is_active": true,
-      "sort_order": 2,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -36,7 +34,6 @@
       "url": "https://x.com/diegomorales",
       "slug": "diego-morales-x",
       "is_active": true,
-      "sort_order": 1,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -50,7 +47,6 @@
       "url": "https://facebook.com/diegomorales",
       "slug": "diego-morales-facebook",
       "is_active": true,
-      "sort_order": 2,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -64,7 +60,6 @@
       "url": "https://youtube.com/@diegomorales",
       "slug": "diego-morales-youtube",
       "is_active": true,
-      "sort_order": 3,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -78,7 +73,6 @@
       "url": "https://instagram.com/valentinacruz",
       "slug": "valentina-cruz-instagram",
       "is_active": true,
-      "sort_order": 1,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -92,7 +86,6 @@
       "url": "https://tiktok.com/@valentinacruz",
       "slug": "valentina-cruz-tiktok",
       "is_active": true,
-      "sort_order": 2,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -106,7 +99,6 @@
       "url": "https://instagram.com/santiagoherrera",
       "slug": "santiago-herrera-instagram",
       "is_active": true,
-      "sort_order": 1,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -120,7 +112,6 @@
       "url": "https://linkedin.com/in/santiagoherrera",
       "slug": "santiago-herrera-linkedin",
       "is_active": true,
-      "sort_order": 2,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -134,7 +125,6 @@
       "url": "https://instagram.com/luciafernandez",
       "slug": "lucia-fernandez-instagram",
       "is_active": true,
-      "sort_order": 1,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -148,7 +138,6 @@
       "url": "https://facebook.com/luciafernandez",
       "slug": "lucia-fernandez-facebook",
       "is_active": true,
-      "sort_order": 2,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }
@@ -162,7 +151,6 @@
       "url": "https://linktr.ee/luciafernandez",
       "slug": "lucia-fernandez-other",
       "is_active": true,
-      "sort_order": 3,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
     }

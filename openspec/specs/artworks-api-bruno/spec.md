@@ -25,7 +25,7 @@ Each `GET list.bru` SHALL send `GET {{base_url}}/apis/artworks/<resource>/` with
 - **THEN** its `docs` block SHALL document the artwork list-item shape including `artist` as `{id, slug}`, taxonomy arrays of `{id, slug}`, `price_mxn`/`price_usd` as numbers, `translations`, `images`, and `gallery_links`.
 
 ### Requirement: Detail requests target single resource
-Each `GET detail.bru` SHALL send `GET {{base_url}}/apis/artworks/<resource>/1/` with header `Authorization: Token {{token}}`, using a hardcoded ID of `1` as a placeholder the developer can change. Each `GET detail.bru` SHALL also contain a `docs` block documenting the endpoint purpose, the `200`, `401`, and `404` status codes, the single-resource JSON shape matching the resource's serializer, and the project error envelope for error responses.
+Each `GET detail.bru` SHALL send `GET {{base_url}}/apis/artworks/<resource>/1/` with header `Authorization: Token {{token}}`, using a hardcoded ID of `1` as a placeholder the developer can change. Each `GET detail.bru` SHALL also contain a `docs` block documenting the endpoint purpose, the `200`, `401`, and `404` status codes, the single-resource JSON shape matching the resource's serializer, and the project error envelope for error responses. The documented shapes SHALL omit `sort_order` for all top-level resources.
 
 #### Scenario: Artwork detail request
 - **WHEN** `GET detail.bru` in the `Artworks/` folder is inspected
@@ -33,7 +33,11 @@ Each `GET detail.bru` SHALL send `GET {{base_url}}/apis/artworks/<resource>/1/` 
 
 #### Scenario: Taxonomy detail request
 - **WHEN** `GET detail.bru` in the `Disciplines/` folder is inspected
-- **THEN** its `docs` block SHALL document the taxonomy resource shape (`id`, `slug`, `is_active`, `sort_order`, `created_at`, `updated_at`, `translations` as `{es: {name}, en: {name}}`).
+- **THEN** its `docs` block SHALL document the taxonomy resource shape (`id`, `slug`, `is_active`, `created_at`, `updated_at`, `translations` as `{es: {name}, en: {name}}`) without `sort_order`.
+
+#### Scenario: Nested sort_order preserved in examples
+- **WHEN** a `docs` block documents artwork or gallery detail
+- **THEN** `images`, `gallery_links`, and `artwork_links` items SHALL still include `sort_order`.
 
 ### Requirement: Environment file preserved and reused
 The existing `bruno/collections/enredarte-dashboard-api/environments/dev.bru` SHALL be preserved with its `base_url` and `token` variables. The tracked `dev.bru.example` template SHALL also remain unchanged. No new environment files SHALL be created. All 20 new request files SHALL reference `{{base_url}}` and `{{token}}`.

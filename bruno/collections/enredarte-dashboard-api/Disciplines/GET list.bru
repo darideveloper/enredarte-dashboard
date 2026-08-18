@@ -16,16 +16,16 @@ headers {
 
 docs {
   # GET /apis/artworks/disciplines/ — List disciplines
-
+  
   Returns the paginated list of disciplines. Requires `Authorization: Token`.
-
+  
   ## Status codes
-
+  
   - `200 OK` — success
   - `401 Unauthorized` — missing or invalid token
-
+  
   ## Response (200)
-
+  
   ```json
   {
     "count": 1,
@@ -39,7 +39,6 @@ docs {
         "id": 1,
         "slug": "painting",
         "is_active": true,
-        "sort_order": 0,
         "created_at": "2026-08-17T10:00:00Z",
         "updated_at": "2026-08-17T10:00:00Z",
         "translations": {
@@ -50,9 +49,9 @@ docs {
     ]
   }
   ```
-
+  
   ## Error (401)
-
+  
   ```json
   {
     "status": "error",

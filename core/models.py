@@ -26,7 +26,6 @@ class TimeStampedModel(models.Model):
 class BaseModel(TimeStampedModel):
     slug = models.SlugField(max_length=200, unique=True, blank=True, verbose_name="Slug")
     is_active = models.BooleanField(default=True, verbose_name="Activo")
-    sort_order = models.IntegerField(default=0, verbose_name="Orden")
 
     class Meta:
         abstract = True
@@ -82,7 +81,7 @@ class SlugBackfillMixin(models.Model):
 class TranslatableName(BaseModel):
     """Mixin for models whose display name lives in translation rows.
 
-    Extends BaseModel so subclasses keep slug / is_active / sort_order while
+    Extends BaseModel so subclasses keep slug / is_active while
     gaining the translated display lookup. `translated_name` prefers the
     Spanish translation, falls back to any available translation, and finally
     to the slug.

@@ -6,11 +6,15 @@ To define the `Location` model (a single text value with bilingual translations)
 ## Requirements
 
 ### Requirement: Location model
-The system SHALL provide a `Location` model in `artworks/models.py` extending `BaseModel` (slug, `is_active`, `sort_order`, timestamps) with a bilingual `LocationTranslation` (`TranslationBase`, `unique_together` on `(location, language)`) holding the location's `name`.
+The system SHALL provide a `Location` model in `artworks/models.py` extending `BaseModel` (slug, `is_active`, timestamps) with a bilingual `LocationTranslation` (`TranslationBase`, `unique_together` on `(location, language)`) holding the location's `name`. The `Location` model SHALL NOT have a `sort_order` field.
 
 #### Scenario: Creating a translatable location
 - **WHEN** an administrator creates a Location
 - **THEN** it can hold Spanish and English names, unique per language.
+
+#### Scenario: Location has no sort_order
+- **WHEN** the Location model is inspected
+- **THEN** it SHALL NOT expose a `sort_order` field in its schema, admin form, or serialized output.
 
 ### Requirement: Single location per artist via FK
 The system SHALL add a nullable `Artist.location` foreign key (`on_delete=SET_NULL`, `related_name="artists"`), allowing many artists to reference the same location.

@@ -5,7 +5,7 @@ The system SHALL register the `Artist` model in `artworks/admin.py` using `Model
 
 #### Scenario: Viewing artist list in admin
 - **WHEN** an administrator opens the Django Admin panel
-- **THEN** the sidebar SHALL display "Artistas" with a palette icon and list artists with columns for Name, Email, Birth Year, Death Year, Active state, and Sort Order in Spanish.
+- **THEN** the sidebar SHALL display "Artistas" with a palette icon and list artists with columns for Name, Email, Birth Year, Death Year, and Active state in Spanish.
 
 ### Requirement: Inline translation management for Artist
 The system SHALL display `ArtistTranslation` as a `StackedInline` inside the `Artist` edit form in Django Admin to allow editing Spanish (`es`) and English (`en`) bio text on the same page, pre-populating Spanish (`es`) on the first form and English (`en`) on the second form during creation, and suppressing extra blank forms when all translations already exist.
@@ -33,11 +33,11 @@ The system SHALL add the `location` field to the `ArtistAdmin` edit form so an a
 - **THEN** they can pick one `Location` for the artist (or leave it empty).
 
 ### Requirement: Social links inline on Artist admin
-The system SHALL include the `ArtistSocialLinkInline` (`TabularInline`, sortable via `sort_order`) in the `ArtistAdmin` edit form.
+The system SHALL include the `ArtistSocialLinkInline` (`TabularInline`) in the `ArtistAdmin` edit form.
 
 #### Scenario: Editing social links with the artist
 - **WHEN** an administrator opens an Artist edit form
-- **THEN** they can add, remove, and reorder the artist's social links in place.
+- **THEN** they can add and remove the artist's social links in place.
 
 ### Requirement: Changelist summary columns on Artist admin
 The system SHALL add readonly count columns to the `ArtistAdmin` changelist for the derived blocks (artworks, available works, techniques, highlighted works, galleries), computed from the `Artist` derived properties (see `artist-derived-fields`).

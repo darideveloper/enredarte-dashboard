@@ -20,14 +20,14 @@ class Artist(Person):
     @property
     def techniques(self):
         """Distinct Technique across the artist's artworks (profile "Técnicas" block)."""
-        return Technique.objects.filter(artworks__artist=self).distinct().order_by("sort_order")
+        return Technique.objects.filter(artworks__artist=self).distinct().order_by("-created_at")
 
     @property
     def available_artworks(self):
         """Active artworks with status available (profile "Obras disponibles" block)."""
         return self.artworks.filter(
             is_active=True, status=ArtworkStatus.AVAILABLE
-        ).order_by("sort_order")
+        ).order_by("-created_at")
 
     @property
     def new_additions(self):
@@ -37,7 +37,7 @@ class Artist(Person):
     @property
     def highlighted_artworks(self):
         """Active featured artworks (profile "Destacados" block)."""
-        return self.artworks.filter(is_active=True, is_highlighted=True).order_by("sort_order")
+        return self.artworks.filter(is_active=True, is_highlighted=True).order_by("-created_at")
 
     @property
     def most_viewed(self):
@@ -77,9 +77,6 @@ class ArtistSocialLink(BaseModel):
     artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="social_links", verbose_name="Artista")
     platform = models.CharField(max_length=20, choices=Platform.choices, verbose_name="Plataforma")
     url = models.URLField(verbose_name="URL")
-
-    class Meta:
-        ordering = ["sort_order"]
 
     def save(self, *args, **kwargs):
         if not self.slug:
