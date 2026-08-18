@@ -1,9 +1,13 @@
+from django.db.models import Prefetch
 from rest_framework import viewsets
 
 from artworks.models import (
     ArtCurator,
     Artist,
+    ArtistSocialLink,
     Artwork,
+    ArtworkGallery,
+    ArtworkImage,
     Discipline,
     Format,
     Gallery,
@@ -27,10 +31,13 @@ from artworks.serializers import (
 
 
 class ArtistViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Artist.objects.filter(is_active=True).prefetch_related(
-        "location", "translations", "social_links"
-    ).order_by("sort_order")
     serializer_class = ArtistSerializer
+
+    def get_queryset(self):
+        return Artist.objects.filter(is_active=True).select_related("location").prefetch_related(
+            Prefetch("social_links", queryset=ArtistSocialLink.objects.filter(is_active=True)),
+            "translations",
+        ).order_by("sort_order")
 
 
 class ArtCuratorViewSet(viewsets.ReadOnlyModelViewSet):
@@ -48,10 +55,18 @@ class LocationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class GalleryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Gallery.objects.filter(is_active=True).prefetch_related(
-        "curator", "translations", "artwork_links__artwork"
-    ).order_by("sort_order")
     serializer_class = GallerySerializer
+
+    def get_queryset(self):
+        return Gallery.objects.filter(is_active=True).select_related("curator").prefetch_related(
+            Prefetch(
+                "artwork_links",
+                queryset=ArtworkGallery.objects.filter(
+                    is_active=True, artwork__is_active=True
+                ).select_related("artwork").order_by("sort_order"),
+            ),
+            "translations",
+        ).order_by("sort_order")
 
 
 class _TaxonomyViewSet(viewsets.ReadOnlyModelViewSet):
@@ -87,8 +102,26 @@ class ScaleViewSet(_TaxonomyViewSet):
 
 
 class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Artwork.objects.filter(is_active=True).prefetch_related(
-        "artist", "disciplines", "techniques", "themes", "formats", "scales",
-        "translations", "images", "gallery_links__gallery",
-    ).order_by("sort_order")
     serializer_class = ArtworkSerializer
+
+    def get_queryset(self):
+        return Artwork.objects.filter(
+            is_active=True, artist__is_active=True
+        ).select_related("artist").prefetch_related(
+            Prefetch("disciplines", queryset=Discipline.objects.filter(is_active=True)),
+            Prefetch("techniques", queryset=Technique.objects.filter(is_active=True)),
+            Prefetch("themes", queryset=Theme.objects.filter(is_active=True)),
+            Prefetch("formats", queryset=Format.objects.filter(is_active=True)),
+            Prefetch("scales", queryset=Scale.objects.filter(is_active=True)),
+            Prefetch(
+                "images",
+                queryset=ArtworkImage.objects.filter(is_active=True).order_by("sort_order"),
+            ),
+            Prefetch(
+                "gallery_links",
+                queryset=ArtworkGallery.objects.filter(
+                    is_active=True, gallery__is_active=True
+                ).select_related("gallery").order_by("sort_order"),
+            ),
+            "translations",
+        ).order_by("sort_order")

@@ -27,6 +27,8 @@ docs {
 
   ## Response (200)
 
+  `location` is `null` when the referenced Location is inactive; otherwise `{id, slug}`.
+
   ```json
   {
     "id": 1,
@@ -51,6 +53,8 @@ docs {
     ]
   }
   ```
+
+  `social_links` contains only active links.
 
   ## Error (401)
 

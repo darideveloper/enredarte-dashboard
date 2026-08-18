@@ -27,6 +27,8 @@ docs {
 
   ## Response (200)
 
+  `curator` is `null` when the referenced ArtCurator is inactive; otherwise `{id, slug}`.
+
   ```json
   {
     "id": 1,
@@ -46,6 +48,8 @@ docs {
     ]
   }
   ```
+
+  `artwork_links` contains only active artwork links (active link row + active artwork).
 
   ## Error (401)
 

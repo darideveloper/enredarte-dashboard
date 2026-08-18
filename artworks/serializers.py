@@ -34,6 +34,13 @@ class RefSerializer(serializers.Serializer):
     slug = serializers.CharField()
 
 
+class ActiveRefField(RefSerializer):
+    def to_representation(self, obj):
+        if obj is None or not obj.is_active:
+            return None
+        return super().to_representation(obj)
+
+
 class ArtistSocialLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArtistSocialLink
@@ -69,7 +76,7 @@ class GalleryArtworkLinkSerializer(serializers.ModelSerializer):
 
 class ArtistSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField()
-    location = RefSerializer(allow_null=True)
+    location = ActiveRefField(allow_null=True)
     translations = serializers.SerializerMethodField()
     social_links = ArtistSocialLinkSerializer(many=True, read_only=True)
 
@@ -122,7 +129,7 @@ class LocationSerializer(serializers.ModelSerializer):
 
 class GallerySerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
-    curator = RefSerializer(allow_null=True)
+    curator = ActiveRefField(allow_null=True)
     translations = serializers.SerializerMethodField()
     artwork_links = GalleryArtworkLinkSerializer(many=True, read_only=True)
 

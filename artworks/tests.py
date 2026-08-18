@@ -1636,3 +1636,123 @@ class ArtworksAPITestCase(APITestCase):
         self.assertEqual(data["status"], "error")
         self.assertIn("message", data)
         self.assertIn("data", data)
+
+    def test_inactive_social_link_excluded(self):
+        ArtistSocialLink.objects.create(
+            artist=self.artist,
+            platform=ArtistSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/ana",
+        )
+        ArtistSocialLink.objects.create(
+            artist=self.artist,
+            platform=ArtistSocialLink.Platform.X,
+            url="https://x.com/ana",
+            is_active=False,
+        )
+        response = self._auth_get(f"/apis/artworks/artists/{self.artist.id}/")
+        self.assertEqual(response.status_code, 200)
+        links = response.json()["social_links"]
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["platform"], "instagram")
+
+    def test_inactive_location_returns_null(self):
+        Location.objects.filter(pk=self.location.pk).update(is_active=False)
+        response = self._auth_get(f"/apis/artworks/artists/{self.artist.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["location"])
+
+    def test_inactive_curator_returns_null(self):
+        curator = ArtCurator.objects.create(name="Curador", slug="curador")
+        gallery = Gallery.objects.create(slug="galeria-a", sort_order=1, curator=curator)
+        ArtCurator.objects.filter(pk=curator.pk).update(is_active=False)
+        response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json()["curator"])
+
+    def test_gallery_artwork_links_exclude_inactive(self):
+        gallery = Gallery.objects.create(slug="galeria-a", sort_order=1)
+        artwork2 = Artwork.objects.create(
+            artist=self.artist,
+            slug="obra-2",
+            year=2023,
+            dimensions="20x20",
+            price_mxn=2000,
+            price_usd=100,
+            status=ArtworkStatus.AVAILABLE,
+        )
+        inactive_artwork = Artwork.objects.create(
+            artist=self.artist,
+            slug="obra-inactiva",
+            year=2022,
+            dimensions="15x15",
+            price_mxn=500,
+            price_usd=25,
+            status=ArtworkStatus.AVAILABLE,
+            is_active=False,
+        )
+        active_link = ArtworkGallery.objects.create(
+            artwork=self.artwork, gallery=gallery, sort_order=1
+        )
+        ArtworkGallery.objects.create(
+            artwork=inactive_artwork, gallery=gallery, sort_order=2
+        )
+        ArtworkGallery.objects.create(
+            artwork=artwork2, gallery=gallery, sort_order=3, is_active=False
+        )
+        response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
+        self.assertEqual(response.status_code, 200)
+        links = response.json()["artwork_links"]
+        self.assertEqual([l["id"] for l in links], [active_link.id])
+
+    def test_artwork_gallery_links_exclude_inactive_gallery(self):
+        gallery = Gallery.objects.create(slug="galeria-a", sort_order=1)
+        inactive_gallery = Gallery.objects.create(
+            slug="galeria-b", sort_order=2, is_active=False
+        )
+        third_gallery = Gallery.objects.create(slug="galeria-c", sort_order=3)
+        active_link = ArtworkGallery.objects.create(
+            artwork=self.artwork, gallery=gallery, sort_order=1
+        )
+        ArtworkGallery.objects.create(
+            artwork=self.artwork, gallery=inactive_gallery, sort_order=2
+        )
+        ArtworkGallery.objects.create(
+            artwork=self.artwork, gallery=third_gallery, sort_order=3, is_active=False
+        )
+        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        self.assertEqual(response.status_code, 200)
+        links = response.json()["gallery_links"]
+        self.assertEqual([l["id"] for l in links], [active_link.id])
+
+    def test_inactive_taxonomy_term_excluded(self):
+        inactive = Discipline.objects.create(
+            slug="escultura", sort_order=2, is_active=False
+        )
+        self.artwork.disciplines.add(inactive)
+        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["disciplines"],
+            [{"id": self.discipline.id, "slug": "pintura"}],
+        )
+
+    def test_inactive_image_excluded(self):
+        ArtworkImage.objects.create(
+            artwork=self.artwork,
+            image=SimpleUploadedFile("inactive.png", _1PX_PNG),
+            is_active=False,
+        )
+        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["images"]), 1)
+
+    def test_artwork_of_inactive_artist_excluded(self):
+        Artist.objects.filter(pk=self.artist.pk).update(is_active=False)
+        response = self._auth_get("/apis/artworks/artworks/")
+        self.assertEqual(response.status_code, 200)
+        slugs = [a["slug"] for a in response.json()["results"]]
+        self.assertNotIn("obra-1", slugs)
+
+        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["status"], "error")
