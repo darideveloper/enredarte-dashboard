@@ -10,7 +10,12 @@ def get_media_url(object_or_url: object) -> str:
         url_str = object_or_url.url
 
     if "s3.amazonaws.com" not in url_str and "digitaloceanspaces" not in url_str:
-        return f"{settings.HOST}{url_str}"
+        host = getattr(settings, "HOST", None)
+        if not host:
+            return url_str
+        if "://" not in host:
+            return url_str
+        return f"{host}{url_str}"
     return url_str
 
 

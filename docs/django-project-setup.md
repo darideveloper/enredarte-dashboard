@@ -193,8 +193,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 ENV = os.getenv('ENV', 'dev')
 
-# Load environment-specific file
-load_dotenv(BASE_DIR / f'.env.{ENV}')
+# Load environment-specific file (override=True so project config wins over shell-injected vars)
+load_dotenv(BASE_DIR / f'.env.{ENV}', override=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -568,7 +568,12 @@ def get_media_url(object_or_url: object) -> str:
         url_str = object_or_url.url
 
     if "s3.amazonaws.com" not in url_str and "digitaloceanspaces" not in url_str:
-        return f"{settings.HOST}{url_str}"
+        host = getattr(settings, "HOST", None)
+        if not host:
+            return url_str
+        if "://" not in host:
+            return url_str
+        return f"{host}{url_str}"
     return url_str
 
 def get_test_image(image_name: str = "test.webp") -> SimpleUploadedFile:

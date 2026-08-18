@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 ENV = os.getenv("ENV", "dev")
 
-load_dotenv(BASE_DIR / f".env.{ENV}")
+load_dotenv(BASE_DIR / f".env.{ENV}", override=True)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
