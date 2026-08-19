@@ -5,12 +5,12 @@ from core.models import BaseModel, SlugBackfillMixin, TimeStampedModel, Translat
 
 
 class Post(BaseModel):
-    banner_image_url = models.CharField(
-        max_length=500,
+    banner_image = models.ImageField(
+        upload_to="blog/banners",
         blank=True,
         null=True,
-        verbose_name="URL del banner",
-        help_text="URL o enlace a la imagen del banner",
+        verbose_name="Imagen de banner",
+        help_text="Archivo de imagen de banner para la entrada",
     )
     author = models.CharField(
         max_length=200,
