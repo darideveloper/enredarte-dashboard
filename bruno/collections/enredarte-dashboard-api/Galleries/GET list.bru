@@ -16,16 +16,16 @@ headers {
 
 docs {
   # GET /apis/artworks/galleries/ — List galleries
-
+  
   Returns the paginated list of galleries. Requires `Authorization: Token`.
-
+  
   ## Status codes
-
+  
   - `200 OK` — success
   - `401 Unauthorized` — missing or invalid token
-
+  
   ## Response (200)
-
+  
   ```json
   {
     "count": 1,
@@ -54,9 +54,9 @@ docs {
     ]
   }
   ```
-
+  
   ## Error (401)
-
+  
   ```json
   {
     "status": "error",

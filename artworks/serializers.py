@@ -136,7 +136,7 @@ class GallerySerializer(serializers.ModelSerializer):
     class Meta:
         model = Gallery
         fields = [
-            "id", "slug", "is_active", "created_at", "updated_at",
+            "id", "slug", "is_active", "is_primary", "created_at", "updated_at",
             "logo", "curator", "translations", "artwork_links",
         ]
 

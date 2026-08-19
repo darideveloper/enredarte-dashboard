@@ -5,6 +5,7 @@ from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.db import IntegrityError
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
@@ -299,6 +300,23 @@ class GalleryAdminTestCase(TestCase):
     def test_gallery_display_name_fallback_empty(self):
         """Test fallback when no translations exist"""
         self.assertEqual(self.gallery_admin.display_name(self.gallery), "-")
+
+    def test_gallery_form_has_is_primary(self):
+        url = reverse("admin:artworks_gallery_add")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        form = response.context_data["adminform"].form
+        self.assertIn("is_primary", form.fields)
+
+    def test_gallery_changelist_columns_and_filter_is_primary(self):
+        self.assertIn("display_is_primary", self.gallery_admin.list_display)
+        self.assertIn("is_primary", self.gallery_admin.list_filter)
+
+    def test_gallery_display_is_primary(self):
+        self.assertFalse(self.gallery_admin.display_is_primary(self.gallery))
+        self.gallery.is_primary = True
+        self.gallery.save()
+        self.assertTrue(self.gallery_admin.display_is_primary(self.gallery))
 
 
 class ArtworkAdminTestCase(TestCase):
@@ -746,6 +764,29 @@ class ArtworkDiscoveryFlagsTestCase(TestCase):
 
     def test_views_count_value(self):
         self.assertEqual(self._artwork(views_count=42).views_count, 42)
+
+
+class GalleryPrimaryFlagModelTestCase(TestCase):
+    def _gallery(self, slug, **kwargs):
+        return Gallery.objects.create(slug=slug, **kwargs)
+
+    def test_is_primary_default_false(self):
+        self.assertFalse(self._gallery("galeria-1").is_primary)
+
+    def test_is_primary_flag(self):
+        self.assertTrue(self._gallery("galeria-1", is_primary=True).is_primary)
+
+    def test_flagging_second_unflags_first(self):
+        first = self._gallery("galeria-a", is_primary=True)
+        second = self._gallery("galeria-b", is_primary=True)
+        first.refresh_from_db()
+        self.assertFalse(first.is_primary)
+        self.assertTrue(second.is_primary)
+
+    def test_db_rejects_second_primary(self):
+        self._gallery("galeria-a", is_primary=True)
+        with self.assertRaises(IntegrityError):
+            Gallery.objects.bulk_create([Gallery(slug="galeria-b", is_primary=True)])
 
 
 class ArtistDerivedFieldsTestCase(TestCase):
@@ -1572,6 +1613,16 @@ class ArtworksAPITestCase(APITestCase):
         response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["translations"], {"es": {"name": "Galería X"}})
+
+    def test_gallery_serializer_includes_is_primary(self):
+        Gallery.objects.create(slug="galeria-a", is_primary=True)
+        Gallery.objects.create(slug="galeria-b")
+        response = self._auth_get("/apis/artworks/galleries/")
+        self.assertEqual(response.status_code, 200)
+        results = response.json()["results"]
+        by_slug = {g["slug"]: g for g in results}
+        self.assertTrue(by_slug["galeria-a"]["is_primary"])
+        self.assertFalse(by_slug["galeria-b"]["is_primary"])
 
     def test_404_returns_error_envelope(self):
         response = self._auth_get("/apis/artworks/artworks/9999/")

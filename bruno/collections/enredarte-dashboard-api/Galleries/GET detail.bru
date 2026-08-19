@@ -16,19 +16,19 @@ headers {
 
 docs {
   # GET /apis/artworks/galleries/1/ — Retrieve a gallery
-
+  
   Returns a single gallery by ID. Requires `Authorization: Token`.
-
+  
   ## Status codes
-
+  
   - `200 OK` — success
   - `401 Unauthorized` — missing or invalid token
   - `404 Not Found` — gallery does not exist
-
+  
   ## Response (200)
-
+  
   `curator` is `null` when the referenced ArtCurator is inactive; otherwise `{id, slug}`.
-
+  
   ```json
   {
     "id": 1,
@@ -47,11 +47,11 @@ docs {
     ]
   }
   ```
-
+  
   `artwork_links` contains only active artwork links (active link row + active artwork).
-
+  
   ## Error (401)
-
+  
   ```json
   {
     "status": "error",
@@ -59,9 +59,9 @@ docs {
     "data": {}
   }
   ```
-
+  
   ## Error (404)
-
+  
   ```json
   {
     "status": "error",

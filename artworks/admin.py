@@ -524,17 +524,27 @@ class GalleryAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     ]
     fieldsets = (
         ("Información básica", {
-            "fields": ("curator", "logo")
+            "fields": ("curator", "logo", "is_primary")
         }),
         ("Información del sistema", {
             "fields": ("slug", "is_active")
         }),
     )
-    list_display = ["display_name", "slug", "curator", "display_active"]
+    list_display = ["display_name", "slug", "curator", "display_is_primary", "display_active"]
+    list_filter = [
+        "is_active",
+        "is_primary",
+        ("curator", RelatedOnlyFieldListFilter),
+        has_related_filter("artwork_links", "obras", "has_artworks"),
+    ]
 
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
+
+    @admin.display(description="Principal", ordering="is_primary", boolean=True)
+    def display_is_primary(self, obj):
+        return obj.is_primary
 
 
 class ArtworkTranslationInline(TranslationInline):

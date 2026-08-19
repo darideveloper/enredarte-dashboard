@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from django.db import models
+from django.db.models import Q
 
 from core.models import BaseModel, Person, SlugBackfillMixin, TranslatableName, TranslationBase, unique_slugify
 
@@ -129,10 +130,27 @@ class Gallery(TranslatableName):
         ArtCurator, on_delete=models.SET_NULL, null=True, blank=True, related_name="curated_galleries",
         verbose_name="Curador",
     )
+    is_primary = models.BooleanField(
+        default=False,
+        verbose_name="Galería principal",
+        help_text="Marca la galería principal de la colección. Solo puede existir una única galería principal en todo el sistema.",
+    )
 
     class Meta:
         verbose_name = "Galería"
         verbose_name_plural = "Galerías"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["is_primary"],
+                condition=Q(is_primary=True),
+                name="unique_primary_gallery",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.is_primary:
+            type(self).objects.exclude(pk=self.pk).update(is_primary=False)
+        super().save(*args, **kwargs)
 
 
 class GalleryTranslation(SlugBackfillMixin, TranslationBase):

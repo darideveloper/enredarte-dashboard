@@ -73,7 +73,7 @@ The system SHALL expose `GET /apis/artworks/locations/` (list) and `GET /apis/ar
 - **THEN** the response SHALL NOT contain a `sort_order` key.
 
 ### Requirement: Gallery endpoint
-The system SHALL expose `GET /apis/artworks/galleries/` (list) and `GET /apis/artworks/galleries/{id}/` (detail). The queryset SHALL filter `is_active=True` and order by `-created_at`. Each entry SHALL include `id`, `slug`, `is_active`, `created_at`, `updated_at`, `logo`, a `curator` reference as `{id, slug}` (or `null`), translations as `{es: {name, description}, en: {name, description}}`, and `artwork_links` as an array of `{id, artwork: {id, slug}, sort_order}`. Gallery entries SHALL NOT include a top-level `sort_order` field; `sort_order` SHALL remain on each `artwork_links` item.
+The system SHALL expose `GET /apis/artworks/galleries/` (list) and `GET /apis/artworks/galleries/{id}/` (detail). The queryset SHALL filter `is_active=True` and order by `-created_at`. Each entry SHALL include `id`, `slug`, `is_active`, `is_primary`, `created_at`, `updated_at`, `logo`, a `curator` reference as `{id, slug}` (or `null`), translations as `{es: {name, description}, en: {name, description}}`, and `artwork_links` as an array of `{id, artwork: {id, slug}, sort_order}`. Gallery entries SHALL NOT include a top-level `sort_order` field; `sort_order` SHALL remain on each `artwork_links` item.
 
 #### Scenario: Gallery detail with artwork_links
 - **WHEN** `GET /apis/artworks/galleries/1/` is requested
@@ -86,6 +86,10 @@ The system SHALL expose `GET /apis/artworks/galleries/` (list) and `GET /apis/ar
 #### Scenario: Gallery entry omits top-level sort_order
 - **WHEN** a gallery is serialized
 - **THEN** the response SHALL NOT contain a top-level `sort_order` key, while each `artwork_links` item SHALL still include it.
+
+#### Scenario: Gallery entry includes is_primary
+- **WHEN** a gallery is serialized
+- **THEN** the response SHALL contain the `is_primary` boolean.
 
 ### Requirement: Taxonomy endpoints (Discipline, Technique, Theme, Format, Scale)
 The system SHALL expose list and detail endpoints for each taxonomy model: `Discipline` at `/apis/artworks/disciplines/`, `Technique` at `/apis/artworks/techniques/`, `Theme` at `/apis/artworks/themes/`, `Format` at `/apis/artworks/formats/`, and `Scale` at `/apis/artworks/scales/`. All SHALL filter `is_active=True`, order by `-created_at`, and include `id`, `slug`, `is_active`, `created_at`, `updated_at`, and translations as `{es: {name}, en: {name}}`. Taxonomy entries SHALL NOT include a `sort_order` field.
