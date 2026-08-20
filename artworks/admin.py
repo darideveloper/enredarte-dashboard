@@ -563,7 +563,7 @@ class ArtworkImageInline(TabularInline):
     @admin.display(description="Vista previa")
     def display_preview(self, obj):
         if obj.image:
-            return format_html('<img src="{}" class="img-preview" style="height: 50px; border-radius: 6px;" />', obj.image.url)
+            return format_html('<img src="{}" class="img-preview" />', obj.image.url)
         return "-"
 
 
@@ -648,7 +648,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
         images = list(obj.images.all())
         img = next((i for i in images if i.is_primary), None) or (images[0] if images else None)
         if img and img.image:
-            return format_html('<img src="{}" class="img-preview" style="height: 40px; width: 40px; object-fit: cover; border-radius: 6px;" />', img.image.url)
+            return format_html('<img src="{}" class="img-preview img-preview--sm" />', img.image.url)
         return "-"
 
     @admin.display(description="Título")

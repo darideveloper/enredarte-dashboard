@@ -102,3 +102,22 @@ label.grow.relative {
 .selector-chosen-title .helptext {
     display: none;
 }
+
+/* Image preview thumbnails: single source of truth for size and shape (no inline styles) */
+.img-preview {
+    height: 50px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.img-preview--sm {
+    height: 40px;
+    width: 40px;
+    object-fit: cover;
+}
+
+.img-preview--lg {
+    height: 64px;
+    width: 64px;
+    object-fit: cover;
+}

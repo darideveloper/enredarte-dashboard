@@ -200,10 +200,6 @@ document.addEventListener("DOMContentLoaded", () => {
       selector: ".btn",
       classes: "bg-primary-600 block border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-white w-full lg:w-auto flex items-center justify-center hover:bg-primary-700 hover:text-white transition-colors duration-300",
     },
-    {
-      selector: ".img-preview",
-      classes: "w-auto h-16 rounded-xl object-cover",
-    },
   ]
   for (const elem_data of classes) {
     const { selector, classes } = elem_data
@@ -214,6 +210,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })
 ```
+
+### static/css/style.css — `.img-preview`
+
+Image preview thumbnails (e.g. `ArtworkAdmin.display_image` and `ArtworkImageInline.display_preview`) are styled by the `.img-preview` class defined in `static/css/style.css` — **not** by inline `style=` attributes. Emit `class="img-preview"` and add a size variant only when a non-default size is needed:
+
+```css
+.img-preview { height: 50px; border-radius: 6px; object-fit: cover; }
+.img-preview--sm { height: 40px; width: 40px; object-fit: cover; }
+.img-preview--lg { height: 64px; width: 64px; object-fit: cover; }
+```
+
+Use `img-preview img-preview--sm` for small square thumbnails (e.g. the changelist column) and plain `img-preview` for the regular size. Previews must not use inline styles.
 
 ### static/js/load_markdown.js
 Integrates SimpleMDE for all text areas within Unfold.
