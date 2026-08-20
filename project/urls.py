@@ -14,6 +14,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", RedirectView.as_view(url="/admin/"), name="home-redirect-admin"),
     path("api/catalog/", CatalogAPIView.as_view(), name="api-catalog"),
+    path("api/blog/", include("blog.urls")),
     path("api/", include(router.urls)),
 ]
 
