@@ -9,6 +9,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", RedirectView.as_view(url="/admin/"), name="home-redirect-admin"),
     path("apis/artworks/", include("artworks.urls")),
+    path("api/blog/", include("blog.urls")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

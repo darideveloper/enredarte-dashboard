@@ -15,6 +15,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+HOST = os.getenv("HOST", "")
 
 HOST = os.getenv("HOST")
 
@@ -31,6 +32,7 @@ INSTALLED_APPS = [
     "storages",
     "core",
     "artworks",
+    "blog",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
