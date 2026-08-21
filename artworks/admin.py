@@ -1,3 +1,4 @@
+from django import forms
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin import RelatedOnlyFieldListFilter
@@ -512,9 +513,22 @@ class LocationAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
         return obj.is_active
 
 
+class GalleryAdminForm(forms.ModelForm):
+    class Meta:
+        model = Gallery
+        fields = "__all__"
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("is_primary", False):
+            Gallery.objects.filter(is_primary=True).exclude(pk=self.instance.pk).update(is_primary=False)
+        return cleaned
+
+
 @admin.register(Gallery)
 class GalleryAdmin(TranslatableNameAdminMixin, ModelAdminUnfoldBase):
     sidebar_icon = "storefront"
+    form = GalleryAdminForm
     inlines = [GalleryTranslationInline, ArtworkGalleryInline]
     search_fields = ["slug", "translations__name", "translations__description"]
     list_filter = [

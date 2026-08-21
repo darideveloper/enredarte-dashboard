@@ -30,6 +30,7 @@ from artworks.admin import (
     FormatAdmin,
     FormatTranslationInline,
     GalleryAdmin,
+    GalleryAdminForm,
     GalleryArtworkInline,
     GalleryTranslationInline,
     LocationAdmin,
@@ -317,6 +318,66 @@ class GalleryAdminTestCase(TestCase):
         self.gallery.is_primary = True
         self.gallery.save()
         self.assertTrue(self.gallery_admin.display_is_primary(self.gallery))
+
+    def _gallery_post_data(self, gallery, is_primary):
+        return {
+            "slug": gallery.slug,
+            "curator": "",
+            "logo": "",
+            "is_active": "on",
+            "is_primary": "on" if is_primary else "",
+            "translations-TOTAL_FORMS": "2",
+            "translations-INITIAL_FORMS": "0",
+            "translations-MIN_NUM_FORMS": "0",
+            "translations-MAX_NUM_FORMS": "2",
+            "translations-0-language": "es",
+            "translations-0-name": "Galería B",
+            "translations-1-language": "en",
+            "translations-1-name": "Gallery B",
+            "artwork_links-TOTAL_FORMS": "0",
+            "artwork_links-INITIAL_FORMS": "0",
+            "artwork_links-MIN_NUM_FORMS": "0",
+            "artwork_links-MAX_NUM_FORMS": "1000",
+        }
+
+    def test_admin_change_form_unflags_previous_primary(self):
+        primary = Gallery.objects.create(slug=f"galeria-a-{self.gallery.slug}", is_primary=True)
+        url = reverse("admin:artworks_gallery_change", args=[self.gallery.pk])
+        response = self.client.post(
+            url, self._gallery_post_data(self.gallery, is_primary=True)
+        )
+        self.assertEqual(response.status_code, 302)
+        self.gallery.refresh_from_db()
+        primary.refresh_from_db()
+        self.assertFalse(primary.is_primary)
+        self.assertTrue(self.gallery.is_primary)
+        self.assertEqual(Gallery.objects.filter(is_primary=True).count(), 1)
+
+    def test_gallery_change_form_validates_when_primary(self):
+        Gallery.objects.create(slug=f"galeria-a-{self.gallery.slug}", is_primary=True)
+        form = GalleryAdminForm(
+            {
+                "slug": self.gallery.slug,
+                "curator": "",
+                "logo": "",
+                "is_active": True,
+                "is_primary": True,
+            },
+            instance=self.gallery,
+        )
+        self.assertTrue(form.is_valid())
+
+    def test_admin_add_form_unflags_previous_primary(self):
+        other = Gallery.objects.create(slug="galeria-primaria", is_primary=True)
+        url = reverse("admin:artworks_gallery_add")
+        new_slug = "galeria-nueva"
+        response = self.client.post(url, self._gallery_post_data(Gallery(slug=new_slug), True))
+        self.assertEqual(response.status_code, 302)
+        new = Gallery.objects.get(slug=new_slug)
+        other.refresh_from_db()
+        self.assertFalse(other.is_primary)
+        self.assertTrue(new.is_primary)
+        self.assertEqual(Gallery.objects.filter(is_primary=True).count(), 1)
 
 
 class ArtworkAdminTestCase(TestCase):

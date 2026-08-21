@@ -1,21 +1,4 @@
-# Gallery Primary Flag Specification
-
-## Purpose
-
-To define the requirements for the `Gallery` model's `is_primary` boolean flag, which identifies the single main gallery of the collection, enforces uniqueness of that flag, and exposes it through the API serializer.
-
-## Requirements
-
-### Requirement: Gallery has a primary flag
-The `Gallery` model SHALL have an `is_primary` boolean field that defaults to `False`. It SHALL identify the single main gallery of the collection.
-
-#### Scenario: Default is not primary
-- **WHEN** a `Gallery` is created without specifying `is_primary`
-- **THEN** the gallery's `is_primary` SHALL be `False`.
-
-#### Scenario: Marking a gallery as primary
-- **WHEN** a `Gallery` is saved with `is_primary=True`
-- **THEN** the gallery's `is_primary` SHALL be `True`.
+## MODIFIED Requirements
 
 ### Requirement: Only one primary gallery exists
 The system SHALL ensure that `is_primary` is unique across the whole backend: at most one `Gallery` SHALL have `is_primary=True` at any time, active or not. Uniqueness SHALL be enforced by a database-level conditional unique constraint on `is_primary` (`condition=Q(is_primary=True)`), so the database rejects a second primary regardless of how the write occurs. When a gallery is saved as primary through the ORM **or through any form-based save (such as the Django admin change/add forms)**, all other galleries SHALL have their `is_primary` set to `False` **before uniqueness is validated, so the save succeeds instead of failing constraint validation**.
@@ -48,10 +31,3 @@ The system SHALL ensure that `is_primary` is unique across the whole backend: at
 - **GIVEN** an active gallery has `is_primary=True`
 - **WHEN** a second gallery is written with `is_primary=True` bypassing the ORM save override and form-based unflagging
 - **THEN** the database SHALL reject the write (e.g. with an `IntegrityError`).
-
-### Requirement: Primary flag exposed in the API serializer
-The `GallerySerializer` SHALL include the `is_primary` field so the frontend can read it from both the gallery list and detail endpoints.
-
-#### Scenario: Gallery API includes is_primary
-- **WHEN** a gallery is serialized by `GallerySerializer`
-- **THEN** the response SHALL contain the `is_primary` boolean.
