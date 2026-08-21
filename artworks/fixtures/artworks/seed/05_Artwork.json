@@ -1,0 +1,134 @@
+[
+  {
+    "model": "artworks.artwork",
+    "pk": 1,
+    "fields": {
+      "artist": 1,
+      "year": 2021,
+      "dimensions": "120x90 cm",
+      "disciplines": [1],
+      "techniques": [1],
+      "themes": [9, 10],
+      "formats": [1],
+      "scales": [2],
+      "price_mxn": 48000.00,
+      "price_usd": 2800.00,
+      "status": "available",
+      "slug": "memoria-silente",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 2,
+    "fields": {
+      "artist": 2,
+      "year": 2022,
+      "dimensions": "45x30x20 cm",
+      "disciplines": [5],
+      "techniques": [4],
+      "themes": [6, 8],
+      "formats": [5],
+      "scales": [1],
+      "price_mxn": 85000.00,
+      "price_usd": 4900.00,
+      "status": "reserved",
+      "slug": "fragmento-urbano",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 3,
+    "fields": {
+      "artist": 3,
+      "year": 2023,
+      "dimensions": "60x60 cm",
+      "disciplines": [3],
+      "techniques": [2],
+      "themes": [12, 14],
+      "formats": [1],
+      "scales": [1],
+      "price_mxn": 32500.00,
+      "price_usd": 1900.00,
+      "status": "available",
+      "slug": "jardin-imaginado",
+      "is_active": true,
+      "sort_order": 3,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 4,
+    "fields": {
+      "artist": 4,
+      "year": 2020,
+      "dimensions": "90x60 cm",
+      "disciplines": [4],
+      "techniques": [4],
+      "themes": [3, 6],
+      "formats": [3],
+      "scales": [2],
+      "price_mxn": 15000.00,
+      "price_usd": 850.00,
+      "status": "sold",
+      "slug": "horizonte-beton",
+      "is_active": true,
+      "sort_order": 4,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 5,
+    "fields": {
+      "artist": 5,
+      "year": 2024,
+      "dimensions": "30x30 cm",
+      "disciplines": [2],
+      "techniques": [5, 6],
+      "themes": [11, 8],
+      "formats": [2, 4],
+      "scales": [1],
+      "price_mxn": 12500.00,
+      "price_usd": 700.00,
+      "status": "available",
+      "slug": "postales-de-ayer",
+      "is_active": true,
+      "sort_order": 5,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 6,
+    "fields": {
+      "artist": 1,
+      "year": 2025,
+      "dimensions": "150x120 cm",
+      "disciplines": [1, 6],
+      "techniques": [1, 4],
+      "themes": [4, 15],
+      "formats": [1],
+      "scales": [2],
+      "price_mxn": 120000.00,
+      "price_usd": 6900.00,
+      "status": "on_loan",
+      "slug": "flujo-neon",
+      "is_active": true,
+      "sort_order": 6,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  }
+]

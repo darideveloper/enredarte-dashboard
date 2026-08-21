@@ -1,0 +1,126 @@
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Search apps and models..."
+msgstr "Buscar aplicaciones y modelos…"
+
+msgid "Type to search"
+msgstr "Escriba para buscar"
+
+msgid "Nothing matched your search"
+msgstr "Ningún resultado coincide con su búsqueda"
+
+msgid "No results found"
+msgstr "Sin resultados"
+
+msgid "Recent searches"
+msgstr "Búsquedas recientes"
+
+msgid "All applications"
+msgstr "Todas las aplicaciones"
+
+msgid "Apply Filters"
+msgstr "Aplicar filtros"
+
+msgid "Reset filters"
+msgstr "Restablecer filtros"
+
+msgid "Filters"
+msgstr "Filtros"
+
+msgid "No data"
+msgstr "Sin datos"
+
+msgid "Add row"
+msgstr "Agregar fila"
+
+msgid "Select all rows"
+msgstr "Seleccionar todas las filas"
+
+msgid "Expand row"
+msgstr "Expandir fila"
+
+msgid "Run"
+msgstr "Ejecutar"
+
+msgid "After you"
+msgstr "Tras"
+
+msgid "More actions"
+msgstr "Más acciones"
+
+msgid "Select"
+msgstr "Seleccionar"
+
+msgid "Submit"
+msgstr "Enviar"
+
+msgid "Next"
+msgstr "Siguiente"
+
+msgid "Previous"
+msgstr "Anterior"
+
+msgid "Go back"
+msgstr "Volver"
+
+msgid "General"
+msgstr "General"
+
+msgid "System"
+msgstr "Sistema"
+
+msgid "Navigate"
+msgstr "Navegar"
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Click to cancel"
+msgstr "Clic para cancelar"
+
+msgid "Click to download"
+msgstr "Clic para descargar"
+
+msgid "True"
+msgstr "Verdadero"
+
+msgid "False"
+msgstr "Falso"
+
+msgid "Toggle password visibility"
+msgstr "Mostrar/ocultar contraseña"
+
+msgid "Choose file to upload"
+msgstr "Seleccionar archivo para subir"
+
+msgid "Image preview"
+msgstr "Vista previa de la imagen"
+
+msgid "Record picture"
+msgstr "Capturar imagen"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Forgotten your password or username?"
+msgstr "¿Olvidó su contraseña o nombre de usuario?"
+
+msgid "Return to site"
+msgstr "Volver al sitio"
+
+msgid "This item will be deleted."
+msgstr "Este elemento será eliminado."
+
+msgid "You have been successfully logged out from the administration"
+msgstr "Ha cerrado sesión exitosamente del panel de administración"
+
+msgid "This page yielded into no results. Create a new item or reset your filters."
+msgstr "Esta página no generó resultados. Cree un nuevo elemento o restablezca sus filtros."

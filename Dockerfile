@@ -65,4 +65,6 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 80
 
+# Base fixtures load at container RUNTIME via start.sh (python manage.py base_loaddata),
+# since no database exists during the build phase.
 CMD ["./start.sh"]

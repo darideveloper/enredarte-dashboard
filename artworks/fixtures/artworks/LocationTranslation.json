@@ -1,0 +1,10 @@
+[
+  { "model": "artworks.locationtranslation", "pk": 1, "fields": { "location": 1, "language": "es", "name": "Guadalajara" } },
+  { "model": "artworks.locationtranslation", "pk": 2, "fields": { "location": 1, "language": "en", "name": "Guadalajara" } },
+  { "model": "artworks.locationtranslation", "pk": 3, "fields": { "location": 2, "language": "es", "name": "Jalisco" } },
+  { "model": "artworks.locationtranslation", "pk": 4, "fields": { "location": 2, "language": "en", "name": "Jalisco" } },
+  { "model": "artworks.locationtranslation", "pk": 5, "fields": { "location": 3, "language": "es", "name": "Occidente" } },
+  { "model": "artworks.locationtranslation", "pk": 6, "fields": { "location": 3, "language": "en", "name": "West" } },
+  { "model": "artworks.locationtranslation", "pk": 7, "fields": { "location": 4, "language": "es", "name": "México" } },
+  { "model": "artworks.locationtranslation", "pk": 8, "fields": { "location": 4, "language": "en", "name": "Mexico" } }
+]

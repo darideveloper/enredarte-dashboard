@@ -1,0 +1,6 @@
+[
+  { "model": "artworks.scaletranslation", "pk": 1, "fields": { "scale": 1, "language": "es", "name": "Mini obras" } },
+  { "model": "artworks.scaletranslation", "pk": 2, "fields": { "scale": 1, "language": "en", "name": "Mini works" } },
+  { "model": "artworks.scaletranslation", "pk": 3, "fields": { "scale": 2, "language": "es", "name": "Gran formato" } },
+  { "model": "artworks.scaletranslation", "pk": 4, "fields": { "scale": 2, "language": "en", "name": "Large format" } }
+]

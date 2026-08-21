@@ -1,0 +1,8 @@
+opencollection: 1.0.0
+info:
+  name: "Enredarte Dashboard"
+  type: workspace
+
+collections:
+  - name: "Enredarte Dashboard API"
+    path: "collections/enredarte-dashboard-api"

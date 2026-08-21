@@ -91,3 +91,14 @@
     color: var(--brand-primary-600, var(--color-primary-600));
     text-decoration: underline;
 }
+
+/* File upload widgets: make the fake filename input fill the widget width so the label is fully visible */
+label.grow.relative {
+    display: flex;
+}
+
+/* Remove Django's SelectFilter2 M2M helptext ("Elija ... use el botón Elegir") — the widget is self-explanatory */
+.selector-available-title .helptext,
+.selector-chosen-title .helptext {
+    display: none;
+}

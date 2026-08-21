@@ -164,10 +164,10 @@ Resulting `SIDEBAR` block in `project/settings.py`:
     "show_all_applications": True,
     "navigation": [],
 },
+# No `permission` callback, no Python helper, no custom `AdminSite` subclass,
+# and no `core/admin.py` changes are required.
 ```
 
-No `permission` callback, no Python helper, no custom `AdminSite` subclass, and no `core/admin.py` changes are required.
-```
 
 ## 4. Custom Callbacks (`utils/callbacks.py`)
 
@@ -368,6 +368,30 @@ To ensure the Markdown preview is readable within the Unfold theme, custom typog
     text-decoration: underline;
 }
 ```
+
+### File Upload Widget Width (`static/css/style.css`)
+Unfold's file/image upload widgets render a fake, disabled text input to show the filename or the "Seleccionar archivo para subir" placeholder. That input carries `grow` (`flex-grow: 1`) and `min-w-0` (`min-width: 0`) classes, but they are inert because its wrapping `<label class="grow relative">` is not a flex container, so the input stays at its intrinsic width and the label text is not fully visible. Making the label a flex container activates those classes and the input fills the widget width:
+
+```css
+label.grow.relative {
+    display: flex;
+}
+```
+
+The `label.grow.relative` selector matches only the two Unfold file-input widget templates (`clearable_file_input.html` and `clearable_file_input_small.html`), so it covers both the change-form widget and the small inline widget without touching other inputs. Do **not** use `width: 100%` on the input instead: it regresses the small inline widget (a circular flex/percentage sizing collapses the label and truncates the text).
+
+### M2M FilterWidget Helptext Removal (`static/css/style.css`)
+
+Django's `filter_horizontal`/`filter_vertical` widgets inject a `<p class="helptext">` into each side's title bar. The Spanish admin JS catalog translates the English hint ("…select the 'Choose' arrow button") as *"use el botón 'Elegir'"*, and the "Remove" side as *"use el botón 'Eliminar'"* — referencing labelled buttons that don't exist (the move controls are only arrows between the lists). The widget is self-explanatory (labelled lists + filters + arrows), so both hints are removed:
+
+```css
+.selector-available-title .helptext,
+.selector-chosen-title .helptext {
+    display: none;
+}
+```
+
+`display:none` also drops the hints from the accessibility tree. The selectors match only the two hint paragraphs `SelectFilter2.js` injects; no other element in the admin uses `class="helptext"` inside `.selector-*-title`.
 
 ## 6. Admin Interface Overrides
 

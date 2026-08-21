@@ -1,0 +1,14 @@
+[
+  { "model": "artworks.artworktranslation", "pk": 1, "fields": { "artwork": 1, "language": "es", "title": "Memoria silente", "description": "Pintura abstracta que evoca recuerdos de infancia." } },
+  { "model": "artworks.artworktranslation", "pk": 2, "fields": { "artwork": 1, "language": "en", "title": "Silent Memory", "description": "Abstract painting evoking childhood memories." } },
+  { "model": "artworks.artworktranslation", "pk": 3, "fields": { "artwork": 2, "language": "es", "title": "Fragmento urbano", "description": "Escultura con restos metálicos del espacio público." } },
+  { "model": "artworks.artworktranslation", "pk": 4, "fields": { "artwork": 2, "language": "en", "title": "Urban Fragment", "description": "Sculpture made of metal scraps from public space." } },
+  { "model": "artworks.artworktranslation", "pk": 5, "fields": { "artwork": 3, "language": "es", "title": "Jardín imaginado", "description": "Ilustración onírica de un jardín fantástico." } },
+  { "model": "artworks.artworktranslation", "pk": 6, "fields": { "artwork": 3, "language": "en", "title": "Imagined Garden", "description": "Dreamlike illustration of a fantastic garden." } },
+  { "model": "artworks.artworktranslation", "pk": 7, "fields": { "artwork": 4, "language": "es", "title": "Horizonte de concreto", "description": "Fotografía de paisaje urbano al amanecer." } },
+  { "model": "artworks.artworktranslation", "pk": 8, "fields": { "artwork": 4, "language": "en", "title": "Concrete Horizon", "description": "Urban landscape photograph at dawn." } },
+  { "model": "artworks.artworktranslation", "pk": 9, "fields": { "artwork": 5, "language": "es", "title": "Postales de ayer", "description": "Collage con recortes de cultura popular y nostalgia." } },
+  { "model": "artworks.artworktranslation", "pk": 10, "fields": { "artwork": 5, "language": "en", "title": "Postcards from Yesterday", "description": "Collage with pop culture clippings and nostalgia." } },
+  { "model": "artworks.artworktranslation", "pk": 11, "fields": { "artwork": 6, "language": "es", "title": "Flujo neón", "description": "Pintura mural en técnica mixta sobre soporte urbano." } },
+  { "model": "artworks.artworktranslation", "pk": 12, "fields": { "artwork": 6, "language": "en", "title": "Neon Flow", "description": "Mixed-media mural painting on an urban support." } }
+]

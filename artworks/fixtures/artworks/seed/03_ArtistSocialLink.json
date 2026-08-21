@@ -1,0 +1,170 @@
+[
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 1,
+    "fields": {
+      "artist": 1,
+      "platform": "instagram",
+      "url": "https://instagram.com/marianarios",
+      "slug": "mariana-rios-instagram",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 2,
+    "fields": {
+      "artist": 1,
+      "platform": "behance",
+      "url": "https://behance.net/marianarios",
+      "slug": "mariana-rios-behance",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 3,
+    "fields": {
+      "artist": 2,
+      "platform": "x",
+      "url": "https://x.com/diegomorales",
+      "slug": "diego-morales-x",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 4,
+    "fields": {
+      "artist": 2,
+      "platform": "facebook",
+      "url": "https://facebook.com/diegomorales",
+      "slug": "diego-morales-facebook",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 5,
+    "fields": {
+      "artist": 2,
+      "platform": "youtube",
+      "url": "https://youtube.com/@diegomorales",
+      "slug": "diego-morales-youtube",
+      "is_active": true,
+      "sort_order": 3,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 6,
+    "fields": {
+      "artist": 3,
+      "platform": "instagram",
+      "url": "https://instagram.com/valentinacruz",
+      "slug": "valentina-cruz-instagram",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 7,
+    "fields": {
+      "artist": 3,
+      "platform": "tiktok",
+      "url": "https://tiktok.com/@valentinacruz",
+      "slug": "valentina-cruz-tiktok",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 8,
+    "fields": {
+      "artist": 4,
+      "platform": "instagram",
+      "url": "https://instagram.com/santiagoherrera",
+      "slug": "santiago-herrera-instagram",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 9,
+    "fields": {
+      "artist": 4,
+      "platform": "linkedin",
+      "url": "https://linkedin.com/in/santiagoherrera",
+      "slug": "santiago-herrera-linkedin",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 10,
+    "fields": {
+      "artist": 5,
+      "platform": "instagram",
+      "url": "https://instagram.com/luciafernandez",
+      "slug": "lucia-fernandez-instagram",
+      "is_active": true,
+      "sort_order": 1,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 11,
+    "fields": {
+      "artist": 5,
+      "platform": "facebook",
+      "url": "https://facebook.com/luciafernandez",
+      "slug": "lucia-fernandez-facebook",
+      "is_active": true,
+      "sort_order": 2,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artistsociallink",
+    "pk": 12,
+    "fields": {
+      "artist": 5,
+      "platform": "other",
+      "url": "https://linktr.ee/luciafernandez",
+      "slug": "lucia-fernandez-other",
+      "is_active": true,
+      "sort_order": 3,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  }
+]

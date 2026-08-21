@@ -1,0 +1,6 @@
+[
+  { "model": "artworks.artcuratortranslation", "pk": 1, "fields": { "art_curator": 1, "language": "es", "bio": "Curadora independiente especializada en arte contemporáneo latinoamericano." } },
+  { "model": "artworks.artcuratortranslation", "pk": 2, "fields": { "art_curator": 1, "language": "en", "bio": "Independent curator specialized in Latin American contemporary art." } },
+  { "model": "artworks.artcuratortranslation", "pk": 3, "fields": { "art_curator": 2, "language": "es", "bio": "Curador enfocado en arte urbano y nuevas narrativas visuales." } },
+  { "model": "artworks.artcuratortranslation", "pk": 4, "fields": { "art_curator": 2, "language": "en", "bio": "Curator focused on street art and new visual narratives." } }
+]
