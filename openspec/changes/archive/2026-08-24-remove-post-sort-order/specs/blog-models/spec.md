@@ -1,9 +1,4 @@
-# blog-models Specification
-
-## Purpose
-TBD - created by archiving change blog-models. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Blog Data Models Definition
 The system SHALL provide `Post`, `PostTranslation`, and `BlogImage` models adhering to project conventions. The `Post` model SHALL NOT define a `sort_order` field.
@@ -27,11 +22,3 @@ The system SHALL provide `Post`, `PostTranslation`, and `BlogImage` models adher
 - **THEN** it inherits from `TimeStampedModel`
 - **AND** it defines `name` and `image` (uploading to `blog/images`)
 - **AND** `__str__()` returns `self.name`
-
-### Requirement: Blog App Settings Registration and Migrations
-The system SHALL register the `blog` app in `INSTALLED_APPS` and maintain clean database migrations.
-
-#### Scenario: App registration and schema migration
-- **WHEN** `INSTALLED_APPS` in `project/settings.py` is inspected
-- **THEN** `"blog"` is registered
-- **AND** `blog/migrations/0001_initial.py` exists and creates the `blog_post`, `blog_posttranslation`, and `blog_blogimage` tables

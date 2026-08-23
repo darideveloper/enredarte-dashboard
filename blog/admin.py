@@ -1,5 +1,4 @@
 from django.contrib import admin, messages
-from django.db.models import Max
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.html import format_html
@@ -48,7 +47,7 @@ class PostAdmin(ModelAdminUnfoldBase):
             {
                 "fields": (
                     "slug",
-                    ("is_active", "sort_order"),
+                    "is_active",
                 )
             },
         ),
@@ -59,7 +58,6 @@ class PostAdmin(ModelAdminUnfoldBase):
         "author",
         "published_at",
         "display_active",
-        "sort_order",
     ]
 
     def get_queryset(self, request):
@@ -67,8 +65,6 @@ class PostAdmin(ModelAdminUnfoldBase):
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
-        max_order = Post.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
         initial["published_at"] = timezone.now()
         return initial
 

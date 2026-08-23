@@ -22,7 +22,6 @@ class BlogAPITestCase(APITestCase):
             slug="oaxaca-arte",
             author="Equipo Oaxaca",
             published_at=timezone.now(),
-            sort_order=1,
             is_active=True,
             banner_image=SimpleUploadedFile("banner1.png", _1PX_PNG, content_type="image/png"),
         )
@@ -48,7 +47,6 @@ class BlogAPITestCase(APITestCase):
             slug="cdmx-galerias",
             author="Curaduría CDMX",
             published_at=timezone.now() - timezone.timedelta(days=2),
-            sort_order=2,
             is_active=True,
         )
         PostTranslation.objects.create(
@@ -73,7 +71,6 @@ class BlogAPITestCase(APITestCase):
             slug="borrador-secreto",
             author="Borrador",
             published_at=timezone.now(),
-            sort_order=3,
             is_active=False,
         )
         PostTranslation.objects.create(
@@ -109,7 +106,8 @@ class BlogAPITestCase(APITestCase):
         self.assertEqual(item1["keywords_en"], "oaxaca, art")
         self.assertIn("banner1", item1["banner_image"])
 
-        # Verify content fields are excluded in summary list
+        # Verify sort_order and content fields are excluded in summary list
+        self.assertNotIn("sort_order", item1)
         self.assertNotIn("content_es", item1)
         self.assertNotIn("content_en", item1)
 
@@ -138,6 +136,7 @@ class BlogAPITestCase(APITestCase):
         self.assertEqual(data["title_en"], "Art in Oaxaca")
         self.assertEqual(data["content_es"], "# Contenido Oaxaca ES")
         self.assertEqual(data["content_en"], "# Content Oaxaca EN")
+        self.assertNotIn("sort_order", data)
 
     def test_retrieve_inactive_post_returns_404(self):
         url = reverse("blog-posts-detail", kwargs={"slug": "borrador-secreto"})

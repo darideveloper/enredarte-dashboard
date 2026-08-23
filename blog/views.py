@@ -14,7 +14,7 @@ class PostViewSet(ReadOnlyModelViewSet):
     def get_queryset(self):
         return (
             Post.objects.filter(is_active=True)
-            .order_by("-published_at", "sort_order", "-id")
+            .order_by("-published_at", "-id")
             .prefetch_related("translations")
         )
 

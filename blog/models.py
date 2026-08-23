@@ -24,11 +24,6 @@ class Post(BaseModel):
         verbose_name="Fecha de publicación",
         help_text="Fecha y hora de publicación pública",
     )
-    sort_order = models.IntegerField(
-        default=0,
-        verbose_name="Orden",
-        help_text="Orden de la entrada dentro del listado",
-    )
 
     class Meta:
         verbose_name = "Entrada de blog"
