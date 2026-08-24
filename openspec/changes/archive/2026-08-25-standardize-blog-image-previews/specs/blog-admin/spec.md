@@ -1,9 +1,4 @@
-# blog-admin Specification
-
-## Purpose
-TBD - created by archiving change blog-admin. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Post Admin Interface with Translation Inlines and Live Slug Auto-fill
 The system SHALL register `Post` in Django Admin using Unfold with single-screen multilingual editing, live slug generation from Spanish title, and pre-filled publication date. The interface SHALL NOT display or manage a `sort_order` field, and all image previews SHALL use `.img-preview` classes with no inline styles.

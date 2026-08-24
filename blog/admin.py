@@ -71,19 +71,13 @@ class PostAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Banner")
     def display_banner(self, obj):
         if obj.banner_image:
-            return format_html(
-                '<img src="{}" class="img-preview" style="height: 40px; width: 40px; object-fit: cover; border-radius: 6px;" />',
-                obj.banner_image.url,
-            )
+            return format_html('<img src="{}" class="img-preview img-preview--sm" />', obj.banner_image.url)
         return "-"
 
     @admin.display(description="Vista previa del banner")
     def display_banner_preview(self, obj):
         if obj.banner_image:
-            return format_html(
-                '<img src="{}" style="max-height: 180px; max-width: 100%; border-radius: 8px; object-fit: cover;" />',
-                obj.banner_image.url,
-            )
+            return format_html('<img src="{}" class="img-preview--banner" />', obj.banner_image.url)
         return "Sin banner asignado"
 
     @admin.display(description="Título")
@@ -122,19 +116,13 @@ class BlogImageAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Vista previa")
     def display_preview(self, obj):
         if obj.image:
-            return format_html(
-                '<img src="{}" class="img-preview" style="height: 48px; width: 48px; object-fit: cover; border-radius: 6px;" />',
-                obj.image.url,
-            )
+            return format_html('<img src="{}" class="img-preview img-preview--sm" />', obj.image.url)
         return "-"
 
     @admin.display(description="Vista previa")
     def display_preview_large(self, obj):
         if obj.image:
-            return format_html(
-                '<img src="{}" style="max-height: 240px; max-width: 100%; border-radius: 8px; object-fit: cover;" />',
-                obj.image.url,
-            )
+            return format_html('<img src="{}" class="img-preview--form" />', obj.image.url)
         return "-"
 
     @admin.display(description="URL")
