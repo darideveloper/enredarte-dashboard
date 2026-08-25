@@ -3,8 +3,9 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.forms.models import BaseInlineFormSet
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
 from artworks.admin_filters import YearFilter, has_related_filter
@@ -35,6 +36,8 @@ from artworks.models import (
     ThemeTranslation,
 )
 from project.admin_base import ModelAdminUnfoldBase, TranslatableNameAdminMixin
+from subscriptions.admin_helpers import subscription_badge_from_artist
+from subscriptions.models import ArtistSubscription
 from unfold.admin import StackedInline, TabularInline
 
 
@@ -236,12 +239,23 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         "display_techniques_count",
         "display_highlighted_count",
         "display_galleries_count",
+        "subscription_status_badge",
         "display_active",
     ]
 
     def get_queryset(self, request):
+        subscription_exists = Exists(
+            ArtistSubscription.objects.filter(artist=OuterRef("pk"))
+        )
+        subscription_status = Subquery(
+            ArtistSubscription.objects.filter(artist=OuterRef("pk")).values("status")[:1]
+        )
         return (
             super().get_queryset(request)
+            .annotate(
+                _has_subscription=subscription_exists,
+                _subscription_status=subscription_status,
+            )
             .annotate(
                 _artworks_count=Count("artworks", filter=Q(artworks__is_active=True), distinct=True),
                 _available_count=Count(
@@ -274,6 +288,23 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
+
+    @admin.display(description="Suscripción")
+    def subscription_status_badge(self, obj):
+        return subscription_badge_from_artist(obj)
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        artist = self.get_object(request, object_id)
+        sub = getattr(artist, "subscription", None) if artist else None
+        extra_context["subscription_controls"] = {
+            "no_subscription": sub is None,
+            "has_customer": bool(sub and sub.stripe_customer_id),
+        }
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    class Media:
+        js = ["js/copy_clipboard.js"]
 
     @staticmethod
     def _translated_name(holder):

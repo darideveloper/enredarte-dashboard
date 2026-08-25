@@ -7,6 +7,10 @@ from core.models import BaseModel, Person, SlugBackfillMixin, TranslatableName, 
 
 
 class Artist(Person):
+    email = models.EmailField(
+        verbose_name="Correo electrónico",
+        help_text="Requerido: Stripe lo usa como identidad del cliente al generar un link de suscripción.",
+    )
     birth_year = models.IntegerField(null=True, blank=True, verbose_name="Año de nacimiento")
     death_year = models.IntegerField(null=True, blank=True, verbose_name="Año de fallecimiento")
     location = models.ForeignKey(

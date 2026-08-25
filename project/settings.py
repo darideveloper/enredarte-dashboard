@@ -17,7 +17,14 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 HOST = os.getenv("HOST", "")
 
-HOST = os.getenv("HOST")
+# Stripe (artist subscriptions)
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_API_VERSION = os.getenv("STRIPE_API_VERSION", "")
+STRIPE_SUCCESS_URL = os.getenv("STRIPE_SUCCESS_URL", f"{HOST}/subscriptions/success/")
+STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL", f"{HOST}/subscriptions/cancel/")
+STRIPE_PORTAL_RETURN_URL = f"{HOST}/subscriptions/portal-return/"
 
 INSTALLED_APPS = [
     "unfold",
@@ -33,6 +40,7 @@ INSTALLED_APPS = [
     "core",
     "artworks",
     "blog",
+    "subscriptions",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",

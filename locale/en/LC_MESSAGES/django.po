@@ -1,0 +1,318 @@
+# English translations for subscription admin strings.
+# Source language is Spanish; the es catalog uses the msgid directly.
+
+msgid ""
+msgstr ""
+"Project-Id-Version: enredarte-dashboard\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-20 22:24-0600\n"
+"PO-Revision-Date: 2026-08-20\n"
+"Last-Translator: Enredarte\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: project/templates/unfold/helpers/navigation.html:40
+msgid "You don't have permission to view or edit anything."
+msgstr "You don't have permission to view or edit anything."
+
+#: subscriptions/admin.py:36
+msgid "Artista activo"
+msgstr "Active artist"
+
+#: subscriptions/admin.py:41
+msgid "Activo"
+msgstr "Active"
+
+#: subscriptions/admin.py:42
+msgid "Inactivo"
+msgstr "Inactive"
+
+#: subscriptions/admin.py:94 subscriptions/models.py:102
+msgid "Estado"
+msgstr "Status"
+
+#: subscriptions/admin.py:131 subscriptions/models.py:221
+msgid "ID del evento"
+msgstr "Event ID"
+
+#: subscriptions/admin.py:135 subscriptions/models.py:247
+msgid "Error"
+msgstr "Error"
+
+#: subscriptions/models.py:47
+msgid "Nombre del plan"
+msgstr "Plan name"
+
+#: subscriptions/models.py:48
+msgid "Nombre mostrado en el admin. Solo informativo."
+msgstr "Name shown in the admin. Informational only."
+
+#: subscriptions/models.py:54
+msgid "ID de precio en Stripe"
+msgstr "Stripe price ID"
+
+#: subscriptions/models.py:55
+msgid "Pega el `price_xxx` del producto creado en el Dashboard de Stripe."
+msgstr "Paste the `price_xxx` from the product created in the Stripe Dashboard."
+
+#: subscriptions/models.py:60
+msgid "Moneda (ISO 4217)"
+msgstr "Currency (ISO 4217)"
+
+#: subscriptions/models.py:61
+msgid "Código ISO 4217 de tres letras, p. ej. MXN."
+msgstr "Three-letter ISO 4217 code, e.g. MXN."
+
+#: subscriptions/models.py:65
+msgid "Período de gracia (días)"
+msgstr "Grace period (days)"
+
+#: subscriptions/models.py:66
+msgid "Días que un artista con pago fallido sigue visible en el sitio público."
+msgstr "Days an artist with a failed payment stays visible on the public site."
+
+#: subscriptions/models.py:70
+msgid "Aceptar nuevas suscripciones"
+msgstr "Accept new subscriptions"
+
+#: subscriptions/models.py:71
+msgid "Desactiva para pausar la generación de nuevos links de pago."
+msgstr "Disable to pause generating new payment links."
+
+#: subscriptions/models.py:75
+msgid "Plan de suscripción"
+msgstr "Subscription Plan"
+
+#: subscriptions/models.py:76
+msgid "Planes de suscripción"
+msgstr "Subscription Plans"
+
+#: subscriptions/models.py:86
+msgid "Pendiente de pago"
+msgstr "Pending payment"
+
+#: subscriptions/models.py:87
+msgid "Activa"
+msgstr "Active"
+
+#: subscriptions/models.py:88
+msgid "Pago fallido (en gracia)"
+msgstr "Failed payment (in grace)"
+
+#: subscriptions/models.py:89
+msgid "Cancelada, vigente hasta fin de período"
+msgstr "Cancelled, active until end of period"
+
+#: subscriptions/models.py:90
+msgid "Cancelada definitivamente"
+msgstr "Cancelled permanently"
+
+#: subscriptions/models.py:96
+msgid "Artista"
+msgstr "Artist"
+
+#: subscriptions/models.py:109
+msgid "ID de cliente en Stripe"
+msgstr "Stripe customer ID"
+
+#: subscriptions/models.py:110
+msgid "Identificador `cus_xxx` asignado al generar el primer link de pago."
+msgstr "`cus_xxx` identifier assigned when the first payment link is generated."
+
+#: subscriptions/models.py:117
+msgid "ID de suscripción en Stripe"
+msgstr "Stripe subscription ID"
+
+#: subscriptions/models.py:118
+msgid "Identificador `sub_xxx` asignado tras el primer cobro."
+msgstr "`sub_xxx` identifier assigned after the first charge."
+
+#: subscriptions/models.py:123
+msgid "Correo del cliente"
+msgstr "Customer email"
+
+#: subscriptions/models.py:128
+msgid "Fin del período actual"
+msgstr "Current period end"
+
+#: subscriptions/models.py:129
+msgid "Fecha en que termina el período ya pagado (según Stripe)."
+msgstr "Date the already-paid period ends (per Stripe)."
+
+#: subscriptions/models.py:133
+msgid "Cancelar al fin del período"
+msgstr "Cancel at period end"
+
+#: subscriptions/models.py:134
+msgid ""
+"Verdadero cuando el artista pidió cancelar y sigue visible hasta el fin del "
+"período."
+msgstr ""
+"True when the artist requested cancellation and stays visible until the end "
+"of the period."
+
+#: subscriptions/models.py:140
+msgid "Link de pago"
+msgstr "Payment link"
+
+#: subscriptions/models.py:141
+msgid "URL de la sesión de Checkout compartida con el artista."
+msgstr "Checkout session URL shared with the artist."
+
+#: subscriptions/models.py:146
+msgid "El link de pago expira"
+msgstr "Payment link expires"
+
+#: subscriptions/models.py:147
+msgid "Momento en que Stripe invalida la URL de Checkout."
+msgstr "Moment when Stripe invalidates the Checkout URL."
+
+#: subscriptions/models.py:152
+msgid "Última sincronización con Stripe"
+msgstr "Last sync with Stripe"
+
+#: subscriptions/models.py:153
+msgid ""
+"Actualizado por webhooks o por la acción manual «Sincronizar desde Stripe»."
+msgstr ""
+"Updated by webhooks or by the manual \"Sync from Stripe\" action."
+
+#: subscriptions/models.py:158
+msgid "Estado crudo de Stripe"
+msgstr "Raw Stripe state"
+
+#: subscriptions/models.py:159
+msgid "Último objeto de Stripe procesado, para depuración."
+msgstr "Last Stripe object processed, for debugging."
+
+#: subscriptions/models.py:163
+msgid "Suscripción de artista"
+msgstr "Artist subscription"
+
+#: subscriptions/models.py:164
+msgid "Suscripciones de artistas"
+msgstr "Artist subscriptions"
+
+#: subscriptions/models.py:222
+msgid "`evt_xxx` tal como lo envía Stripe. Único: bloquea duplicados."
+msgstr "`evt_xxx` as sent by Stripe. Unique: blocks duplicates."
+
+#: subscriptions/models.py:226
+msgid "Tipo de evento"
+msgstr "Event type"
+
+#: subscriptions/models.py:230
+msgid "Recibido el"
+msgstr "Received at"
+
+#: subscriptions/models.py:235
+msgid "Procesado el"
+msgstr "Processed at"
+
+#: subscriptions/models.py:236
+msgid "Relleno tras procesar el evento; vacío si falló."
+msgstr "Set after the event is processed; empty if it failed."
+
+#: subscriptions/models.py:241
+msgid "Carga útil"
+msgstr "Payload"
+
+#: subscriptions/models.py:242
+msgid "Objeto del evento completo tal como lo envió Stripe."
+msgstr "Full event object as sent by Stripe."
+
+#: subscriptions/models.py:248
+msgid "Mensaje de excepción si el procesamiento falló."
+msgstr "Exception message if processing failed."
+
+#: subscriptions/models.py:253
+msgid "Evento de Stripe"
+msgstr "Stripe event"
+
+#: subscriptions/models.py:254
+msgid "Eventos de Stripe"
+msgstr "Stripe events"
+
+#: subscriptions/views.py:22
+msgid "Link copiado al portapapeles. Compártelo con el artista."
+msgstr "Link copied to clipboard. Share it with the artist."
+
+#: subscriptions/views.py:37
+msgid ""
+"Este artista no tiene un correo electrónico. Captura uno antes de generar el "
+"link."
+msgstr "This artist has no email address. Capture one before generating the link."
+
+#: subscriptions/views.py:41
+msgid "Las nuevas suscripciones están pausadas en el Plan de suscripción."
+msgstr "New subscriptions are paused in the Subscription Plan."
+
+#: subscriptions/views.py:44
+msgid ""
+"Configura el `stripe_price_id` en Plan de suscripción antes de generar links."
+msgstr "Set the `stripe_price_id` in the Subscription Plan before generating links."
+
+#: subscriptions/views.py:153
+msgid "Aún no se generó un link de pago para este artista."
+msgstr "No payment link has been generated for this artist yet."
+
+#: subscriptions/views.py:157
+#, python-brace-format
+msgid "Customer Portal: {url}"
+msgstr "Customer Portal: {url}"
+
+#: subscriptions/views.py:170
+msgid "Este artista aún no tiene un customer en Stripe."
+msgstr "This artist does not have a Stripe customer yet."
+
+#: subscriptions/views.py:193
+#, python-brace-format
+msgid "Suscripción sincronizada: {prev} → {new}"
+msgstr "Subscription synced: {prev} → {new}"
+
+#: subscriptions/views.py:212
+msgid "¡Gracias! Tu suscripción está activa."
+msgstr "Thanks! Your subscription is active."
+
+#: subscriptions/views.py:214
+msgid ""
+"La visibilidad en el sitio público se hará efectiva una vez que el operador "
+"active tu cuenta."
+msgstr ""
+"Visibility on the public site will take effect once the operator activates "
+"your account."
+
+#: subscriptions/views.py:227
+msgid "Tu pago fue cancelado."
+msgstr "Your payment was cancelled."
+
+#: subscriptions/views.py:228
+msgid "Puedes intentarlo nuevamente cuando quieras."
+msgstr "You can try again whenever you want."
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Generar link de suscripción"
+msgstr "Generate subscription link"
+
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Regenerar link"
+msgstr "Regenerate link"
+
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Abrir Customer Portal"
+msgstr "Open Customer Portal"
+
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Sincronizar desde Stripe"
+msgstr "Sync from Stripe"
+
+#: subscriptions/views.py
+msgid "Gracias por usar el portal de gestión."
+msgstr "Thanks for using the management portal."
+
+#: subscriptions/views.py
+msgid "Tus cambios de suscripción fueron guardados."
+msgstr "Your subscription changes were saved."

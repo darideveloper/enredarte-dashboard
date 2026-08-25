@@ -124,3 +124,271 @@ msgstr "Ha cerrado sesión exitosamente del panel de administración"
 
 msgid "This page yielded into no results. Create a new item or reset your filters."
 msgstr "Esta página no generó resultados. Cree un nuevo elemento o restablezca sus filtros."
+
+#: subscriptions
+msgid "You don't have permission to view or edit anything."
+msgstr "You don't have permission to view or edit anything."
+
+#: subscriptions
+msgid "Artista activo"
+msgstr "Artista activo"
+
+#: subscriptions
+msgid "Activo"
+msgstr "Activo"
+
+#: subscriptions
+msgid "Inactivo"
+msgstr "Inactivo"
+
+#: subscriptions
+msgid "Estado"
+msgstr "Estado"
+
+#: subscriptions
+msgid "ID del evento"
+msgstr "ID del evento"
+
+#: subscriptions
+msgid "Error"
+msgstr "Error"
+
+#: subscriptions
+msgid "Nombre del plan"
+msgstr "Nombre del plan"
+
+#: subscriptions
+msgid "Nombre mostrado en el admin. Solo informativo."
+msgstr "Nombre mostrado en el admin. Solo informativo."
+
+#: subscriptions
+msgid "ID de precio en Stripe"
+msgstr "ID de precio en Stripe"
+
+#: subscriptions
+msgid "Pega el `price_xxx` del producto creado en el Dashboard de Stripe."
+msgstr "Pega el `price_xxx` del producto creado en el Dashboard de Stripe."
+
+#: subscriptions
+msgid "Moneda (ISO 4217)"
+msgstr "Moneda (ISO 4217)"
+
+#: subscriptions
+msgid "Código ISO 4217 de tres letras, p. ej. MXN."
+msgstr "Código ISO 4217 de tres letras, p. ej. MXN."
+
+#: subscriptions
+msgid "Período de gracia (días)"
+msgstr "Período de gracia (días)"
+
+#: subscriptions
+msgid "Días que un artista con pago fallido sigue visible en el sitio público."
+msgstr "Días que un artista con pago fallido sigue visible en el sitio público."
+
+#: subscriptions
+msgid "Aceptar nuevas suscripciones"
+msgstr "Aceptar nuevas suscripciones"
+
+#: subscriptions
+msgid "Desactiva para pausar la generación de nuevos links de pago."
+msgstr "Desactiva para pausar la generación de nuevos links de pago."
+
+#: subscriptions
+msgid "Plan de suscripción"
+msgstr "Plan de suscripción"
+
+#: subscriptions
+msgid "Planes de suscripción"
+msgstr "Planes de suscripción"
+
+#: subscriptions
+msgid "Pendiente de pago"
+msgstr "Pendiente de pago"
+
+#: subscriptions
+msgid "Activa"
+msgstr "Activa"
+
+#: subscriptions
+msgid "Pago fallido (en gracia)"
+msgstr "Pago fallido (en gracia)"
+
+#: subscriptions
+msgid "Cancelada, vigente hasta fin de período"
+msgstr "Cancelada, vigente hasta fin de período"
+
+#: subscriptions
+msgid "Cancelada definitivamente"
+msgstr "Cancelada definitivamente"
+
+#: subscriptions
+msgid "Artista"
+msgstr "Artista"
+
+#: subscriptions
+msgid "ID de cliente en Stripe"
+msgstr "ID de cliente en Stripe"
+
+#: subscriptions
+msgid "Identificador `cus_xxx` asignado al generar el primer link de pago."
+msgstr "Identificador `cus_xxx` asignado al generar el primer link de pago."
+
+#: subscriptions
+msgid "ID de suscripción en Stripe"
+msgstr "ID de suscripción en Stripe"
+
+#: subscriptions
+msgid "Identificador `sub_xxx` asignado tras el primer cobro."
+msgstr "Identificador `sub_xxx` asignado tras el primer cobro."
+
+#: subscriptions
+msgid "Correo del cliente"
+msgstr "Correo del cliente"
+
+#: subscriptions
+msgid "Fin del período actual"
+msgstr "Fin del período actual"
+
+#: subscriptions
+msgid "Fecha en que termina el período ya pagado (según Stripe)."
+msgstr "Fecha en que termina el período ya pagado (según Stripe)."
+
+#: subscriptions
+msgid "Cancelar al fin del período"
+msgstr "Cancelar al fin del período"
+
+#: subscriptions
+msgid "Link de pago"
+msgstr "Link de pago"
+
+#: subscriptions
+msgid "URL de la sesión de Checkout compartida con el artista."
+msgstr "URL de la sesión de Checkout compartida con el artista."
+
+#: subscriptions
+msgid "El link de pago expira"
+msgstr "El link de pago expira"
+
+#: subscriptions
+msgid "Momento en que Stripe invalida la URL de Checkout."
+msgstr "Momento en que Stripe invalida la URL de Checkout."
+
+#: subscriptions
+msgid "Última sincronización con Stripe"
+msgstr "Última sincronización con Stripe"
+
+#: subscriptions
+msgid "Estado crudo de Stripe"
+msgstr "Estado crudo de Stripe"
+
+#: subscriptions
+msgid "Último objeto de Stripe procesado, para depuración."
+msgstr "Último objeto de Stripe procesado, para depuración."
+
+#: subscriptions
+msgid "Suscripción de artista"
+msgstr "Suscripción de artista"
+
+#: subscriptions
+msgid "Suscripciones de artistas"
+msgstr "Suscripciones de artistas"
+
+#: subscriptions
+msgid "`evt_xxx` tal como lo envía Stripe. Único: bloquea duplicados."
+msgstr "`evt_xxx` tal como lo envía Stripe. Único: bloquea duplicados."
+
+#: subscriptions
+msgid "Tipo de evento"
+msgstr "Tipo de evento"
+
+#: subscriptions
+msgid "Recibido el"
+msgstr "Recibido el"
+
+#: subscriptions
+msgid "Procesado el"
+msgstr "Procesado el"
+
+#: subscriptions
+msgid "Relleno tras procesar el evento; vacío si falló."
+msgstr "Relleno tras procesar el evento; vacío si falló."
+
+#: subscriptions
+msgid "Carga útil"
+msgstr "Carga útil"
+
+#: subscriptions
+msgid "Objeto del evento completo tal como lo envió Stripe."
+msgstr "Objeto del evento completo tal como lo envió Stripe."
+
+#: subscriptions
+msgid "Mensaje de excepción si el procesamiento falló."
+msgstr "Mensaje de excepción si el procesamiento falló."
+
+#: subscriptions
+msgid "Evento de Stripe"
+msgstr "Evento de Stripe"
+
+#: subscriptions
+msgid "Eventos de Stripe"
+msgstr "Eventos de Stripe"
+
+#: subscriptions
+msgid "Link copiado al portapapeles. Compártelo con el artista."
+msgstr "Link copiado al portapapeles. Compártelo con el artista."
+
+#: subscriptions
+msgid "Las nuevas suscripciones están pausadas en el Plan de suscripción."
+msgstr "Las nuevas suscripciones están pausadas en el Plan de suscripción."
+
+#: subscriptions
+msgid "Aún no se generó un link de pago para este artista."
+msgstr "Aún no se generó un link de pago para este artista."
+
+#: subscriptions
+msgid "Customer Portal: {url}"
+msgstr "Customer Portal: {url}"
+
+#: subscriptions
+msgid "Este artista aún no tiene un customer en Stripe."
+msgstr "Este artista aún no tiene un customer en Stripe."
+
+#: subscriptions
+msgid "Suscripción sincronizada: {prev} → {new}"
+msgstr "Suscripción sincronizada: {prev} → {new}"
+
+#: subscriptions
+msgid "¡Gracias! Tu suscripción está activa."
+msgstr "¡Gracias! Tu suscripción está activa."
+
+#: subscriptions
+msgid "Tu pago fue cancelado."
+msgstr "Tu pago fue cancelado."
+
+#: subscriptions
+msgid "Puedes intentarlo nuevamente cuando quieras."
+msgstr "Puedes intentarlo nuevamente cuando quieras."
+
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Generar link de suscripción"
+msgstr "Generar link de suscripción"
+
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Regenerar link"
+msgstr "Regenerar link"
+
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Abrir Customer Portal"
+msgstr "Abrir Customer Portal"
+
+#: project/templates/admin/artworks/artist/change_form.html
+msgid "Sincronizar desde Stripe"
+msgstr "Sincronizar desde Stripe"
+
+#: subscriptions/views.py
+msgid "Gracias por usar el portal de gestión."
+msgstr "Gracias por usar el portal de gestión."
+
+#: subscriptions/views.py
+msgid "Tus cambios de suscripción fueron guardados."
+msgstr "Tus cambios de suscripción fueron guardados."

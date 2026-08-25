@@ -1,0 +1,31 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {% if original and subscription_controls %}
+        <div class="flex flex-col gap-2">
+            {% if subscription_controls.no_subscription %}
+                <form method="post" action="{% url 'subscriptions:generate-link' original.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn">{% trans "Generar link de suscripción" %}</button>
+                </form>
+            {% else %}
+                <form method="post" action="{% url 'subscriptions:regenerate-link' original.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn">{% trans "Regenerar link" %}</button>
+                </form>
+            {% endif %}
+            {% if subscription_controls.has_customer %}
+                <form method="post" action="{% url 'subscriptions:open-portal' original.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn">{% trans "Abrir Customer Portal" %}</button>
+                </form>
+            {% endif %}
+            <form method="post" action="{% url 'subscriptions:sync-from-stripe' original.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn">{% trans "Sincronizar desde Stripe" %}</button>
+            </form>
+        </div>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}
