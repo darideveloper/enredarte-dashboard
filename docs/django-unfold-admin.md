@@ -213,15 +213,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 ### static/css/style.css — `.img-preview`
 
-Image preview thumbnails (e.g. `ArtworkAdmin.display_image` and `ArtworkImageInline.display_preview`) are styled by the `.img-preview` class defined in `static/css/style.css` — **not** by inline `style=` attributes. Emit `class="img-preview"` and add a size variant only when a non-default size is needed:
+Image preview thumbnails (e.g. `ArtworkAdmin.display_image`, `ArtworkImageInline.display_preview`, `PostAdmin.display_banner`, `BlogImageAdmin.display_preview`) and form previews are styled by the `.img-preview` classes defined in `static/css/style.css` — **not** by inline `style=` attributes. Emit `class="img-preview"` and add a variant only when a non-default size or layout is needed:
 
 ```css
 .img-preview { height: 50px; border-radius: 6px; object-fit: cover; }
 .img-preview--sm { height: 40px; width: 40px; object-fit: cover; }
 .img-preview--lg { height: 64px; width: 64px; object-fit: cover; }
+.img-preview--banner { max-height: 180px; max-width: 100%; border-radius: 8px; object-fit: cover; }
+.img-preview--form { max-height: 240px; max-width: 100%; border-radius: 8px; object-fit: cover; }
 ```
 
-Use `img-preview img-preview--sm` for small square thumbnails (e.g. the changelist column) and plain `img-preview` for the regular size. Previews must not use inline styles.
+Use `img-preview img-preview--sm` for small square thumbnails (e.g. changelist columns), plain `img-preview` for regular inlines, `img-preview--banner` for wide header banner previews in changeforms, and `img-preview--form` for large image detail previews. Previews must not use inline styles.
 
 ### static/js/load_markdown.js
 Integrates SimpleMDE for all text areas within Unfold.

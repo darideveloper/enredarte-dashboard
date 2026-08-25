@@ -1,21 +1,4 @@
-# Admin Image Preview Specification
-
-## Purpose
-
-To define the requirements for the shared `.img-preview` CSS class and its size variants used to style every admin image preview thumbnail.
-
-## Requirements
-
-### Requirement: Shared image preview CSS class
-The system SHALL provide a single `.img-preview` CSS class in `static/css/style.css` that defines the sizing and shape (height, width, border-radius, object-fit) of every admin image preview thumbnail.
-
-#### Scenario: Preview styling comes from CSS only
-- **WHEN** any admin page renders an element with `class="img-preview"`
-- **THEN** its size and shape are fully defined by the `.img-preview` rule in `static/css/style.css` and no inline `style=` attribute is required
-
-#### Scenario: Styling is not JS-injected
-- **WHEN** the admin page loads and JavaScript executes
-- **THEN** no JavaScript adds Tailwind utility classes to `.img-preview` elements for sizing or shape
+## MODIFIED Requirements
 
 ### Requirement: Size variants for thumbnails
 The system SHALL provide `.img-preview--sm` (small), `.img-preview--lg` (large), `.img-preview--banner` (banner preview), and `.img-preview--form` (form preview) modifiers in addition to the regular `.img-preview` class so distinct previews can use different sizes while reusing the base class.

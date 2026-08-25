@@ -48,10 +48,11 @@ a placeholder is tracked.
 
 ## Requests
 
-The API exposes 10 per-model, read-only, paginated endpoints under
+### Artworks API (Authenticated)
+
+The Artworks API exposes 10 per-model, read-only, paginated endpoints under
 `/apis/artworks/` — one folder per model, each with a `GET list.bru` and a
-`GET detail.bru` request (detail uses the hardcoded ID `1`; change it to any
-existing record id):
+`GET detail.bru` request (detail uses the ID `1`; change it to any existing record id):
 
 | Model | List URL | Detail URL |
 | --- | --- | --- |
@@ -66,9 +67,20 @@ existing record id):
 | Scales | `GET {{base_url}}/apis/artworks/scales/` | `GET {{base_url}}/apis/artworks/scales/1/` |
 | Artworks | `GET {{base_url}}/apis/artworks/artworks/` | `GET {{base_url}}/apis/artworks/artworks/1/` |
 
-All requests send `Authorization: Token {{token}}`. The router root
+All artworks requests send `Authorization: Token {{token}}`. The router root
 `GET {{base_url}}/apis/artworks/` lists the registered endpoints. Every list
 response is paginated (`page_size` query param, max 100).
+
+### Blog API (Public)
+
+The Blog API exposes public, read-only endpoints under `/api/blog/posts/` requiring no authentication:
+
+| Resource | List URL | Detail URL |
+| --- | --- | --- |
+| Posts | `GET {{base_url}}/api/blog/posts/` | `GET {{base_url}}/api/blog/posts/:slug/` |
+
+- `GET list.bru`: Paginated summary listing of active posts.
+- `GET detail.bru`: Full post detail lookup by `slug` with bilingual Markdown content.
 
 ## Add a new endpoint
 

@@ -1,9 +1,11 @@
+from django.contrib import admin
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
+from blog.admin import BlogImageAdmin, PostAdmin
 from blog.models import BlogImage, Post, PostTranslation
 
 _1PX_PNG = (
@@ -22,7 +24,6 @@ class BlogAPITestCase(APITestCase):
             slug="oaxaca-arte",
             author="Equipo Oaxaca",
             published_at=timezone.now(),
-            sort_order=1,
             is_active=True,
             banner_image=SimpleUploadedFile("banner1.png", _1PX_PNG, content_type="image/png"),
         )
@@ -48,7 +49,6 @@ class BlogAPITestCase(APITestCase):
             slug="cdmx-galerias",
             author="Curaduría CDMX",
             published_at=timezone.now() - timezone.timedelta(days=2),
-            sort_order=2,
             is_active=True,
         )
         PostTranslation.objects.create(
@@ -73,7 +73,6 @@ class BlogAPITestCase(APITestCase):
             slug="borrador-secreto",
             author="Borrador",
             published_at=timezone.now(),
-            sort_order=3,
             is_active=False,
         )
         PostTranslation.objects.create(
@@ -109,7 +108,8 @@ class BlogAPITestCase(APITestCase):
         self.assertEqual(item1["keywords_en"], "oaxaca, art")
         self.assertIn("banner1", item1["banner_image"])
 
-        # Verify content fields are excluded in summary list
+        # Verify sort_order and content fields are excluded in summary list
+        self.assertNotIn("sort_order", item1)
         self.assertNotIn("content_es", item1)
         self.assertNotIn("content_en", item1)
 
@@ -138,6 +138,7 @@ class BlogAPITestCase(APITestCase):
         self.assertEqual(data["title_en"], "Art in Oaxaca")
         self.assertEqual(data["content_es"], "# Contenido Oaxaca ES")
         self.assertEqual(data["content_en"], "# Content Oaxaca EN")
+        self.assertNotIn("sort_order", data)
 
     def test_retrieve_inactive_post_returns_404(self):
         url = reverse("blog-posts-detail", kwargs={"slug": "borrador-secreto"})
@@ -228,5 +229,64 @@ class BlogLiveAPITestCase(APITestCase):
         detail_data = detail_resp.json()
         self.assertEqual(detail_data["slug"], "live-arte")
         self.assertEqual(detail_data["content_es"], "# Live Contenido ES")
+
+
+class BlogAdminTestCase(APITestCase):
+    def setUp(self):
+        self.site = admin.AdminSite()
+        self.post_admin = PostAdmin(Post, self.site)
+        self.blog_image_admin = BlogImageAdmin(BlogImage, self.site)
+
+    def test_post_admin_display_banner(self):
+        post = Post.objects.create(
+            slug="test-banner",
+            banner_image=SimpleUploadedFile("banner.png", _1PX_PNG, content_type="image/png"),
+        )
+        html = self.post_admin.display_banner(post)
+        self.assertIn(post.banner_image.url, html)
+        self.assertIn('class="img-preview img-preview--sm"', html)
+        self.assertNotIn("style=", html)
+
+        post_no_img = Post.objects.create(slug="test-no-banner")
+        self.assertEqual(self.post_admin.display_banner(post_no_img), "-")
+
+    def test_post_admin_display_banner_preview(self):
+        post = Post.objects.create(
+            slug="test-banner-preview",
+            banner_image=SimpleUploadedFile("banner_prev.png", _1PX_PNG, content_type="image/png"),
+        )
+        html = self.post_admin.display_banner_preview(post)
+        self.assertIn(post.banner_image.url, html)
+        self.assertIn('class="img-preview--banner"', html)
+        self.assertNotIn("style=", html)
+
+        post_no_img = Post.objects.create(slug="test-no-banner-prev")
+        self.assertEqual(self.post_admin.display_banner_preview(post_no_img), "Sin banner asignado")
+
+    def test_blog_image_admin_display_preview(self):
+        img = BlogImage.objects.create(
+            name="Test Prev",
+            image=SimpleUploadedFile("thumb.png", _1PX_PNG, content_type="image/png"),
+        )
+        html = self.blog_image_admin.display_preview(img)
+        self.assertIn(img.image.url, html)
+        self.assertIn('class="img-preview img-preview--sm"', html)
+        self.assertNotIn("style=", html)
+
+        img_no_file = BlogImage(name="Empty")
+        self.assertEqual(self.blog_image_admin.display_preview(img_no_file), "-")
+
+    def test_blog_image_admin_display_preview_large(self):
+        img = BlogImage.objects.create(
+            name="Test Prev Large",
+            image=SimpleUploadedFile("large.png", _1PX_PNG, content_type="image/png"),
+        )
+        html = self.blog_image_admin.display_preview_large(img)
+        self.assertIn(img.image.url, html)
+        self.assertIn('class="img-preview--form"', html)
+        self.assertNotIn("style=", html)
+
+        img_no_file = BlogImage(name="Empty")
+        self.assertEqual(self.blog_image_admin.display_preview_large(img_no_file), "-")
 
 

@@ -22,7 +22,6 @@ class PostSummarySerializer(serializers.Serializer):
     description_en = serializers.SerializerMethodField()
     keywords_es = serializers.SerializerMethodField()
     keywords_en = serializers.SerializerMethodField()
-    sort_order = serializers.IntegerField()
 
     def get_banner_image(self, obj):
         return obj.banner_image.url if obj.banner_image else None

@@ -1,5 +1,4 @@
 from django.contrib import admin, messages
-from django.db.models import Max
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.html import format_html
@@ -48,7 +47,7 @@ class PostAdmin(ModelAdminUnfoldBase):
             {
                 "fields": (
                     "slug",
-                    ("is_active", "sort_order"),
+                    "is_active",
                 )
             },
         ),
@@ -59,7 +58,6 @@ class PostAdmin(ModelAdminUnfoldBase):
         "author",
         "published_at",
         "display_active",
-        "sort_order",
     ]
 
     def get_queryset(self, request):
@@ -67,27 +65,19 @@ class PostAdmin(ModelAdminUnfoldBase):
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
-        max_order = Post.objects.aggregate(Max("sort_order"))["sort_order__max"] or 0
-        initial["sort_order"] = max_order + 1
         initial["published_at"] = timezone.now()
         return initial
 
     @admin.display(description="Banner")
     def display_banner(self, obj):
         if obj.banner_image:
-            return format_html(
-                '<img src="{}" class="img-preview" style="height: 40px; width: 40px; object-fit: cover; border-radius: 6px;" />',
-                obj.banner_image.url,
-            )
+            return format_html('<img src="{}" class="img-preview img-preview--sm" />', obj.banner_image.url)
         return "-"
 
     @admin.display(description="Vista previa del banner")
     def display_banner_preview(self, obj):
         if obj.banner_image:
-            return format_html(
-                '<img src="{}" style="max-height: 180px; max-width: 100%; border-radius: 8px; object-fit: cover;" />',
-                obj.banner_image.url,
-            )
+            return format_html('<img src="{}" class="img-preview--banner" />', obj.banner_image.url)
         return "Sin banner asignado"
 
     @admin.display(description="Título")
@@ -126,19 +116,13 @@ class BlogImageAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Vista previa")
     def display_preview(self, obj):
         if obj.image:
-            return format_html(
-                '<img src="{}" class="img-preview" style="height: 48px; width: 48px; object-fit: cover; border-radius: 6px;" />',
-                obj.image.url,
-            )
+            return format_html('<img src="{}" class="img-preview img-preview--sm" />', obj.image.url)
         return "-"
 
     @admin.display(description="Vista previa")
     def display_preview_large(self, obj):
         if obj.image:
-            return format_html(
-                '<img src="{}" style="max-height: 240px; max-width: 100%; border-radius: 8px; object-fit: cover;" />',
-                obj.image.url,
-            )
+            return format_html('<img src="{}" class="img-preview--form" />', obj.image.url)
         return "-"
 
     @admin.display(description="URL")
