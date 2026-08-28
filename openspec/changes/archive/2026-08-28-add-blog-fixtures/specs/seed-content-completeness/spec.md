@@ -1,8 +1,5 @@
-# seed-content-completeness Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change complete-seed-fixtures. Update Purpose after archive.
-## Requirements
 ### Requirement: Seed data covers every business model
 The system SHALL ship seed fixtures so that every business model table has at least one row after `base_loaddata` followed by `seed_loaddata` runs against a fresh database. The seed set SHALL include curators, galleries, artwork↔gallery links, artwork images, blog posts with bilingual translations, and blog media in addition to the existing artists, social links, and artworks.
 
@@ -33,4 +30,3 @@ The system SHALL ship seed fixtures so that every business model table has at le
 #### Scenario: Admin/auth tables stay out of scope
 - **WHEN** the seed fixtures are inspected
 - **THEN** they contain no `auth.User`, `auth.Group`, or `authtoken.Token` rows.
-
