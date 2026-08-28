@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -288,5 +290,40 @@ class BlogAdminTestCase(APITestCase):
 
         img_no_file = BlogImage(name="Empty")
         self.assertEqual(self.blog_image_admin.display_preview_large(img_no_file), "-")
+
+
+class BlogSeedContentCompletenessTestCase(TestCase):
+    def setUp(self):
+        call_command("base_loaddata")
+
+    def test_seed_loaddata_populates_blog_tables(self):
+        call_command("seed_loaddata")
+        self.assertGreater(Post.objects.count(), 0)
+        self.assertGreater(PostTranslation.objects.count(), 0)
+        self.assertGreater(BlogImage.objects.count(), 0)
+
+    def test_seed_posts_have_es_and_en_translations(self):
+        call_command("seed_loaddata")
+        for post in Post.objects.all():
+            languages = sorted(post.translations.values_list("language", flat=True))
+            self.assertEqual(languages, ["en", "es"])
+
+    def test_base_loaddata_excludes_blog_demo_content(self):
+        call_command("base_loaddata")
+        self.assertEqual(Post.objects.count(), 0)
+        self.assertEqual(PostTranslation.objects.count(), 0)
+        self.assertEqual(BlogImage.objects.count(), 0)
+
+    def test_seed_loaddata_rerun_does_not_increase_blog_counts(self):
+        call_command("seed_loaddata")
+        counts = {
+            "Post": Post.objects.count(),
+            "PostTranslation": PostTranslation.objects.count(),
+            "BlogImage": BlogImage.objects.count(),
+        }
+        call_command("seed_loaddata")
+        self.assertEqual(counts["Post"], Post.objects.count())
+        self.assertEqual(counts["PostTranslation"], PostTranslation.objects.count())
+        self.assertEqual(counts["BlogImage"], BlogImage.objects.count())
 
 

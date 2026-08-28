@@ -1,0 +1,22 @@
+[
+  {
+    "model": "blog.blogimage",
+    "pk": 1,
+    "fields": {
+      "name": "Sala de exhibición principal",
+      "image": "blog/images/imagen-1.jpg",
+      "created_at": "2026-08-18T09:00:00Z",
+      "updated_at": "2026-08-18T09:00:00Z"
+    }
+  },
+  {
+    "model": "blog.blogimage",
+    "pk": 2,
+    "fields": {
+      "name": "Detalle de obra en sala",
+      "image": "blog/images/imagen-2.jpg",
+      "created_at": "2026-07-12T09:00:00Z",
+      "updated_at": "2026-07-12T09:00:00Z"
+    }
+  }
+]

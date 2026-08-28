@@ -1,0 +1,50 @@
+[
+  {
+    "model": "blog.posttranslation",
+    "pk": 1,
+    "fields": {
+      "post": 1,
+      "language": "es",
+      "title": "Enredarte abre nuevas salas de exhibición",
+      "description": "El museo amplía sus espacios con dos salas dedicadas a la plástica contemporánea mexicana.",
+      "keywords": "museo, salas, exhibición, arte contemporáneo",
+      "content": "# Enredarte abre nuevas salas de exhibición\n\nEste mes inauguramos dos nuevas salas dedicadas a la plástica contemporánea.\n\n## Qué encontrarás\n\n- Obra reciente de artistas emergentes\n- Recorridos guiados los fines de semana\n- Talleres de acercamiento al arte\n\nTe esperamos en la entrada principal."
+    }
+  },
+  {
+    "model": "blog.posttranslation",
+    "pk": 2,
+    "fields": {
+      "post": 1,
+      "language": "en",
+      "title": "Enredarte opens new exhibition rooms",
+      "description": "The museum expands its spaces with two rooms dedicated to contemporary Mexican art.",
+      "keywords": "museum, rooms, exhibition, contemporary art",
+      "content": "# Enredarte opens new exhibition rooms\n\nThis month we inaugurate two new rooms dedicated to contemporary art.\n\n## What you will find\n\n- Recent work by emerging artists\n- Guided tours on weekends\n- Art appreciation workshops\n\nWe look forward to seeing you at the main entrance."
+    }
+  },
+  {
+    "model": "blog.posttranslation",
+    "pk": 3,
+    "fields": {
+      "post": 2,
+      "language": "es",
+      "title": "La colección crece: quince nuevas obras",
+      "description": "Sumamos quince piezas de pintura, escultura y fotografía al acervo permanente.",
+      "keywords": "colección, acervo, pintura, escultura, fotografía",
+      "content": "# La colección crece: quince nuevas obras\n\nQuince piezas se incorporan al acervo permanente de Enredarte.\n\n## Las incorporaciones\n\n- Pintura y técnica mixta\n- Escultura de pequeño y gran formato\n- Fotografía documental\n\nConsulta el catálogo en la sala 4."
+    }
+  },
+  {
+    "model": "blog.posttranslation",
+    "pk": 4,
+    "fields": {
+      "post": 2,
+      "language": "en",
+      "title": "The collection grows: fifteen new artworks",
+      "description": "Fifteen new pieces of painting, sculpture, and photography join the permanent collection.",
+      "keywords": "collection, painting, sculpture, photography",
+      "content": "# The collection grows: fifteen new artworks\n\nFifteen pieces join the permanent Enredarte collection.\n\n## The additions\n\n- Painting and mixed media\n- Small and large format sculpture\n- Documentary photography\n\nSee the catalog in room 4."
+    }
+  }
+]
