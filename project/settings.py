@@ -25,6 +25,7 @@ STRIPE_API_VERSION = os.getenv("STRIPE_API_VERSION", "")
 STRIPE_SUCCESS_URL = os.getenv("STRIPE_SUCCESS_URL", f"{HOST}/subscriptions/success/")
 STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL", f"{HOST}/subscriptions/cancel/")
 STRIPE_PORTAL_RETURN_URL = f"{HOST}/subscriptions/portal-return/"
+STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
 
 INSTALLED_APPS = [
     "unfold",

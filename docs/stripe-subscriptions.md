@@ -118,7 +118,7 @@ data rewrite of existing subscriptions.
 ## Environment variables
 
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,
-  `STRIPE_API_VERSION`
+  `STRIPE_API_VERSION`, `STRIPE_PRICE_ID`
 - Derived: `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` (from `HOST`, defaulting
   to `/subscriptions/success/` and `/subscriptions/cancel/`).
 
@@ -128,5 +128,7 @@ data rewrite of existing subscriptions.
   `https://<host>/webhooks/stripe/` and set `STRIPE_WEBHOOK_SECRET`.
 - Until `BillingPlan.stripe_price_id` is set, link generation refuses with an
   admin message and existing `Artist.is_active=True` behavior is unchanged.
+  `stripe_price_id` defaults to `STRIPE_PRICE_ID` (env) via
+  `default_stripe_price_id()`; the admin can still override per-plan.
 - The migration that makes `Artist.email` required backfills existing rows with
   `""` and prints a console warning listing affected artists for follow-up.

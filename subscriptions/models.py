@@ -1,11 +1,17 @@
 from datetime import datetime, timezone as dt_timezone
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from core.models import TimeStampedModel
 from solo.models import SingletonModel
+
+
+def default_stripe_price_id():
+    """Return the Stripe price id from settings (env-driven for now)."""
+    return settings.STRIPE_PRICE_ID
 
 
 def epoch_to_datetime(ts):
@@ -50,7 +56,7 @@ class BillingPlan(SingletonModel):
     stripe_price_id = models.CharField(
         max_length=100,
         blank=True,
-        default="",
+        default=default_stripe_price_id,
         verbose_name=_("ID de precio en Stripe"),
         help_text=_("Pega el `price_xxx` del producto creado en el Dashboard de Stripe."),
     )

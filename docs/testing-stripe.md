@@ -19,8 +19,9 @@ test (dev) environment.
 ## Prerequisites
 
 - Stripe CLI installed and logged in (`stripe login`).
-- `.env.dev` with `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY` and
-  `STRIPE_WEBHOOK_SECRET` populated with **test-mode** keys.
+- `.env.dev` with `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`,
+  `STRIPE_WEBHOOK_SECRET` and `STRIPE_PRICE_ID` populated with **test-mode**
+  values.
 - The dashboard running locally (`python manage.py runserver`, port 8000).
 
 ## 1. Stripe Dashboard product setup
@@ -29,9 +30,10 @@ test (dev) environment.
 2. Name it (e.g. "Membresía Enredarte") and add a recurring price
    (`Recurring`) in the plan currency (default `MXN`).
 3. Copy the price ID (`price_xxx`) from the price row.
-4. In the dashboard admin, open **Suscripciones → Plan de suscripción** and
-   paste the `price_xxx` into **ID de precio en Stripe**. Make sure
-   **Aceptar nuevas suscripciones** is checked.
+4. Set `STRIPE_PRICE_ID=price_xxx` in `.env.dev` (default for the BillingPlan
+   singleton) — or paste it directly into **Suscripciones → Plan de suscripción
+   → ID de precio en Stripe** to override. Make sure **Aceptar nuevas
+   suscripciones** is checked.
 
 ## 2. Webhook bridge for local development
 
