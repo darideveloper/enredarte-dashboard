@@ -35,9 +35,9 @@ is still pending, and the exact steps to go live.
    `bpc_1U8psNA37WTwarsMIpwsZmB8` (active, default). Features: customer
    update, invoice history, payment method update, cancel at period end.
    No manual configuration needed; `create_billing_portal_session` works.
-4. Webhook signing secret obtained via `stripe listen --print-secret`:
-   `***REMOVED***`
-   (no permanent dashboard webhook endpoint exists in test yet — local
+ 4. Webhook signing secret obtained via `stripe listen --print-secret`:
+    `whsec_xxxx`
+    (no permanent dashboard webhook endpoint exists in test yet — local
    testing uses the CLI bridge).
 
 ### Code changes
