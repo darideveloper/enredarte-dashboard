@@ -9,6 +9,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext, gettext_lazy
 
 from artworks.admin_filters import YearFilter, has_related_filter
@@ -264,7 +265,10 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         extra_context = extra_context or {}
         artist = self.get_object(request, object_id)
         sub = getattr(artist, "subscription", None) if artist else None
-        extra_context["signup_url"] = sub.signup_url if self._link_is_valid(sub) else None
+        url = sub.signup_url if self._link_is_valid(sub) else None
+        extra_context["copy_button_extra_attrs"] = (
+            mark_safe(f'type="button" data-copy-url="{url}"') if url else None
+        )
         return super().change_view(request, object_id, form_url, extra_context)
     fieldsets = (
         ("Datos personales", {

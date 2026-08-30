@@ -291,6 +291,36 @@ class BlogAdminTestCase(APITestCase):
         img_no_file = BlogImage(name="Empty")
         self.assertEqual(self.blog_image_admin.display_preview_large(img_no_file), "-")
 
+    def test_blog_image_change_form_shows_copy_button(self):
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_superuser("badmin", "b@x.com", "x")
+        self.client.force_login(user)
+        img = BlogImage.objects.create(
+            name="Copyable",
+            image=SimpleUploadedFile("copy.png", _1PX_PNG, content_type="image/png"),
+        )
+        response = self.client.get(
+            reverse("admin:blog_blogimage_change", args=[img.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Copiar enlace")
+        self.assertContains(response, 'data-copy-url="')
+        self.assertContains(response, img.image.url)
+
+    def test_blog_image_change_form_hides_copy_button_without_file(self):
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_superuser("badmin2", "b2@x.com", "x")
+        self.client.force_login(user)
+        img = BlogImage.objects.create(name="Empty")
+        response = self.client.get(
+            reverse("admin:blog_blogimage_change", args=[img.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Copiar enlace")
+        self.assertNotContains(response, "data-copy-url")
+
 
 class BlogSeedContentCompletenessTestCase(TestCase):
     def setUp(self):

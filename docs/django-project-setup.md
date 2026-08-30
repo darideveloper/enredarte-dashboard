@@ -513,7 +513,6 @@ Customizes the Django Unfold admin theme by loading additional CSS and JavaScrip
 <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
 
 <!-- Load Unfold custom scripts -->
-<script src="{% static 'js/add_tailwind_styles.js' %}"></script>
 <script src="{% static 'js/load_markdown.js' %}"></script>
 {% endblock %}
 ```
@@ -594,27 +593,27 @@ def get_test_image(image_name: str = "test.webp") -> SimpleUploadedFile:
 The project includes several dynamic scripts in `static/js/`.
 
 **static/js/copy_clipboard.js**
-Utility for cookie-based clipboard operations.
+Utility for click-to-copy on elements carrying a `data-copy-url` attribute (e.g. the admin copy-link buttons).
 ```javascript
-// clipboard_handler.js
 document.addEventListener('DOMContentLoaded', () => {
-  const getCookie = (name) => {
-    const value = `; ${document.cookie}`
-    const parts = value.split(`; ${name}=`)
-    if (parts.length === 2) {
-      let cookieValue = decodeURIComponent(parts.pop().split(';').shift())
-      // Remove surrounding quotes if they exist
-      return cookieValue.replace(/^"|"$/g, '')
+  const copyText = async (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      // fallback: temp textarea + execCommand('copy')
     }
   }
 
-  const url = getCookie('copy_to_clipboard')
-  if (url) {
-    navigator.clipboard.writeText(url).then(() => {
-      // Clear the cookie
-      document.cookie = "copy_to_clipboard=; path=/; Max-Age=-99999999;"
+  document.querySelectorAll('[data-copy-url]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        await copyText(button.dataset.copyUrl)
+        // briefly show "¡Copiado!" on the label, then revert
+      } catch {
+        // last resort: prompt() with the URL for manual copy
+      }
     })
-  }
+  })
 })
 ```
 

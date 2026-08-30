@@ -47,7 +47,9 @@ ArtistAdmin buttons (artworks/admin.py + change_form template)
    - Stripe Customer (if not exists)
    - Stripe Checkout Session with `metadata.artist_id`
    - `ArtistSubscription(status="pending", signup_url="...")`
-3. Link is copied to clipboard for operator to share via email/WhatsApp
+3. Once the link exists, a **"Copiar link"** button appears on the change page;
+   the operator clicks it to copy the Checkout URL to the clipboard and share
+   it via email/WhatsApp
 
 ### 3. Artist Payment
 1. Artist opens Checkout Session URL in incognito browser
@@ -73,8 +75,16 @@ Webhook endpoint `POST /webhooks/stripe/` processes events:
 | `canceled` | `False` | Artist disappears from public site |
 
 ### 6. Admin Controls
-From Artist change page:
-- **Generar/Regenerar link** - Create new Checkout Session
+From the Artist change page, the header buttons depend on the subscription state:
+
+| State                        | Buttons shown |
+|------------------------------|---------------|
+| No link (no subscription / empty `signup_url`) | **Generar link**, Sincronizar desde Stripe |
+| Expired link                 | **Regenerar link**, Abrir Customer Portal, Sincronizar desde Stripe |
+| Valid (non-expired) link     | **Copiar link**, Regenerar link, Abrir Customer Portal, Sincronizar desde Stripe |
+
+- **Generar / Regenerar link** - Create new Checkout Session
+- **Copiar link** - Client-side button that copies the preloaded `signup_url` to the clipboard on click
 - **Abrir Customer Portal** - Stripe-hosted self-service (cancel, update card, invoices)
 - **Sincronizar desde Stripe** - Manual state re-sync escape hatch
 
@@ -129,10 +139,14 @@ Checkout Session) before the customer id is stored locally.
 
 From the `Artist` change page the operator can:
 
-- **Generar / Regenerar link de suscripción** — creates a Stripe Customer +
-  Checkout Session (`subscriptions:generate-link` / `regenerate-link`), stores
-  the `signup_url`, and sets a `copy_to_clipboard` cookie (the existing
-  `static/js/copy_clipboard.js` copies it on next page load).
+- **Generar link de suscripción** — shown only when no link exists. Creates a
+  Stripe Customer + Checkout Session, stores the `signup_url`, and marks the
+  subscription `pending`.
+- **Copiar link** — a client-side `<button>` (rendered through Unfold's button
+  component) with the `signup_url` preloaded in `data-copy-url`; clicking it
+  copies the URL via the Clipboard API (no server round-trip, no cookie).
+- **Regenerar link** — shown when a link exists (valid or expired). Reuses a
+  still-valid Checkout Session or creates a fresh one when expired.
 - **Abrir Customer Portal** — Stripe-hosted self-service page for the artist
   (update card, cancel, invoices). Its `return_url` points at the neutral
   landing page `/subscriptions/portal-return/` (generic message) so an artist
@@ -143,8 +157,9 @@ From the `Artist` change page the operator can:
   status is set to `canceled` — the artist holds no paying subscription and
   stops appearing on the public site.
 
-All admin endpoints are `POST`-only and gated by `admin.site.admin_view`
-(redirect to admin login for anonymous users, forbidden for non-staff).
+All of these are Unfold `actions_detail` buttons on the change-form header,
+gated by `admin.site.admin_view` (redirect to admin login for anonymous users,
+forbidden for non-staff).
 
 ## Adding more billing plans later (without breaking the migration)
 

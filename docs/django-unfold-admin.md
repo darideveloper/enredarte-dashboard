@@ -191,26 +191,6 @@ def environment_callback(request):
 
 These scripts enhance the Unfold interface with custom styling and functionality.
 
-### static/js/add_tailwind_styles.js
-Adds Tailwind classes to Unfold elements on load.
-```javascript
-document.addEventListener("DOMContentLoaded", () => {
-  const classes = [
-    {
-      selector: ".btn",
-      classes: "bg-primary-600 block border border-transparent cursor-pointer font-medium px-3 py-2 rounded-default text-white w-full lg:w-auto flex items-center justify-center hover:bg-primary-700 hover:text-white transition-colors duration-300",
-    },
-  ]
-  for (const elem_data of classes) {
-    const { selector, classes } = elem_data
-    const elems = document.querySelectorAll(selector)
-    elems.forEach((elem) => {
-      elem.classList.add(...classes.split(" "))
-    })
-  }
-})
-```
-
 ### static/css/style.css — `.img-preview`
 
 Image preview thumbnails (e.g. `ArtworkAdmin.display_image`, `ArtworkImageInline.display_preview`, `PostAdmin.display_banner`, `BlogImageAdmin.display_preview`) and form previews are styled by the `.img-preview` classes defined in `static/css/style.css` — **not** by inline `style=` attributes. Emit `class="img-preview"` and add a variant only when a non-default size or layout is needed:
@@ -416,7 +396,6 @@ Override the base admin template to inject SimpleMDE and other custom assets. To
 <script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
 
 <!-- Load Unfold custom scripts -->
-<script src="{% static 'js/add_tailwind_styles.js' %}"></script>
 <script src="{% static 'js/load_markdown.js' %}"></script>
 <script src="{% static 'js/range_date_filter_es.js' %}"></script>
 {% endblock %}
@@ -474,7 +453,7 @@ class TokenAdmin(BaseTokenAdmin):
 ```
 ### 7.2 Base Admin Class (`ModelAdminUnfoldBase`)
 
-Provides common UI enhancements like row actions and compressed fields. For more advanced features like clipboard support, see the [[django-image-copy-link|Image Copy Link]] implementation.
+Provides common UI enhancements like row actions and compressed fields.
 
 ```python
 from unfold.admin import ModelAdmin
@@ -506,6 +485,15 @@ class ClientAdmin(ModelAdminUnfoldBase):
 ```
 
 The icon map is built by `utils.admin_icons.build_sidebar_icon_map()` and injected into every template via `utils.context_processors.user_palette`. The template reads the map through a `get_item` filter defined in `utils.templatetags.sidebar_extras`. No per-model wiring is needed; setting the attribute on the admin is sufficient.
+
+### 7.3 Changeform actions and copy-link buttons
+
+Use Unfold-native button patterns everywhere; **custom-inject a button only for copy links**, which the Clipboard API forces to be a real `<button>` on the same page (a server-side action cannot copy).
+
+- **Server actions** → declare them in `actions_detail` (change-form header) or `actions_row` (changelist rows) with `@action(description=..., url_path=..., permissions=[...])`. Conditional visibility is enforced only when `permissions=[...]` is passed, which wires the `has_<action>_permission` method.
+- **Copy-link buttons** → the only exception. Inject `copy_button_extra_attrs` (a `mark_safe` attribute string: `type="button" data-copy-url="<url>"`) from a `change_view` override, then render the button in an `object-tools-items` override through `{% component "unfold/components/button.html" %}` with `extra_attrs=copy_button_extra_attrs`. `static/js/copy_clipboard.js` (loaded via the admin's `Media`) wires the click-to-copy.
+
+Both the Artist subscription buttons (`artworks/admin.py` + `admin/artworks/artist/change_form.html`) and the blog image copy button (`blog/admin.py` + `admin/blog/blogimage/change_form.html`) follow this pattern. See [[django-image-copy-link|Image Copy Link]].
 
 ## 8. Layout Constraints
 

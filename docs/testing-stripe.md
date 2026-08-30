@@ -65,8 +65,8 @@ Use a staff admin account. Cards: `4242 4242 4242 4242` (success),
 
 1. Create an `Artist` with a real email (`/admin/artworks/artist/add/`).
 2. Open the artist change page and click **Generar link de suscripción**.
-   - The Checkout URL is copied to the clipboard; share it in an incognito
-     browser.
+   - A **Copiar link** button then appears in the header; click it to copy the
+     Checkout URL to the clipboard and share it in an incognito browser.
    - Until the artist pays, `ArtistSubscription.status == "pending"` and
      `Artist.is_active == False` — a generated-but-unpaid link does **not**
      make the artist appear on the public site.

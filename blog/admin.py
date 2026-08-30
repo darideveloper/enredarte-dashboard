@@ -1,8 +1,7 @@
-from django.contrib import admin, messages
-from django.shortcuts import redirect
+from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
-from unfold.decorators import action
+from django.utils.safestring import mark_safe
 
 from artworks.admin import TranslationInline
 from blog.models import BlogImage, Post, PostTranslation
@@ -101,7 +100,7 @@ class BlogImageAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "image"
     list_per_page = 25
     date_hierarchy = "created_at"
-    actions_row = ["edit", "copy_link"]
+    actions_row = ["edit"]
     search_fields = ["name"]
     list_filter = ["created_at"]
     list_display = ["display_preview", "name", "display_url", "created_at"]
@@ -131,16 +130,14 @@ class BlogImageAdmin(ModelAdminUnfoldBase):
             return obj.image.url
         return "-"
 
-    @action(description="Copiar enlace", permissions=["view"])
-    def copy_link(self, request, object_id):
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
         obj = self.get_object(request, object_id)
-        if obj and obj.image:
-            image_url = get_media_url(obj.image.url)
-            messages.success(request, f"Enlace copiado al portapapeles: {image_url}")
-            response = redirect(request.META.get("HTTP_REFERER", ".."))
-            response.set_cookie("copy_to_clipboard", image_url, max_age=10)
-            return response
-        return redirect(request.META.get("HTTP_REFERER", ".."))
+        url = get_media_url(obj.image.url) if obj and obj.image else None
+        extra_context["copy_button_extra_attrs"] = (
+            mark_safe(f'type="button" data-copy-url="{url}"') if url else None
+        )
+        return super().change_view(request, object_id, form_url, extra_context)
 
     class Media:
         js = ["js/copy_clipboard.js"]
