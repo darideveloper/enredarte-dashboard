@@ -26,6 +26,7 @@ Django is a high-level Python web framework that encourages rapid development an
 *   [[django-local-subdomain-setup|Local Development & Subdomain Setup]]
 *   [[django-i18n-es-admin|Spanish Django Admin]]
 *   [[django-bruno|Bruno API Client Guide]]
+*   [[django-cloudflare-tunnel|Cloudflare Tunnel for Local Development]]
 *   [[20-areas/work/mermaid/mermaid-diagram-generation|Mermaid Diagram Generation]]
 
 ### **Wikilinks & Portability**
