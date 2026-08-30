@@ -474,7 +474,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         messages.success(request, MSG_LINK_REGENERATED)
         return redirect(redirect_url)
 
-    @action(description="Abrir Customer Portal", url_path="open-portal", permissions=["open_portal"])
+    @action(description="Abrir Customer Portal", url_path="open-portal", permissions=["open_portal"], attrs={"target": "_blank"})
     def open_portal(self, request, object_id):
         artist = self._resolve_artist(object_id)
         redirect_url = _artist_redirect_url(artist)
@@ -485,8 +485,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             return redirect(redirect_url)
 
         session = stripe_client.create_billing_portal_session(sub.stripe_customer_id)
-        messages.success(request, gettext("Customer Portal: {url}").format(url=session.url))
-        return redirect(redirect_url)
+        return redirect(session.url)
 
     @action(description="Sincronizar desde Stripe", url_path="sync-from-stripe", permissions=["sync_from_stripe"])
     def sync_from_stripe(self, request, object_id):

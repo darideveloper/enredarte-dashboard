@@ -468,7 +468,7 @@ class AdminEndpointTest(ArtistTestBase):
         self.assertEqual(response.status_code, 302)
         create_portal.assert_not_called()
 
-    def test_open_portal_returns_portal_url_in_message(self):
+    def test_open_portal_redirects_to_portal_url(self):
         self.client.force_login(self.user)
         ArtistSubscription.objects.create(
             artist=self.artist,
@@ -481,9 +481,10 @@ class AdminEndpointTest(ArtistTestBase):
             return_value=portal,
         ):
             response = self.client.get(
-                self._action_url(self.artist, "open-portal"), follow=True
+                self._action_url(self.artist, "open-portal")
             )
-        self.assertContains(response, "https://billing.stripe.com/p/session")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "https://billing.stripe.com/p/session")
 
     def test_sync_from_stripe_without_customer_warns(self):
         self.client.force_login(self.user)
@@ -594,6 +595,10 @@ class ArtistAdminBadgeTest(ArtistTestBase):
         )
         self.assertContains(response, "Regenerar link")
         self.assertContains(response, "Abrir Customer Portal")
+        self.assertRegex(
+            str(response.content),
+            r'href="[^"]*open-portal/"[^>]*target="_blank"',
+        )
         self.assertContains(response, "Sincronizar desde Stripe")
         self.assertNotContains(response, "Generar link de suscripción")
 
