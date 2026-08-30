@@ -1,6 +1,6 @@
 ---
 created: 2026-08-20
-updated: 2026-08-20
+updated: 2026-08-29
 tags:
   - stripe
   - subscriptions
@@ -31,6 +31,56 @@ ArtistSubscription / StripeEvent  (subscriptions/models.py)
 ArtistAdmin buttons (artworks/admin.py + change_form template)
 ```
 
+## Step-by-Step Subscription Flow
+
+### 1. Setup Phase
+1. **Operator creates an Artist** in Django admin with a required email address
+2. **Configure BillingPlan** singleton (django-solo) with:
+   - Stripe price ID (`price_xxx`)
+   - Currency (default: MXN)
+   - Grace period (default: 3 days)
+   - "Accept new signups" toggle
+
+### 2. Payment Link Generation
+1. Operator clicks **"Generar link de suscripción"** on the Artist change page
+2. System creates:
+   - Stripe Customer (if not exists)
+   - Stripe Checkout Session with `metadata.artist_id`
+   - `ArtistSubscription(status="pending", signup_url="...")`
+3. Link is copied to clipboard for operator to share via email/WhatsApp
+
+### 3. Artist Payment
+1. Artist opens Checkout Session URL in incognito browser
+2. Completes payment (card: `4242 4242 4242 4242` for testing)
+3. Stripe sends `checkout.session.completed` webhook
+
+### 4. Webhook Processing
+Webhook endpoint `POST /webhooks/stripe/` processes events:
+1. **Signature verification** using `stripe.Webhook.construct_event`
+2. **Idempotency** via `StripeEvent.event_id` unique constraint
+3. **Atomic transaction** updates both:
+   - `ArtistSubscription.status` (mirrors Stripe state)
+   - `Artist.is_active` (via `compute_is_active()` helper)
+
+### 5. Subscription States & Visibility
+
+| Subscription Status | `Artist.is_active` | Behavior |
+|---------------------|-------------------|----------|
+| `active` | `True` | Artist visible on public site |
+| `pending` | `False` | Unpaid link does NOT make artist visible |
+| `canceling` | `True` until period end | Friendly cancellation - visible until paid period ends |
+| `past_due` | `True` for 3 days grace | Payment failed but within grace period |
+| `canceled` | `False` | Artist disappears from public site |
+
+### 6. Admin Controls
+From Artist change page:
+- **Generar/Regenerar link** - Create new Checkout Session
+- **Abrir Customer Portal** - Stripe-hosted self-service (cancel, update card, invoices)
+- **Sincronizar desde Stripe** - Manual state re-sync escape hatch
+
+### 7. Public API
+`/apis/artworks/artists/` filters on `Artist.is_active` - unchanged API, only the driver of `is_active` changes.
+
 ## The `compute_is_active` rule
 
 `subscriptions/services/subscription_state.compute_is_active(subscription)` is
@@ -39,7 +89,8 @@ admin action derives the boolean inline.
 
 | Subscription status            | `Artist.is_active`                          |
 |--------------------------------|---------------------------------------------|
-| `pending` / `active`           | `True`                                      |
+| `active`                       | `True`                                      |
+| `pending`                      | `False` (unpaid link does NOT make the artist visible) |
 | `canceling`                    | `True` until `current_period_end`           |
 | `past_due`                     | `True` until `current_period_end + grace`   |
 | `canceled`                     | `False`                                     |
@@ -92,7 +143,7 @@ From the `Artist` change page the operator can:
   status is set to `canceled` — the artist holds no paying subscription and
   stops appearing on the public site.
 
-All four endpoints are `POST`-only and gated by `admin.site.admin_view`
+All admin endpoints are `POST`-only and gated by `admin.site.admin_view`
 (redirect to admin login for anonymous users, forbidden for non-staff).
 
 ## Adding more billing plans later (without breaking the migration)
@@ -132,3 +183,59 @@ data rewrite of existing subscriptions.
   `default_stripe_price_id()`; the admin can still override per-plan.
 - The migration that makes `Artist.email` required backfills existing rows with
   `""` and prints a console warning listing affected artists for follow-up.
+
+## Testing
+
+### Prerequisites
+1. Install Stripe CLI and login: `stripe login`
+2. Configure `.env.dev` with test-mode keys:
+   - `STRIPE_SECRET_KEY` (test `sk_test_...`)
+   - `STRIPE_PUBLISHABLE_KEY` (test `pk_test_...`)
+   - `STRIPE_PRICE_ID` (from Stripe Dashboard)
+3. Start webhook bridge:
+   ```bash
+   stripe listen --forward-to http://localhost:8000/webhooks/stripe/
+   ```
+4. Copy `whsec_...` from CLI output to `STRIPE_WEBHOOK_SECRET` in `.env.dev`
+5. Start dev server: `python manage.py runserver`
+
+### Test Flow
+
+#### Subscribe (Happy Path)
+1. Create Artist with real email in admin
+2. Click **Generar link de suscripción**
+3. Open Checkout URL in incognito, pay with `4242 4242 4242 4242`
+4. Verify:
+   - `stripe listen` shows `checkout.session.completed` + `customer.subscription.created`
+   - `ArtistSubscription.status == "active"`
+   - `Artist.is_active == True`
+   - Artist appears in `/apis/artworks/artists/`
+
+#### Cancel (Friendly Cancellation)
+1. Click **Abrir Customer Portal** → cancel subscription
+2. `customer.subscription.updated` arrives with `cancel_at_period_end=true`
+3. Verify `status == "canceling"` and `is_active == True` (still visible)
+4. When period ends, `customer.subscription.deleted` arrives
+5. Verify `status == "canceled"` and `is_active == False` (artist disappears)
+
+#### Payment Failure (Grace Period)
+1. Subscribe with `4000 0000 0000 0002` (declined card)
+2. Verify `status == "past_due"` and artist stays visible for 3 days
+3. After grace period, next event flips `is_active` to `False`
+
+#### Resume
+1. Update payment method in Customer Portal to `4242...`
+2. Trigger retry: `stripe trigger invoice.payment_succeeded`
+3. Verify `status == "active"` and `is_active == True` again
+
+### Useful CLI Triggers
+```bash
+stripe trigger customer.subscription.created
+stripe trigger customer.subscription.updated
+stripe trigger customer.subscription.deleted
+stripe trigger invoice.payment_succeeded
+stripe trigger invoice.payment_failed
+stripe trigger checkout.session.completed
+```
+
+All received events appear in **Suscripciones → Eventos de Stripe** audit log.

@@ -280,11 +280,11 @@ msgstr "Thanks! Your subscription is active."
 
 #: subscriptions/views.py:214
 msgid ""
-"La visibilidad en el sitio público se hará efectiva una vez que el operador "
-"active tu cuenta."
+"La visibilidad de tu artista en el sitio público es automática al confirmarse "
+"el pago."
 msgstr ""
-"Visibility on the public site will take effect once the operator activates "
-"your account."
+"Your artist's visibility on the public site is automatic once payment is "
+"confirmed."
 
 #: subscriptions/views.py:227
 msgid "Tu pago fue cancelado."

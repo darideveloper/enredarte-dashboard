@@ -1,6 +1,6 @@
 ---
 created: 2026-08-20
-updated: 2026-08-20
+updated: 2026-08-29
 tags:
   - stripe
   - subscriptions
@@ -14,7 +14,12 @@ status: active
 
 This document covers how to configure the Stripe Dashboard, run the local
 webhook bridge, and exercise the subscription lifecycle end-to-end against a
-test (dev) environment.
+test (dev) environment first, then how to validate the same flow in live
+(production) mode.
+
+> No secrets belong here. Every credential is referenced only by its
+> environment-variable name; actual values live in your gitignored `.env` files
+> or the Stripe Dashboard.
 
 ## Prerequisites
 
@@ -62,6 +67,9 @@ Use a staff admin account. Cards: `4242 4242 4242 4242` (success),
 2. Open the artist change page and click **Generar link de suscripción**.
    - The Checkout URL is copied to the clipboard; share it in an incognito
      browser.
+   - Until the artist pays, `ArtistSubscription.status == "pending"` and
+     `Artist.is_active == False` — a generated-but-unpaid link does **not**
+     make the artist appear on the public site.
 3. Complete checkout with `4242 4242 4242 4242`.
 4. Verify:
    - The `stripe listen` log shows `checkout.session.completed` and
@@ -114,3 +122,68 @@ stripe trigger checkout.session.completed
 Each trigger returns 200 if the signature verifies and the handler succeeds.
 Every received event appears in **Suscripciones → Eventos de Stripe** (audit
 log); failed processing persists the error on the row and Stripe retries.
+
+## 5. Live testing (production cutover)
+
+Run the sandbox flow (sections 1–4) first and get it green. Live charges move
+**real money** — plan a single, small, reversible test (e.g. one real card for
+one artist) and refund it from the Dashboard afterwards.
+
+### 5.1 Prerequisites (before touching live)
+
+- The app deployed and publicly reachable at `https://<host>/webhooks/stripe/`
+  (HTTPS required; Stripe will not POST to plain HTTP).
+- Production environment variables populated (names, not values, shown here):
+  `STRIPE_SECRET_KEY` (live `sk_live_...`), `STRIPE_PUBLISHABLE_KEY`
+  (`pk_live_...`), `STRIPE_WEBHOOK_SECRET` (`whsec_...`), `STRIPE_API_VERSION`
+  (pin a fixed version, matching the SDK's default), `STRIPE_PRICE_ID`
+  (`price_...`), and `HOST=https://<host>`. Keep these in your gitignored
+  production env file — never in the repository or docs.
+- `BillingPlan` in the admin: **Aceptar nuevas suscripciones** checked and
+  **ID de precio en Stripe** set to the live recurring `price_...`.
+- Every `Artist` you will bill has a real email.
+
+### 5.2 Verify the live webhook endpoint
+
+1. Stripe Dashboard → **Developers → Webhooks** (live mode): confirm an
+   endpoint points at `https://<host>/webhooks/stripe/` with events:
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted`,
+   `invoice.payment_succeeded`, `invoice.payment_failed`.
+2. The signing secret shown at creation went into `STRIPE_WEBHOOK_SECRET`.
+   (It is only displayed once — if it was lost, create a new endpoint and
+   rotate the secret.)
+3. Use **Send test webhook** from the Dashboard to fire a sample event and
+   confirm your endpoint returns 200 and the event appears in
+   **Suscripciones → Eventos de Stripe**.
+
+### 5.3 Verify the Customer Portal
+
+1. Stripe Dashboard → **Settings → Billing → Customer Portal**: a live
+   configuration must exist (cancel subscription, update payment method, view
+   invoices) with the default return URL pointing at
+   `https://<host>/subscriptions/portal-return/`.
+2. Without it, the **Abrir Customer Portal** admin action fails.
+
+### 5.4 Live smoke test
+
+1. Create one real test `Artist` (real email) in the admin.
+2. **Generar link de suscripción**, open the Checkout URL, and pay with a
+   **real card** — a real charge for the plan price is created.
+3. Verify in the admin / audit log:
+   - `checkout.session.completed` → `customer.subscription.created` →
+     `invoice.payment_succeeded` recorded.
+   - `ArtistSubscription.status == "active"`, `Artist.is_active == True`.
+   - `GET /apis/artworks/artists/` includes the artist.
+4. **Abrir Customer Portal** → cancel. Verify `status == "canceling"` and the
+   artist stays visible until `current_period_end`, then `status == "canceled"`
+   and the artist disappears after `customer.subscription.deleted`.
+5. Refund the test charge from the Dashboard if it was only for validation.
+
+### 5.5 Rollback
+
+- If something misbehaves: set **Aceptar nuevas suscripciones** off in the
+  `BillingPlan` singleton (blocks new links), or clear `STRIPE_PRICE_ID` /
+  unset the `BillingPlan` price. Disabling the webhook endpoint in the
+  Dashboard pauses all subscription state updates. `Artist.is_active` only
+  changes via webhooks, so with the endpoint disabled nothing flips.

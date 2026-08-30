@@ -1,12 +1,15 @@
 from django import forms
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.forms.models import BaseInlineFormSet
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
+from django.utils.translation import gettext, gettext_lazy
 
 from artworks.admin_filters import YearFilter, has_related_filter
 from artworks.models import (
@@ -37,8 +40,11 @@ from artworks.models import (
 )
 from project.admin_base import ModelAdminUnfoldBase, TranslatableNameAdminMixin
 from subscriptions.admin_helpers import subscription_badge_from_artist
-from subscriptions.models import ArtistSubscription
+from subscriptions.models import ArtistSubscription, BillingPlan, epoch_to_datetime
+from subscriptions.services import stripe_client
+from subscriptions.services.subscription_state import compute_is_active
 from unfold.admin import StackedInline, TabularInline
+from unfold.decorators import action
 
 
 class TranslationInlineFormSet(BaseInlineFormSet):
@@ -186,6 +192,29 @@ class ArtistAvailableWorksFilter(admin.SimpleListFilter):
         return queryset
 
 
+MSG_LINK_GENERATED = gettext_lazy("Link de suscripción generado.")
+MSG_LINK_REGENERATED = gettext_lazy("Link regenerado.")
+
+
+def _artist_redirect_url(artist):
+    return reverse("admin:artworks_artist_change", args=[artist.pk])
+
+
+def _billing_blocked(artist):
+    if not artist.email:
+        return gettext_lazy(
+            "Este artista no tiene un correo electrónico. Captura uno antes de generar el link."
+        )
+    plan = BillingPlan.get_solo()
+    if not plan.is_active_for_new_signups:
+        return gettext_lazy("Las nuevas suscripciones están pausadas en el Plan de suscripción.")
+    if not plan.stripe_price_id:
+        return gettext_lazy(
+            "Configura el `stripe_price_id` en Plan de suscripción antes de generar links."
+        )
+    return None
+
+
 @admin.register(Artist)
 class ArtistAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "palette"
@@ -200,6 +229,43 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         ArtistAvailableWorksFilter,
     ]
     list_per_page = 50
+    actions_detail = [
+        "generate_link",
+        "regenerate_link",
+        "open_portal",
+        "sync_from_stripe",
+    ]
+
+    def _resolve_artist(self, object_id):
+        """Extract the real artist PK from a potentially greedy <path:object_id>.
+
+        Unfold's action URLs use <path:object_id> which can capture '1/change'
+        when the full path is '1/change/generate-link/'. This extracts the
+        leading integer PK.
+        """
+        pk = object_id
+        if isinstance(pk, str) and "/" in pk:
+            pk = pk.split("/", 1)[0]
+        return self.model.objects.get(pk=pk)
+
+    def _link_exists(self, sub):
+        """True when a subscription link has been generated (valid or expired)."""
+        return bool(sub and sub.signup_url)
+
+    def _link_is_valid(self, sub):
+        """True when the subscription has a usable (non-expired) signup URL."""
+        if not self._link_exists(sub):
+            return False
+        if sub.signup_url_expires_at and sub.signup_url_expires_at <= timezone.now():
+            return False
+        return True
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        artist = self.get_object(request, object_id)
+        sub = getattr(artist, "subscription", None) if artist else None
+        extra_context["signup_url"] = sub.signup_url if self._link_is_valid(sub) else None
+        return super().change_view(request, object_id, form_url, extra_context)
     fieldsets = (
         ("Datos personales", {
             "fields": (("name", "slug"), ("birth_year", "death_year"), "location")
@@ -293,15 +359,166 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     def subscription_status_badge(self, obj):
         return subscription_badge_from_artist(obj)
 
-    def change_view(self, request, object_id, form_url="", extra_context=None):
-        extra_context = extra_context or {}
-        artist = self.get_object(request, object_id)
-        sub = getattr(artist, "subscription", None) if artist else None
-        extra_context["subscription_controls"] = {
-            "no_subscription": sub is None,
-            "has_customer": bool(sub and sub.stripe_customer_id),
-        }
-        return super().change_view(request, object_id, form_url, extra_context)
+    # -- Permission methods (conditional button visibility) --
+
+    def has_generate_link_permission(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        sub = getattr(artist, "subscription", None)
+        return not self._link_exists(sub)
+
+    def has_regenerate_link_permission(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        sub = getattr(artist, "subscription", None)
+        return self._link_exists(sub)
+
+    def has_open_portal_permission(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        sub = getattr(artist, "subscription", None)
+        return self._link_exists(sub)
+
+    def has_sync_from_stripe_permission(self, request, object_id):
+        return True
+
+    # -- Actions_detail methods --
+
+    @action(description="Generar link de suscripción", url_path="generate-link", permissions=["generate_link"])
+    def generate_link(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        redirect_url = _artist_redirect_url(artist)
+
+        blocked = _billing_blocked(artist)
+        if blocked:
+            messages.error(request, blocked)
+            return redirect(redirect_url)
+
+        plan = BillingPlan.get_solo()
+        sub, _created = ArtistSubscription.objects.get_or_create(
+            artist=artist,
+            defaults={"status": ArtistSubscription.Status.PENDING},
+        )
+
+        if not sub.stripe_customer_id:
+            customer = stripe_client.create_customer(artist.email)
+            sub.stripe_customer_id = customer.id
+
+        session = stripe_client.create_checkout_session(
+            sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
+        )
+        sub.signup_url = session.url
+        sub.signup_url_expires_at = epoch_to_datetime(session.expires_at)
+        sub.status = ArtistSubscription.Status.PENDING
+        sub.last_synced_at = timezone.now()
+        sub.save(
+            update_fields=[
+                "signup_url",
+                "signup_url_expires_at",
+                "status",
+                "last_synced_at",
+                "stripe_customer_id",
+                "updated_at",
+            ]
+        )
+
+        artist.is_active = compute_is_active(sub)
+        artist.save(update_fields=["is_active", "updated_at"])
+
+        messages.success(request, MSG_LINK_GENERATED)
+        return redirect(redirect_url)
+
+    @action(description="Regenerar link", url_path="regenerate-link", permissions=["regenerate_link"])
+    def regenerate_link(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        redirect_url = _artist_redirect_url(artist)
+
+        blocked = _billing_blocked(artist)
+        if blocked:
+            messages.error(request, blocked)
+            return redirect(redirect_url)
+
+        sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if sub is None:
+            return self.generate_link(request, object_id)
+
+        existing = stripe_client.expire_or_reuse_session(
+            sub.signup_url, sub.signup_url_expires_at
+        )
+        if existing:
+            messages.success(request, MSG_LINK_REGENERATED)
+            return redirect(redirect_url)
+
+        plan = BillingPlan.get_solo()
+        if not sub.stripe_customer_id:
+            customer = stripe_client.create_customer(artist.email)
+            sub.stripe_customer_id = customer.id
+
+        session = stripe_client.create_checkout_session(
+            sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
+        )
+        sub.signup_url = session.url
+        sub.signup_url_expires_at = epoch_to_datetime(session.expires_at)
+        sub.last_synced_at = timezone.now()
+        sub.save(
+            update_fields=[
+                "signup_url",
+                "signup_url_expires_at",
+                "last_synced_at",
+                "stripe_customer_id",
+                "updated_at",
+            ]
+        )
+
+        messages.success(request, MSG_LINK_REGENERATED)
+        return redirect(redirect_url)
+
+    @action(description="Abrir Customer Portal", url_path="open-portal", permissions=["open_portal"])
+    def open_portal(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        redirect_url = _artist_redirect_url(artist)
+
+        sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if sub is None or not sub.stripe_customer_id:
+            messages.warning(request, gettext("Aún no se generó un link de pago para este artista."))
+            return redirect(redirect_url)
+
+        session = stripe_client.create_billing_portal_session(sub.stripe_customer_id)
+        messages.success(request, gettext("Customer Portal: {url}").format(url=session.url))
+        return redirect(redirect_url)
+
+    @action(description="Sincronizar desde Stripe", url_path="sync-from-stripe", permissions=["sync_from_stripe"])
+    def sync_from_stripe(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        redirect_url = _artist_redirect_url(artist)
+
+        sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if sub is None or not sub.stripe_customer_id:
+            messages.warning(request, gettext("Este artista aún no tiene un customer en Stripe."))
+            return redirect(redirect_url)
+
+        prev_label = sub.get_status_display()
+        customer = stripe_client.fetch_customer(sub.stripe_customer_id)
+        sub.customer_email = customer.email or sub.customer_email
+
+        subs = stripe_client.list_subscriptions(sub.stripe_customer_id, limit=1)
+        if not subs:
+            sub.status = ArtistSubscription.Status.CANCELED
+            sub.last_synced_at = timezone.now()
+            sub.save(
+                update_fields=["status", "customer_email", "last_synced_at", "updated_at"]
+            )
+        else:
+            sub.apply_stripe_payload(subs[0])
+            sub.save(update_fields=["customer_email", "updated_at"])
+
+        artist.is_active = compute_is_active(sub)
+        artist.save(update_fields=["is_active", "updated_at"])
+
+        messages.success(
+            request,
+            gettext("Suscripción sincronizada: {prev} → {new}").format(
+                prev=prev_label, new=sub.get_status_display()
+            ),
+        )
+        return redirect(redirect_url)
 
     class Media:
         js = ["js/copy_clipboard.js"]

@@ -72,16 +72,27 @@ class ArtistTestBase(TestCase):
             slug=slug or f"{name.lower().replace(' ', '-')}-{self._testMethodName}",
         )
 
+    def _action_url(self, artist, action):
+        return f"/admin/artworks/artist/{artist.pk}/change/{action}/"
+
 
 class ComputeIsActiveTest(ArtistTestBase):
     def test_no_subscription_returns_artist_default(self):
         self.assertEqual(compute_is_active(None, artist=self.artist), self.artist.is_active)
 
-    def test_pending_and_active_are_visible(self):
-        for status in (ArtistSubscription.Status.PENDING, ArtistSubscription.Status.ACTIVE):
-            artist = self.make_artist(f"Artista {status}")
-            sub = ArtistSubscription.objects.create(artist=artist, status=status)
-            self.assertTrue(compute_is_active(sub))
+    def test_active_is_visible(self):
+        artist = self.make_artist("Artista activo")
+        sub = ArtistSubscription.objects.create(
+            artist=artist, status=ArtistSubscription.Status.ACTIVE
+        )
+        self.assertTrue(compute_is_active(sub))
+
+    def test_pending_is_not_visible(self):
+        artist = self.make_artist("Artista pendiente")
+        sub = ArtistSubscription.objects.create(
+            artist=artist, status=ArtistSubscription.Status.PENDING
+        )
+        self.assertFalse(compute_is_active(sub))
 
     def test_canceling_future_period_is_visible(self):
         sub = ArtistSubscription.objects.create(
@@ -235,7 +246,7 @@ class WebhookTest(ArtistTestBase):
         self.assertEqual(sub.stripe_subscription_id, "sub_abc")
         self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
         self.artist.refresh_from_db()
-        self.assertTrue(self.artist.is_active)
+        self.assertFalse(self.artist.is_active)
 
     def test_checkout_completed_unknown_artist_is_noop(self):
         session = {
@@ -342,48 +353,65 @@ class AdminEndpointTest(ArtistTestBase):
     def test_non_staff_is_redirected_to_admin_login(self):
         user = User.objects.create_user("viewer", "v@x.com", "x")
         self.client.force_login(user)
-        response = self.client.post(
-            reverse("subscriptions:generate-link", args=[self.artist.pk])
-        )
+        response = self.client.get(self._action_url(self.artist, "generate-link"))
         self.assertEqual(response.status_code, 302)
         self.assertIn("/admin/login/", response.url)
 
-    def test_generate_link_creates_pending_subscription_and_cookie(self):
+    def test_generate_link_creates_pending_subscription(self):
         self.client.force_login(self.user)
         BillingPlan.get_solo().save()
         BillingPlan.objects.update(stripe_price_id="price_test")
         session = type("S", (), {"url": "https://checkout.stripe.com/c/pay", "expires_at": time.time() + 3600})
         with patch(
-            "subscriptions.services.stripe_client.create_customer",
+            "artworks.admin.stripe_client.create_customer",
             return_value=type("C", (), {"id": "cus_new"}),
         ), patch(
-            "subscriptions.services.stripe_client.create_checkout_session",
+            "artworks.admin.stripe_client.create_checkout_session",
             return_value=session,
         ):
-            response = self.client.post(
-                reverse("subscriptions:generate-link", args=[self.artist.pk])
-            )
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
         self.assertEqual(response.status_code, 302)
         sub = ArtistSubscription.objects.get(artist=self.artist)
         self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
         self.assertEqual(sub.stripe_customer_id, "cus_new")
         self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/pay")
-        self.assertIn("copy_to_clipboard", response.cookies)
         self.artist.refresh_from_db()
-        self.assertTrue(self.artist.is_active)
+        self.assertFalse(self.artist.is_active)
 
     def test_generate_link_without_email_errors(self):
         self.client.force_login(self.user)
         artist = self.make_artist("Sin correo", email="")
         with patch(
-            "subscriptions.services.stripe_client.create_customer"
+            "artworks.admin.stripe_client.create_customer"
         ) as create_customer:
-            response = self.client.post(
-                reverse("subscriptions:generate-link", args=[artist.pk])
-            )
+            response = self.client.get(self._action_url(artist, "generate-link"))
         self.assertEqual(response.status_code, 302)
         create_customer.assert_not_called()
         self.assertFalse(ArtistSubscription.objects.filter(artist=artist).exists())
+
+    def test_generate_link_blocked_by_inactive_billing_plan(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(is_active_for_new_signups=False)
+        with patch(
+            "artworks.admin.stripe_client.create_customer"
+        ) as create_customer:
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        create_customer.assert_not_called()
+        self.assertFalse(ArtistSubscription.objects.filter(artist=self.artist).exists())
+
+    def test_generate_link_blocked_by_missing_price_id(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="")
+        with patch(
+            "artworks.admin.stripe_client.create_customer"
+        ) as create_customer:
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        create_customer.assert_not_called()
+        self.assertFalse(ArtistSubscription.objects.filter(artist=self.artist).exists())
 
     def test_regenerate_link_reuses_valid_url(self):
         self.client.force_login(self.user)
@@ -396,16 +424,13 @@ class AdminEndpointTest(ArtistTestBase):
             signup_url_expires_at=timezone.now() + timedelta(hours=1),
         )
         with patch(
-            "subscriptions.services.stripe_client.create_checkout_session"
+            "artworks.admin.stripe_client.create_checkout_session"
         ) as create_session:
-            response = self.client.post(
-                reverse("subscriptions:regenerate-link", args=[self.artist.pk])
-            )
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
         self.assertEqual(response.status_code, 302)
         create_session.assert_not_called()
         sub.refresh_from_db()
         self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/valid")
-        self.assertEqual(response.cookies["copy_to_clipboard"].value, sub.signup_url)
 
     def test_regenerate_link_creates_fresh_session_when_expired(self):
         self.client.force_login(self.user)
@@ -420,12 +445,10 @@ class AdminEndpointTest(ArtistTestBase):
         )
         session = type("S", (), {"url": "https://checkout.stripe.com/c/new", "expires_at": future_epoch()})
         with patch(
-            "subscriptions.services.stripe_client.create_checkout_session",
+            "artworks.admin.stripe_client.create_checkout_session",
             return_value=session,
         ) as create_session:
-            response = self.client.post(
-                reverse("subscriptions:regenerate-link", args=[self.artist.pk])
-            )
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
         self.assertEqual(response.status_code, 302)
         create_session.assert_called_once()
         sub.refresh_from_db()
@@ -435,44 +458,40 @@ class AdminEndpointTest(ArtistTestBase):
 
     def test_open_portal_without_customer_warns_and_skips_api(self):
         self.client.force_login(self.user)
-        ArtistSubscription.objects.create(artist=self.artist)
+        ArtistSubscription.objects.create(
+            artist=self.artist, signup_url="https://checkout.stripe.com/c/x"
+        )
         with patch(
-            "subscriptions.services.stripe_client.create_billing_portal_session"
+            "artworks.admin.stripe_client.create_billing_portal_session"
         ) as create_portal:
-            response = self.client.post(
-                reverse("subscriptions:open-portal", args=[self.artist.pk])
-            )
+            response = self.client.get(self._action_url(self.artist, "open-portal"))
         self.assertEqual(response.status_code, 302)
         create_portal.assert_not_called()
 
-    def test_open_portal_sets_url_cookie(self):
+    def test_open_portal_returns_portal_url_in_message(self):
         self.client.force_login(self.user)
         ArtistSubscription.objects.create(
-            artist=self.artist, stripe_customer_id="cus_123"
+            artist=self.artist,
+            stripe_customer_id="cus_123",
+            signup_url="https://checkout.stripe.com/c/x",
         )
         portal = type("P", (), {"url": "https://billing.stripe.com/p/session"})
         with patch(
-            "subscriptions.services.stripe_client.create_billing_portal_session",
+            "artworks.admin.stripe_client.create_billing_portal_session",
             return_value=portal,
         ):
-            response = self.client.post(
-                reverse("subscriptions:open-portal", args=[self.artist.pk])
+            response = self.client.get(
+                self._action_url(self.artist, "open-portal"), follow=True
             )
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(
-            response.cookies["copy_to_clipboard"].value,
-            "https://billing.stripe.com/p/session",
-        )
+        self.assertContains(response, "https://billing.stripe.com/p/session")
 
     def test_sync_from_stripe_without_customer_warns(self):
         self.client.force_login(self.user)
         ArtistSubscription.objects.create(artist=self.artist)
         with patch(
-            "subscriptions.services.stripe_client.fetch_customer"
+            "artworks.admin.stripe_client.fetch_customer"
         ) as fetch_customer:
-            response = self.client.post(
-                reverse("subscriptions:sync-from-stripe", args=[self.artist.pk])
-            )
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
         self.assertEqual(response.status_code, 302)
         fetch_customer.assert_not_called()
 
@@ -486,15 +505,13 @@ class AdminEndpointTest(ArtistTestBase):
         self.artist.is_active = False
         self.artist.save(update_fields=["is_active"])
         with patch(
-            "subscriptions.services.stripe_client.fetch_customer",
+            "artworks.admin.stripe_client.fetch_customer",
             return_value=type("C", (), {"email": "a@x.com"}),
         ), patch(
-            "subscriptions.services.stripe_client.list_subscriptions",
+            "artworks.admin.stripe_client.list_subscriptions",
             return_value=[make_subscription(status="active", period_end=future_epoch())],
         ):
-            response = self.client.post(
-                reverse("subscriptions:sync-from-stripe", args=[self.artist.pk])
-            )
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
         self.assertEqual(response.status_code, 302)
         sub.refresh_from_db()
         self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
@@ -511,15 +528,13 @@ class AdminEndpointTest(ArtistTestBase):
             stripe_customer_id="cus_123",
         )
         with patch(
-            "subscriptions.services.stripe_client.fetch_customer",
+            "artworks.admin.stripe_client.fetch_customer",
             return_value=type("C", (), {"email": "a@x.com"}),
         ), patch(
-            "subscriptions.services.stripe_client.list_subscriptions",
+            "artworks.admin.stripe_client.list_subscriptions",
             return_value=[],
         ):
-            response = self.client.post(
-                reverse("subscriptions:sync-from-stripe", args=[self.artist.pk])
-            )
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
         self.assertEqual(response.status_code, 302)
         sub.refresh_from_db()
         self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
@@ -558,6 +573,44 @@ class ArtistAdminBadgeTest(ArtistTestBase):
             f"/admin/artworks/artist/{self.artist.pk}/change/"
         )
         self.assertContains(response, "Generar link de suscripción")
+        self.assertContains(response, "Sincronizar desde Stripe")
+        self.assertNotContains(response, "Copiar link")
+        self.assertNotContains(response, "Regenerar link")
+        self.assertNotContains(response, "Abrir Customer Portal")
+
+    def test_change_view_shows_copy_button_when_link_exists(self):
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            signup_url="https://checkout.stripe.com/c/pay",
+            signup_url_expires_at=timezone.now() + timedelta(hours=1),
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(
+            f"/admin/artworks/artist/{self.artist.pk}/change/"
+        )
+        self.assertContains(response, "Copiar link")
+        self.assertContains(
+            response, "data-copy-url=\"https://checkout.stripe.com/c/pay\""
+        )
+        self.assertContains(response, "Regenerar link")
+        self.assertContains(response, "Abrir Customer Portal")
+        self.assertContains(response, "Sincronizar desde Stripe")
+        self.assertNotContains(response, "Generar link de suscripción")
+
+    def test_change_view_hides_copy_button_when_link_expired(self):
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            signup_url="https://checkout.stripe.com/c/old",
+            signup_url_expires_at=timezone.now() - timedelta(hours=1),
+        )
+        self.client.force_login(self.user)
+        response = self.client.get(
+            f"/admin/artworks/artist/{self.artist.pk}/change/"
+        )
+        self.assertNotContains(response, "Copiar link")
+        self.assertNotContains(response, "Generar link de suscripción")
+        self.assertContains(response, "Regenerar link")
+        self.assertContains(response, "Abrir Customer Portal")
         self.assertContains(response, "Sincronizar desde Stripe")
 
     def test_changelist_shows_canceling_badge(self):

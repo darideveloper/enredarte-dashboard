@@ -361,6 +361,10 @@ msgstr "Suscripción sincronizada: {prev} → {new}"
 msgid "¡Gracias! Tu suscripción está activa."
 msgstr "¡Gracias! Tu suscripción está activa."
 
+#: subscriptions/views.py
+msgid "La visibilidad de tu artista en el sitio público es automática al confirmarse el pago."
+msgstr "La visibilidad de tu artista en el sitio público es automática al confirmarse el pago."
+
 #: subscriptions
 msgid "Tu pago fue cancelado."
 msgstr "Tu pago fue cancelado."

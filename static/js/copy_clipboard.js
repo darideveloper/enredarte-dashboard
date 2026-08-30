@@ -1,17 +1,42 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const getCookie = (name) => {
-    const value = `; ${document.cookie}`
-    const parts = value.split(`; ${name}=`)
-    if (parts.length === 2) {
-      let cookieValue = decodeURIComponent(parts.pop().split(';').shift())
-      return cookieValue.replace(/^"|"$/g, '')
+  const copyText = async (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+    } else {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      document.body.appendChild(textarea)
+      textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      if (!ok) {
+        throw new Error('execCommand copy failed')
+      }
     }
   }
 
-  const url = getCookie('copy_to_clipboard')
-  if (url) {
-    navigator.clipboard.writeText(url).then(() => {
-      document.cookie = "copy_to_clipboard=; path=/; Max-Age=-99999999;"
+  document.querySelectorAll('[data-copy-url]').forEach((button) => {
+    const url = button.dataset.copyUrl
+    const label = button.querySelector('[data-copy-label]')
+    const originalLabel = label ? label.textContent.trim() : button.textContent.trim()
+
+    button.addEventListener('click', async () => {
+      try {
+        await copyText(url)
+        if (label) {
+          label.textContent = '¡Copiado!'
+          setTimeout(() => {
+            label.textContent = originalLabel
+          }, 2000)
+        } else {
+          button.textContent = '¡Copiado!'
+          setTimeout(() => {
+            button.textContent = originalLabel
+          }, 2000)
+        }
+      } catch {
+        window.prompt('Copia el link manualmente:', url)
+      }
     })
-  }
+  })
 })

@@ -2,30 +2,14 @@
 {% load i18n %}
 
 {% block object-tools-items %}
-    {% if original and subscription_controls %}
-        <div class="flex flex-col gap-2">
-            {% if subscription_controls.no_subscription %}
-                <form method="post" action="{% url 'subscriptions:generate-link' original.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn">{% trans "Generar link de suscripción" %}</button>
-                </form>
-            {% else %}
-                <form method="post" action="{% url 'subscriptions:regenerate-link' original.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn">{% trans "Regenerar link" %}</button>
-                </form>
-            {% endif %}
-            {% if subscription_controls.has_customer %}
-                <form method="post" action="{% url 'subscriptions:open-portal' original.pk %}">
-                    {% csrf_token %}
-                    <button type="submit" class="btn">{% trans "Abrir Customer Portal" %}</button>
-                </form>
-            {% endif %}
-            <form method="post" action="{% url 'subscriptions:sync-from-stripe' original.pk %}">
-                {% csrf_token %}
-                <button type="submit" class="btn">{% trans "Sincronizar desde Stripe" %}</button>
-            </form>
-        </div>
+    {% if signup_url %}
+        <li>
+            <button type="button" data-copy-url="{{ signup_url }}"
+                    class="font-medium inline-flex group items-center gap-1 relative rounded-default justify-center whitespace-nowrap cursor-pointer px-3 py-2 border border-base-200 bg-primary-600 border-transparent text-white hover:bg-primary-600/80">
+                <span class="material-symbols-outlined -ml-0.5">content_copy</span>
+                <span data-copy-label>{% trans "Copiar link" %}</span>
+            </button>
+        </li>
     {% endif %}
     {{ block.super }}
 {% endblock %}

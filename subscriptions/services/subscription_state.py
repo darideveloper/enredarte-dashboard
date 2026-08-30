@@ -21,7 +21,9 @@ def compute_is_active(subscription, artist=None):
     manual operator toggle); pass the artist in that case.
 
     Rules:
-    - pending / active → visible (True).
+    - active → visible (True).
+    - pending → NOT visible (an unpaid, link-generated artist must not appear
+      on the public site until the first successful payment).
     - canceling → visible until `current_period_end`.
     - past_due → visible while `current_period_end + grace_period_days` is in
       the future.
@@ -33,7 +35,7 @@ def compute_is_active(subscription, artist=None):
         return artist.is_active
 
     status = subscription.status
-    if status in (ArtistSubscription.Status.PENDING, ArtistSubscription.Status.ACTIVE):
+    if status == ArtistSubscription.Status.ACTIVE:
         return True
 
     now = timezone.now()
@@ -49,4 +51,4 @@ def compute_is_active(subscription, artist=None):
         grace = timedelta(days=BillingPlan.get_solo().grace_period_days)
         return now < subscription.current_period_end + grace
 
-    return False  # CANCELED
+    return False  # PENDING or CANCELED
