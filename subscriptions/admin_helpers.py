@@ -5,9 +5,9 @@ from django.utils.html import format_html
 from subscriptions.models import ArtistSubscription
 
 _BADGE_STYLES = {
-    ArtistSubscription.Status.PENDING: ("#fef3c7", "#92400e"),
+    ArtistSubscription.Status.PENDING: ("#f3f4f6", "#374151"),
     ArtistSubscription.Status.ACTIVE: ("#dcfce7", "#166534"),
-    ArtistSubscription.Status.PAST_DUE: ("#fee2e2", "#991b1b"),
+    ArtistSubscription.Status.PAST_DUE: ("#fef3c7", "#92400e"),
     ArtistSubscription.Status.CANCELING: ("#fef3c7", "#92400e"),
     ArtistSubscription.Status.CANCELED: ("#fee2e2", "#991b1b"),
 }

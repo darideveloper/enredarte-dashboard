@@ -6,6 +6,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -13,6 +14,7 @@ from django.utils import timezone
 from artworks.models import Artist
 from subscriptions.models import ArtistSubscription, BillingPlan, StripeEvent
 from subscriptions.services.subscription_state import compute_is_active
+from subscriptions.webhooks import _handle_subscription_created
 
 User = get_user_model()
 WEBHOOK_SECRET = "whsec_test"
@@ -209,11 +211,16 @@ class WebhookTest(ArtistTestBase):
         self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
         self.assertEqual(StripeEvent.objects.count(), 1)
 
-    def test_handler_crash_records_error_and_returns_500(self):
+    def test_handler_crash_rolls_back_and_returns_500(self):
         event = make_event(
             "customer.subscription.created", "evt_crash", make_subscription()
         )
         payload = json.dumps(event).encode()
+        ArtistSubscription.objects.create(
+            artist=self.artist, stripe_customer_id="cus_123"
+        )
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active", "updated_at"])
 
         def raiser(event_dict):
             raise RuntimeError("boom")
@@ -225,9 +232,9 @@ class WebhookTest(ArtistTestBase):
         ):
             response = self.post(payload)
         self.assertEqual(response.status_code, 500)
-        record = StripeEvent.objects.get(event_id="evt_crash")
-        self.assertIn("boom", record.error)
-        self.assertIsNone(record.processed_at)
+        self.assertFalse(StripeEvent.objects.filter(event_id="evt_crash").exists())
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
 
     def test_checkout_completed_correlates_via_metadata(self):
         sub = ArtistSubscription.objects.create(artist=self.artist)
@@ -641,3 +648,109 @@ class ArtistAdminBadgeTest(ArtistTestBase):
         self.client.force_login(self.user)
         response = self.client.get("/admin/artworks/artist/")
         self.assertContains(response, "Cancelada definitivamente")
+
+
+@override_settings(STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
+class WebhookSpecTest(ArtistTestBase):
+    """Spec scenarios not covered by the larger WebhookTest class."""
+
+    def test_replay_after_handler_crash_is_fresh_run(self):
+        """A duplicate `event_id` after a handler crash must re-enter the handler.
+
+        The unique index is the idempotency lock; the StripeEvent INSERT shares
+        the handler's atomic block, so on crash the whole transaction rolls back
+        and Stripe's retry sees no row and re-runs the handler as fresh.
+        """
+        event = make_event(
+            "customer.subscription.created", "evt_retry", make_subscription()
+        )
+        payload = json.dumps(event).encode()
+
+        ArtistSubscription.objects.create(
+            artist=self.artist, stripe_customer_id="cus_123"
+        )
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active", "updated_at"])
+
+        def raiser(event_dict):
+            raise RuntimeError("boom")
+
+        self.client.raise_request_exception = False
+        with patch.dict(
+            "subscriptions.webhooks.HANDLERS",
+            {"customer.subscription.created": raiser},
+        ):
+            first = self.client.post(
+                "/webhooks/stripe/",
+                data=payload,
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+            )
+        self.assertEqual(first.status_code, 500)
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+        self.assertFalse(StripeEvent.objects.filter(event_id="evt_retry").exists())
+
+        with patch.dict(
+            "subscriptions.webhooks.HANDLERS",
+            {
+                "customer.subscription.created": _handle_subscription_created,
+            },
+        ):
+            second = self.client.post(
+                "/webhooks/stripe/",
+                data=payload,
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+            )
+        self.assertEqual(second.status_code, 200)
+        self.artist.refresh_from_db()
+        self.assertTrue(self.artist.is_active)
+        record = StripeEvent.objects.get(event_id="evt_retry")
+        self.assertIsNotNone(record.processed_at)
+        self.assertEqual(record.error, "")
+
+    def test_subscription_event_with_no_matching_artist_is_noop(self):
+        """An event whose customer id matches no ArtistSubscription is audit-only."""
+        event = make_event(
+            "customer.subscription.created",
+            "evt_unknown_cus",
+            make_subscription(),  # cus_123 — never created locally
+        )
+        payload = json.dumps(event).encode()
+        response = self.client.post(
+            "/webhooks/stripe/",
+            data=payload,
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(ArtistSubscription.objects.count(), 0)
+        record = StripeEvent.objects.get(event_id="evt_unknown_cus")
+        self.assertEqual(record.error, "")
+        self.assertIsNotNone(record.processed_at)
+
+    def test_open_portal_without_stripe_customer_id_warns_and_skips_api(self):
+        """The endpoint must defend when `signup_url` exists but `stripe_customer_id` is empty.
+
+        Unfold's `has_open_portal_permission` hides the button in this state, but the
+        endpoint itself MUST still refuse to call the Stripe API if hit directly
+        (e.g. by a staff member pasting the URL).
+        """
+        self.client.force_login(self.user)
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            signup_url="https://checkout.stripe.com/c/leftover",
+            signup_url_expires_at=timezone.now() + timedelta(hours=1),
+        )
+        with patch(
+            "artworks.admin.stripe_client.create_billing_portal_session"
+        ) as create_portal:
+            response = self.client.get(self._action_url(self.artist, "open-portal"))
+        self.assertEqual(response.status_code, 302)
+        create_portal.assert_not_called()
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(
+            any("Aún no se generó un link" in m for m in msgs),
+            f"Expected a warning about missing link, got: {msgs}",
+        )

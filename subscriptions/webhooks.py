@@ -167,28 +167,25 @@ def stripe_webhook(request):
     event_dict = event.to_dict()
 
     try:
-        # Own savepoint so a duplicate INSERT never poisons an enclosing
-        # transaction: the unique index is the idempotency lock.
+        # One transaction wraps the StripeEvent INSERT and the handler so they
+        # commit together. The unique index is still the idempotency lock: a
+        # concurrent duplicate delivery raises IntegrityError and returns 200
+        # without running the handler. On handler crash, the whole block
+        # (including the INSERT) rolls back so Stripe's retry sees no row and
+        # re-runs the handler as a fresh attempt.
         with transaction.atomic():
             record = StripeEvent.objects.create(
                 event_id=event_dict["id"],
                 event_type=event_dict["type"],
                 payload=event_dict,
             )
-    except IntegrityError:
-        # Duplicate delivery of the same event_id: already processed, no-op.
-        return HttpResponse(status=200)
-
-    try:
-        with transaction.atomic():
             handler = HANDLERS.get(event_dict["type"])
             if handler:
                 handler(event_dict)
             record.processed_at = timezone.now()
             record.save(update_fields=["processed_at"])
-    except Exception as exc:
-        # Persist the error OUTSIDE the atomic block so it survives the 500.
-        StripeEvent.objects.filter(pk=record.pk).update(error=str(exc))
-        raise
+    except IntegrityError:
+        # Duplicate delivery of the same event_id: already processed, no-op.
+        return HttpResponse(status=200)
 
     return HttpResponse(status=200)
