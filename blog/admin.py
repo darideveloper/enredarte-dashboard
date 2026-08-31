@@ -28,7 +28,7 @@ class PostAdmin(ModelAdminUnfoldBase):
         "author",
     ]
     list_filter = ["is_active", "created_at", "published_at", "author"]
-    readonly_fields = ["display_banner_preview"]
+    readonly_fields = []
     fieldsets = (
         (
             "Información principal",
@@ -37,7 +37,6 @@ class PostAdmin(ModelAdminUnfoldBase):
                     "author",
                     "published_at",
                     "banner_image",
-                    "display_banner_preview",
                 )
             },
         ),
@@ -73,12 +72,6 @@ class PostAdmin(ModelAdminUnfoldBase):
             return format_html('<img src="{}" class="img-preview img-preview--sm" />', obj.banner_image.url)
         return "-"
 
-    @admin.display(description="Vista previa del banner")
-    def display_banner_preview(self, obj):
-        if obj.banner_image:
-            return format_html('<img src="{}" class="img-preview--banner" />', obj.banner_image.url)
-        return "Sin banner asignado"
-
     @admin.display(description="Título")
     def display_title(self, obj):
         translations = list(obj.translations.all())
@@ -104,11 +97,11 @@ class BlogImageAdmin(ModelAdminUnfoldBase):
     search_fields = ["name"]
     list_filter = ["created_at"]
     list_display = ["display_preview", "name", "display_url", "created_at"]
-    readonly_fields = ["display_preview_large", "display_url"]
+    readonly_fields = ["display_url"]
     fieldsets = (
         (
             "Información de la imagen",
-            {"fields": ("name", "image", "display_preview_large", "display_url")},
+            {"fields": ("name", "image", "display_url")},
         ),
     )
 
@@ -116,12 +109,6 @@ class BlogImageAdmin(ModelAdminUnfoldBase):
     def display_preview(self, obj):
         if obj.image:
             return format_html('<img src="{}" class="img-preview img-preview--sm" />', obj.image.url)
-        return "-"
-
-    @admin.display(description="Vista previa")
-    def display_preview_large(self, obj):
-        if obj.image:
-            return format_html('<img src="{}" class="img-preview--form" />', obj.image.url)
         return "-"
 
     @admin.display(description="URL")

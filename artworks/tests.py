@@ -473,24 +473,6 @@ class ArtworkAdminTestCase(TestCase):
         self.assertIn('class="img-preview img-preview--sm"', html)
         self.assertNotIn("style=", html)
 
-    def test_artwork_display_preview_class_and_no_inline_style(self):
-        """Test display_preview emits img-preview class without inline styles"""
-        inline = ArtworkImageInline(ArtworkAdmin, admin.site)
-        image = ArtworkImage.objects.create(
-            artwork=self.artwork,
-            image=SimpleUploadedFile("preview.png", _1PX_PNG),
-        )
-        html = inline.display_preview(image)
-        self.assertIn(image.image.url, html)
-        self.assertIn('class="img-preview"', html)
-        self.assertNotIn("style=", html)
-
-    def test_artwork_display_preview_fallback_empty(self):
-        """Test display_preview fallback when no image is set"""
-        inline = ArtworkImageInline(ArtworkAdmin, admin.site)
-        image = ArtworkImage(artwork=self.artwork)
-        self.assertEqual(inline.display_preview(image), "-")
-
     def test_artwork_display_price(self):
         """Test price formatting method"""
         self.assertEqual(

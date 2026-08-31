@@ -121,17 +121,3 @@ label.grow.relative {
     width: 64px;
     object-fit: cover;
 }
-
-.img-preview--banner {
-    max-height: 180px;
-    max-width: 100%;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.img-preview--form {
-    max-height: 240px;
-    max-width: 100%;
-    border-radius: 8px;
-    object-fit: cover;
-}

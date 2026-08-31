@@ -1,19 +1,17 @@
-# blog-admin Specification
+# blog-admin Spec Deltas
 
-## Purpose
-TBD - created by archiving change blog-admin. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Post Admin Interface with Translation Inlines and Live Slug Auto-fill
-The system SHALL register `Post` in Django Admin using Unfold with single-screen multilingual editing, live slug generation from Spanish title, and pre-filled publication date. The interface SHALL NOT display or manage a `sort_order` field, and all image previews SHALL use `.img-preview` classes with no inline styles.
+The system SHALL register `Post` in Django Admin using Unfold with single-screen multilingual editing, live slug generation from Spanish title, and pre-filled publication date. The interface SHALL NOT display or manage a `sort_order` field. The changelist image preview SHALL use the `.img-preview` class with no inline styles; the change form image preview SHALL be provided by Unfold's native file-input widget (no custom readonly preview field).
 
 #### Scenario: PostAdmin configuration and inlines
 - **WHEN** `PostAdmin` is registered in `blog/admin.py`
 - **THEN** it inherits from `ModelAdminUnfoldBase` and defines `sidebar_icon = "article"`
 - **AND** it includes `PostTranslationInline` inheriting `StackedInline` with `min_num = 2`, `max_num = 2`, and `can_delete = False`
 - **AND** it sets `list_per_page = 25`, `date_hierarchy = "published_at"`, and prefetches `translations` in `get_queryset()`
-- **AND** it provides `display_banner` emitting `class="img-preview img-preview--sm"` with no inline `style=` attributes, and the change-form `banner_image` preview is provided by Unfold's native file-input widget (no custom readonly preview field)
+- **AND** it provides `display_banner` emitting `class="img-preview img-preview--sm"` with no inline `style=` attributes
+- **AND** it SHALL NOT provide a `display_banner_preview` readonly field in the change form
 - **AND** it SHALL NOT include `sort_order` in `fieldsets` or `list_display`
 
 #### Scenario: Changeform initial data and live slug script
@@ -23,13 +21,14 @@ The system SHALL register `Post` in Django Admin using Unfold with single-screen
 - **AND** `static/js/blog_slug_autofill.js` SHALL be loaded to auto-populate the slug field from the Spanish title in real time
 
 ### Requirement: BlogImage Admin Interface with Preview and Copy Action
-The system SHALL register `BlogImage` in Django Admin with image preview, date hierarchy, and a client-side clipboard copy button, with all image previews styled via `.img-preview` CSS classes without inline styles. The copy button SHALL be a custom-injected `<button>` in the change form header (rendered through Unfold's button component) that copies the absolute image URL on click, without any server round-trip or cookie.
+The system SHALL register `BlogImage` in Django Admin with date hierarchy and a client-side clipboard copy button. The changelist image preview SHALL use the `.img-preview` class with no inline styles; the change form image preview SHALL be provided by Unfold's native file-input widget (no custom readonly preview field). The copy button SHALL be a custom-injected `<button>` in the change form header (rendered through Unfold's button component) that copies the absolute image URL on click, without any server round-trip or cookie.
 
 #### Scenario: BlogImageAdmin configuration and copy link action
 - **WHEN** `BlogImageAdmin` is registered in `blog/admin.py`
 - **THEN** it inherits from `ModelAdminUnfoldBase` and defines `sidebar_icon = "image"`
 - **AND** it sets `list_per_page = 25` and `date_hierarchy = "created_at"`
-- **AND** it provides a `display_preview` method emitting `class="img-preview img-preview--sm"` with no inline `style=` attributes, and the change-form `image` preview is provided by Unfold's native file-input widget (no custom readonly preview field)
+- **AND** it provides a `display_preview` method emitting `class="img-preview img-preview--sm"` with no inline `style=` attributes
+- **AND** it SHALL NOT provide a `display_preview_large` readonly field in the change form
 - **AND** it SHALL NOT register a `copy_link` row action that sets a cookie
 - **AND** it includes `js/copy_clipboard.js` in `Media`
 

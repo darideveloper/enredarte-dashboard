@@ -819,17 +819,10 @@ class ArtworkTranslationInline(TranslationInline):
 
 class ArtworkImageInline(TabularInline):
     model = ArtworkImage
-    fields = ["image", "display_preview", "alt_es", "alt_en", "is_primary"]
-    readonly_fields = ["display_preview"]
+    fields = ["image", "alt_es", "alt_en", "is_primary"]
     ordering_field = "sort_order"
     hide_ordering_field = True
     extra = 0
-
-    @admin.display(description="Vista previa")
-    def display_preview(self, obj):
-        if obj.image:
-            return format_html('<img src="{}" class="img-preview" />', obj.image.url)
-        return "-"
 
 
 @admin.register(Artwork)

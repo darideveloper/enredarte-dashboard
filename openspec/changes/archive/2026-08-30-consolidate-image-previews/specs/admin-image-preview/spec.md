@@ -1,24 +1,9 @@
-# Admin Image Preview Specification
+# admin-image-preview Spec Deltas
 
-## Purpose
-
-To define the requirements for the shared `.img-preview` CSS class and its size variants used to style every admin image preview thumbnail.
-
-## Requirements
-
-### Requirement: Shared image preview CSS class
-The system SHALL provide a single `.img-preview` CSS class in `static/css/style.css` that defines the sizing and shape (height, width, border-radius, object-fit) of every admin image preview thumbnail.
-
-#### Scenario: Preview styling comes from CSS only
-- **WHEN** any admin page renders an element with `class="img-preview"`
-- **THEN** its size and shape are fully defined by the `.img-preview` rule in `static/css/style.css` and no inline `style=` attribute is required
-
-#### Scenario: Styling is not JS-injected
-- **WHEN** the admin page loads and JavaScript executes
-- **THEN** no JavaScript adds Tailwind utility classes to `.img-preview` elements for sizing or shape
+## MODIFIED Requirements
 
 ### Requirement: Size variants for thumbnails
-The system SHALL provide `.img-preview--sm` (small) and `.img-preview--lg` (large) modifiers in addition to the regular `.img-preview` class so distinct list-view and inline thumbnails can use different sizes while reusing the base class. Form-field previews (including inline form previews) are delegated to Unfold's native file-input widget and SHALL NOT use custom size variants.
+The system SHALL provide `.img-preview--sm` (small) and `.img-preview--lg` (large) modifiers in addition to the regular `.img-preview` class so distinct list-view and inline thumbnails can use different sizes while reusing the base class. Form-field previews SHALL NOT use custom size variants: the change form relies on Unfold's native file-input widget preview.
 
 #### Scenario: Small thumbnail variant
 - **WHEN** an element uses `class="img-preview img-preview--sm"`
@@ -42,3 +27,7 @@ Every admin image-preview renderer across all applications SHALL emit an `<img>`
 #### Scenario: No inline styles in renderers
 - **WHEN** any preview renderer in `artworks/admin.py` or `blog/admin.py` returns the image preview markup
 - **THEN** the returned markup contains `class="img-preview"` (or an appropriate modifier variant) and no `style=` attribute
+
+#### Scenario: Changelist previews emit img-preview class only
+- **WHEN** `PostAdmin.display_banner`, `BlogImageAdmin.display_preview`, or `ArtworkAdmin.display_image` returns the preview markup
+- **THEN** the returned markup contains `class="img-preview"` (with the appropriate `--sm` variant where applicable) and no `style=` attribute

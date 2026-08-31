@@ -252,19 +252,6 @@ class BlogAdminTestCase(APITestCase):
         post_no_img = Post.objects.create(slug="test-no-banner")
         self.assertEqual(self.post_admin.display_banner(post_no_img), "-")
 
-    def test_post_admin_display_banner_preview(self):
-        post = Post.objects.create(
-            slug="test-banner-preview",
-            banner_image=SimpleUploadedFile("banner_prev.png", _1PX_PNG, content_type="image/png"),
-        )
-        html = self.post_admin.display_banner_preview(post)
-        self.assertIn(post.banner_image.url, html)
-        self.assertIn('class="img-preview--banner"', html)
-        self.assertNotIn("style=", html)
-
-        post_no_img = Post.objects.create(slug="test-no-banner-prev")
-        self.assertEqual(self.post_admin.display_banner_preview(post_no_img), "Sin banner asignado")
-
     def test_blog_image_admin_display_preview(self):
         img = BlogImage.objects.create(
             name="Test Prev",
@@ -277,19 +264,6 @@ class BlogAdminTestCase(APITestCase):
 
         img_no_file = BlogImage(name="Empty")
         self.assertEqual(self.blog_image_admin.display_preview(img_no_file), "-")
-
-    def test_blog_image_admin_display_preview_large(self):
-        img = BlogImage.objects.create(
-            name="Test Prev Large",
-            image=SimpleUploadedFile("large.png", _1PX_PNG, content_type="image/png"),
-        )
-        html = self.blog_image_admin.display_preview_large(img)
-        self.assertIn(img.image.url, html)
-        self.assertIn('class="img-preview--form"', html)
-        self.assertNotIn("style=", html)
-
-        img_no_file = BlogImage(name="Empty")
-        self.assertEqual(self.blog_image_admin.display_preview_large(img_no_file), "-")
 
     def test_blog_image_change_form_shows_copy_button(self):
         from django.contrib.auth import get_user_model
@@ -320,6 +294,32 @@ class BlogAdminTestCase(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Copiar enlace")
         self.assertNotContains(response, "data-copy-url")
+
+    def test_post_change_form_has_no_custom_banner_preview(self):
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_superuser("badmin3", "b3@x.com", "x")
+        self.client.force_login(user)
+        post = Post.objects.create(
+            slug="test-banner-regression",
+            banner_image=SimpleUploadedFile("banner_reg.png", _1PX_PNG, content_type="image/png"),
+        )
+        response = self.client.get(reverse("admin:blog_post_change", args=[post.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "img-preview--banner")
+
+    def test_blog_image_change_form_has_no_custom_form_preview(self):
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_superuser("badmin4", "b4@x.com", "x")
+        self.client.force_login(user)
+        img = BlogImage.objects.create(
+            name="Regression",
+            image=SimpleUploadedFile("reg.png", _1PX_PNG, content_type="image/png"),
+        )
+        response = self.client.get(reverse("admin:blog_blogimage_change", args=[img.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "img-preview--form")
 
 
 class BlogSeedContentCompletenessTestCase(TestCase):
