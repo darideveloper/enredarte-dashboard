@@ -9,11 +9,6 @@ from core.models import TimeStampedModel
 from solo.models import SingletonModel
 
 
-def default_stripe_price_id():
-    """Return the Stripe price id from settings (env-driven for now)."""
-    return settings.STRIPE_PRICE_ID
-
-
 def epoch_to_datetime(ts):
     """Convert a Stripe unix timestamp to an aware datetime (UTC), or None."""
     if not ts:
@@ -53,18 +48,46 @@ class BillingPlan(SingletonModel):
         verbose_name=_("Nombre del plan"),
         help_text=_("Nombre mostrado en el admin. Solo informativo."),
     )
-    stripe_price_id = models.CharField(
-        max_length=100,
-        blank=True,
-        default=default_stripe_price_id,
-        verbose_name=_("ID de precio en Stripe"),
-        help_text=_("Pega el `price_xxx` del producto creado en el Dashboard de Stripe."),
+    amount = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("Monto"),
+        help_text=_("Monto a cobrar por período. Debe ser mayor que 0."),
     )
     currency = models.CharField(
         max_length=3,
+        choices=[("MXN", "MXN"), ("USD", "USD")],
         default="MXN",
-        verbose_name=_("Moneda (ISO 4217)"),
-        help_text=_("Código ISO 4217 de tres letras, p. ej. MXN."),
+        verbose_name=_("Moneda"),
+        help_text=_("Moneda del precio. Solo MXN y USD."),
+    )
+    interval = models.CharField(
+        max_length=10,
+        choices=[("month", _("Mensual"))],
+        default="month",
+        verbose_name=_("Periodicidad"),
+        help_text=_("Intervalo de facturación. Actualmente solo mensual."),
+    )
+    stripe_product_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name=_("ID de producto en Stripe"),
+        help_text=_("Identificador `prod_xxx` gestionado automáticamente. No editar manualmente."),
+    )
+    stripe_price_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name=_("ID de precio en Stripe"),
+        help_text=_("Identificador `price_xxx` gestionado automáticamente. No editar manualmente."),
+    )
+    last_synced_stripe_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_("Última sincronización con Stripe"),
+        help_text=_("Última vez que se creó o archivó un precio en Stripe desde el admin."),
     )
     grace_period_days = models.PositiveIntegerField(
         default=3,
@@ -83,6 +106,73 @@ class BillingPlan(SingletonModel):
 
     def __str__(self):
         return self.name
+
+
+class BillingPlanPriceHistory(models.Model):
+    """Append-only audit of every price change."""
+
+    billing_plan = models.ForeignKey(
+        BillingPlan,
+        on_delete=models.CASCADE,
+        related_name="history",
+        verbose_name=_("Plan de suscripción"),
+        help_text=_("Plan al que pertenece este cambio de precio."),
+    )
+    old_stripe_price_id = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name=_("ID de precio anterior"),
+        help_text=_("Identificador `price_xxx` anterior. Vacío en la primera creación."),
+    )
+    new_stripe_price_id = models.CharField(
+        max_length=100,
+        verbose_name=_("ID de precio nuevo"),
+        help_text=_("Identificador `price_xxx` recién creado en Stripe."),
+    )
+    amount = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        verbose_name=_("Monto"),
+        help_text=_("Monto del nuevo precio."),
+    )
+    currency = models.CharField(
+        max_length=3,
+        verbose_name=_("Moneda"),
+        help_text=_("Moneda del nuevo precio (MXN o USD)."),
+    )
+    interval = models.CharField(
+        max_length=10,
+        verbose_name=_("Periodicidad"),
+        help_text=_("Intervalo del nuevo precio (actualmente solo mensual)."),
+    )
+    old_price_archived = models.BooleanField(
+        default=True,
+        verbose_name=_("Precio anterior archivado"),
+        help_text=_("Si el precio anterior fue archivado (active=False) en Stripe."),
+    )
+    changed_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Fecha de cambio"),
+        help_text=_("Momento en que se registró el cambio."),
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        verbose_name=_("Modificado por"),
+        help_text=_("Usuario que realizó el cambio. Vacío si no hay usuario."),
+    )
+
+    class Meta:
+        ordering = ["-changed_at"]
+        verbose_name = _("Historial de precio")
+        verbose_name_plural = _("Historial de precios")
+
+    def __str__(self):
+        dt = self.changed_at.strftime("%Y-%m-%d") if self.changed_at else "—"
+        return f"{self.billing_plan} — {self.amount} {self.currency} / {self.interval} ({dt})"
 
 
 class ArtistSubscription(TimeStampedModel):

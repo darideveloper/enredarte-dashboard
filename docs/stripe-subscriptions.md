@@ -91,6 +91,19 @@ From the Artist change page, the header buttons depend on the subscription state
 ### 7. Public API
 `/apis/artworks/artists/` filters on `Artist.is_active` - unchanged API, only the driver of `is_active` changes.
 
+## Editar el precio desde el admin
+
+El precio de la suscripción se edita desde **Suscripciones → Plan de suscripción** con tres campos amigables: **Monto** (decimal > 0), **Moneda** (MXN / USD) y **Periodicidad** (actualmente solo `month`). El operador nunca escribe un `price_xxx` manualmente.
+
+- **Campos auto-gestionados (solo lectura):** `stripe_product_id`, `stripe_price_id` y `last_synced_stripe_at`. Se rellenan automáticamente al guardar. La UI muestra una línea de solo lectura **"Confirmado por Stripe"** que hace `stripe.Price.retrieve(stripe_price_id)` al cargar el formulario (GET) para verificar que la DB coincide con Stripe.
+- **Semilla inicial `STRIPE_PRICE_ID`:** la variable de entorno solo se usa una vez, en la migración `0004`, para poblar `amount`/`currency`/`interval`/`stripe_product_id`/`stripe_price_id` vía `stripe.Price.retrieve` (best-effort). Si no está configurada o Stripe no responde, `amount` queda en `0` y el operador debe guardar el formulario una vez. Después de la migración, el `BillingPlan` en la DB es la única fuente de verdad; ningún código lee `STRIPE_PRICE_ID` en tiempo de ejecución.
+- **Qué pasa con suscriptores existentes:** cambiar el precio crea un nuevo `price_xxx` bajo el mismo producto y archiva el anterior. Las suscripciones ya activas siguen facturándose al precio antiguo (comportamiento estándar de Stripe: archivar un precio no afecta suscripciones existentes). Solo las nuevas altas usan el precio nuevo. Documentado como callout principal para evitar sorpresas.
+- **Auditoría:** cada cambio exitoso crea una fila en `BillingPlanPriceHistory` (`old_stripe_price_id` → `new_stripe_price_id`, `amount`/`currency`/`interval`, `old_price_archived`, `changed_by`, `changed_at`). Visible como inline de solo lectura en el cambio de `BillingPlan`, ordenado por `-changed_at`.
+
+### Old-price archival
+
+En cada cambio que crea un nuevo precio, el `price_xxx` anterior se archiva en Stripe con `stripe.Price.modify(old_id, active=False)` de modo que no pueda reutilizarse para nuevos checkouts. Si no había precio previo (primera creación), no se archiva nada y `old_stripe_price_id=""` en el historial.
+
 ## The `compute_is_active` rule
 
 `subscriptions/services/subscription_state.compute_is_active(subscription)` is
@@ -194,8 +207,7 @@ data rewrite of existing subscriptions.
   `https://<host>/webhooks/stripe/` and set `STRIPE_WEBHOOK_SECRET`.
 - Until `BillingPlan.stripe_price_id` is set, link generation refuses with an
   admin message and existing `Artist.is_active=True` behavior is unchanged.
-  `stripe_price_id` defaults to `STRIPE_PRICE_ID` (env) via
-  `default_stripe_price_id()`; the admin can still override per-plan.
+  `STRIPE_PRICE_ID` solo se usa como semilla inicial en la migración `0004`; después el admin es la fuente de verdad (ver "Editar el precio desde el admin").
 - The migration that makes `Artist.email` required backfills existing rows with
   `""` and prints a console warning listing affected artists for follow-up.
 

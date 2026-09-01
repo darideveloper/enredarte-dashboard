@@ -1,4 +1,7 @@
-from django.contrib import admin
+import stripe
+from django import forms
+from django.contrib import admin, messages
+from django.db import transaction
 from django.db.models import Exists, OuterRef
 from django.utils.translation import gettext_lazy as _
 
@@ -6,7 +9,55 @@ from artworks.models import Artist
 from project.admin_base import ModelAdminUnfoldBase
 from solo.admin import SingletonModelAdmin
 from subscriptions.admin_helpers import subscription_badge
-from subscriptions.models import ArtistSubscription, BillingPlan, StripeEvent
+from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory, StripeEvent
+from subscriptions.services import stripe_client
+
+
+class BillingPlanForm(forms.ModelForm):
+    class Meta:
+        model = BillingPlan
+        fields = [
+            "name",
+            "amount",
+            "currency",
+            "interval",
+            "grace_period_days",
+            "is_active_for_new_signups",
+        ]
+
+    def clean(self):
+        cleaned = super().clean()
+        amount = cleaned.get("amount")
+        currency = cleaned.get("currency")
+        interval = cleaned.get("interval")
+        if amount is not None and amount <= 0:
+            raise forms.ValidationError(_("El monto debe ser mayor que 0."))
+        if currency is not None and currency not in {"MXN", "USD"}:
+            raise forms.ValidationError(_("Moneda no válida. Use MXN o USD."))
+        if interval is not None and interval != "month":
+            raise forms.ValidationError(_("Intervalo no válido. Solo se permite mensual."))
+        return cleaned
+
+
+class BillingPlanPriceHistoryInline(admin.TabularInline):
+    model = BillingPlanPriceHistory
+    extra = 0
+    can_delete = False
+    ordering = ("-changed_at",)
+    readonly_fields = [
+        "billing_plan",
+        "old_stripe_price_id",
+        "new_stripe_price_id",
+        "amount",
+        "currency",
+        "interval",
+        "old_price_archived",
+        "changed_at",
+        "changed_by",
+    ]
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(BillingPlan)
@@ -18,18 +69,87 @@ class BillingPlanAdmin(SingletonModelAdmin, ModelAdminUnfoldBase):
     suscripción". `ModelAdminUnfoldBase` provides the Unfold theme.
     """
 
+    form = BillingPlanForm
     sidebar_icon = "subscriptions"
+    readonly_fields = [
+        "stripe_product_id",
+        "stripe_price_id",
+        "last_synced_stripe_at",
+        "display_stripe_live",
+    ]
     fieldsets = (
         (None, {
             "fields": (
                 "name",
-                "stripe_price_id",
+                "amount",
                 "currency",
+                "interval",
                 "grace_period_days",
                 "is_active_for_new_signups",
             )
         }),
+        (_("Stripe"), {
+            "fields": (
+                "stripe_product_id",
+                "stripe_price_id",
+                "last_synced_stripe_at",
+                "display_stripe_live",
+            )
+        }),
     )
+    inlines = [BillingPlanPriceHistoryInline]
+
+    @admin.display(description=_("Confirmado por Stripe"))
+    def display_stripe_live(self, obj):
+        return getattr(self, "_stripe_live_summary", "(sin confirmar)")
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        plan = self.get_object(request, object_id)
+        if plan and plan.stripe_price_id:
+            try:
+                price = stripe_client.retrieve_price(plan.stripe_price_id)
+                # price may be dict or object
+                if isinstance(price, dict):
+                    unit_amount = price.get("unit_amount", 0)
+                    currency = price.get("currency", "")
+                    recurring = price.get("recurring", {}) or {}
+                    interval = recurring.get("interval", "")
+                    pid = price.get("id", plan.stripe_price_id)
+                else:
+                    unit_amount = getattr(price, "unit_amount", 0) or 0
+                    currency = getattr(price, "currency", "") or ""
+                    recurring = getattr(price, "recurring", None)
+                    if isinstance(recurring, dict):
+                        interval = recurring.get("interval", "")
+                    elif recurring:
+                        interval = getattr(recurring, "interval", "") or ""
+                    else:
+                        interval = ""
+                    pid = getattr(price, "id", plan.stripe_price_id)
+                extra_context["stripe_live_summary"] = (
+                    f"Confirmado por Stripe: {unit_amount / 100:.2f} {currency.upper()} / {interval} ({pid})"
+                )
+            except Exception:
+                extra_context["stripe_live_summary"] = "(no se pudo confirmar)"
+        else:
+            extra_context["stripe_live_summary"] = "(sin confirmar)"
+        self._stripe_live_summary = extra_context.get("stripe_live_summary", "(sin confirmar)")
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    @transaction.atomic
+    def save_model(self, request, obj, form, change):
+        from subscriptions.services import plan_sync
+
+        try:
+            plan_sync.ensure_stripe_price(obj, user=request.user)
+        except stripe.error.StripeError as e:
+            messages.error(request, f"Stripe no respondió: {e}. Nada se guardó.")
+            raise
+        # Save editable fields (inside same atomic as ensure_stripe_price's
+        # history+stripe fields would be, but ensure uses its own atomic.
+        # Wrapping here guarantees no partial commit if super fails.)
+        super().save_model(request, obj, form, change)
 
 
 class ArtistIsActiveFilter(admin.SimpleListFilter):

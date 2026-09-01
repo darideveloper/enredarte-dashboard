@@ -6,6 +6,8 @@ using the project settings.
 """
 
 import stripe
+from decimal import Decimal
+
 from django.conf import settings
 from django.utils import timezone
 
@@ -81,3 +83,35 @@ def list_subscriptions(customer_id, limit=1):
     the locally stored `stripe_subscription_id` is stale or was deleted.
     """
     return stripe.Subscription.list(customer=customer_id, limit=limit)
+
+
+def get_or_create_product(name: str, existing_id: str = ""):
+    """Return a Stripe Product, reusing existing_id when present."""
+    if existing_id:
+        return stripe.Product.retrieve(existing_id)
+    return stripe.Product.create(name=name)
+
+
+def create_price(product_id, amount_decimal, currency, interval):
+    """Create a Stripe Price for the given product/amount/currency/interval."""
+    return stripe.Price.create(
+        product=product_id,
+        unit_amount=int(Decimal(amount_decimal) * 100),
+        currency=currency.lower(),
+        recurring={"interval": interval},
+    )
+
+
+def archive_price(price_id):
+    """Archive a Stripe Price (set active=False)."""
+    return stripe.Price.modify(price_id, active=False)
+
+
+def retrieve_price(price_id):
+    """Retrieve a Stripe Price by id."""
+    return stripe.Price.retrieve(price_id)
+
+
+def set_product_default_price(product_id, price_id):
+    """Set the product's default_price to price_id."""
+    return stripe.Product.modify(product_id, default_price=price_id)

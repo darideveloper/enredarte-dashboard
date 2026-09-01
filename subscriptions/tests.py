@@ -5,6 +5,9 @@ import time
 from datetime import timedelta
 from unittest.mock import patch
 
+from decimal import Decimal
+
+import stripe as stripe_lib
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.test import TestCase, override_settings
@@ -12,7 +15,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from artworks.models import Artist
-from subscriptions.models import ArtistSubscription, BillingPlan, StripeEvent
+from subscriptions.admin import BillingPlanForm
+from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory, StripeEvent
 from subscriptions.services.subscription_state import compute_is_active
 from subscriptions.webhooks import _handle_subscription_created
 
@@ -754,3 +758,270 @@ class WebhookSpecTest(ArtistTestBase):
             any("Aún no se generó un link" in m for m in msgs),
             f"Expected a warning about missing link, got: {msgs}",
         )
+
+
+class FormTest(TestCase):
+    def test_amount_zero_rejected(self):
+        plan = BillingPlan.get_solo()
+        form = BillingPlanForm(data={
+            "name": "Membresía Enredarte",
+            "amount": "0",
+            "currency": "MXN",
+            "interval": "month",
+            "grace_period_days": 3,
+            "is_active_for_new_signups": True,
+        }, instance=plan)
+        self.assertFalse(form.is_valid())
+
+    def test_amount_negative_rejected(self):
+        plan = BillingPlan.get_solo()
+        form = BillingPlanForm(data={
+            "name": "Membresía Enredarte",
+            "amount": "-1",
+            "currency": "MXN",
+            "interval": "month",
+            "grace_period_days": 3,
+            "is_active_for_new_signups": True,
+        }, instance=plan)
+        self.assertFalse(form.is_valid())
+
+    def test_missing_amount_rejected(self):
+        plan = BillingPlan.get_solo()
+        form = BillingPlanForm(data={
+            "name": "Membresía Enredarte",
+            "currency": "MXN",
+            "interval": "month",
+            "grace_period_days": 3,
+            "is_active_for_new_signups": True,
+        }, instance=plan)
+        self.assertFalse(form.is_valid())
+
+    def test_invalid_currency_rejected(self):
+        plan = BillingPlan.get_solo()
+        form = BillingPlanForm(data={
+            "name": "Membresía Enredarte",
+            "amount": "299.00",
+            "currency": "JPY",
+            "interval": "month",
+            "grace_period_days": 3,
+            "is_active_for_new_signups": True,
+        }, instance=plan)
+        self.assertFalse(form.is_valid())
+
+    def test_invalid_interval_rejected(self):
+        plan = BillingPlan.get_solo()
+        form = BillingPlanForm(data={
+            "name": "Membresía Enredarte",
+            "amount": "299.00",
+            "currency": "MXN",
+            "interval": "year",
+            "grace_period_days": 3,
+            "is_active_for_new_signups": True,
+        }, instance=plan)
+        self.assertFalse(form.is_valid())
+
+    def test_valid_accepted(self):
+        plan = BillingPlan.get_solo()
+        form = BillingPlanForm(data={
+            "name": "Membresía Enredarte",
+            "amount": "299.00",
+            "currency": "MXN",
+            "interval": "month",
+            "grace_period_days": 3,
+            "is_active_for_new_signups": True,
+        }, instance=plan)
+        self.assertTrue(form.is_valid(), form.errors)
+
+
+class EnsureStripePriceTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser("admin2", "admin2@x.com", "x")
+        self.plan = BillingPlan.get_solo()
+        self.plan.amount = Decimal("299.00")
+        self.plan.currency = "MXN"
+        self.plan.interval = "month"
+        self.plan.stripe_product_id = "prod_old"
+        self.plan.stripe_price_id = "price_old"
+        self.plan.save()
+
+    def test_idempotent_no_stripe_calls(self):
+        from subscriptions.services import plan_sync
+
+        # Persisted row already has same values
+        self.plan.amount = Decimal("299.00")
+        self.plan.currency = "MXN"
+        self.plan.interval = "month"
+        with patch("subscriptions.services.stripe_client.get_or_create_product") as mock_product, \
+             patch("subscriptions.services.stripe_client.create_price") as mock_create, \
+             patch("subscriptions.services.stripe_client.set_product_default_price") as mock_set_default, \
+             patch("subscriptions.services.stripe_client.archive_price") as mock_archive:
+            result = plan_sync.ensure_stripe_price(self.plan, user=self.user)
+            mock_product.assert_not_called()
+            mock_create.assert_not_called()
+            mock_set_default.assert_not_called()
+            mock_archive.assert_not_called()
+        self.assertEqual(BillingPlanPriceHistory.objects.count(), 0)
+
+    def test_first_save_creates_product_and_price(self):
+        from subscriptions.services import plan_sync
+
+        self.plan.stripe_price_id = ""
+        self.plan.stripe_product_id = ""
+        self.plan.amount = Decimal("299.00")
+        self.plan.save(update_fields=["stripe_price_id", "stripe_product_id", "amount"])
+        with patch("subscriptions.services.stripe_client.get_or_create_product",
+                   return_value=type("P", (), {"id": "prod_new"})), \
+             patch("subscriptions.services.stripe_client.create_price",
+                   return_value=type("P2", (), {"id": "price_new"})), \
+             patch("subscriptions.services.stripe_client.set_product_default_price") as mock_set_default, \
+             patch("subscriptions.services.stripe_client.archive_price") as mock_archive:
+            result = plan_sync.ensure_stripe_price(self.plan, user=self.user)
+            mock_set_default.assert_called_once_with("prod_new", "price_new")
+            mock_archive.assert_not_called()
+        self.assertEqual(result.stripe_price_id, "price_new")
+        self.assertEqual(result.stripe_product_id, "prod_new")
+        history = BillingPlanPriceHistory.objects.get()
+        self.assertEqual(history.old_stripe_price_id, "")
+        self.assertEqual(history.new_stripe_price_id, "price_new")
+        self.assertFalse(history.old_price_archived)
+
+    def test_amount_change_creates_price_and_archives(self):
+        from subscriptions.services import plan_sync
+
+        self.plan.amount = Decimal("349.00")
+        # keep persisted old amount 299, but plan object now 349
+        # Ensure persisted row still 299 so change is detected
+        # Our plan object has 349, DB has 299
+        with patch("subscriptions.services.stripe_client.get_or_create_product",
+                   return_value=type("P", (), {"id": "prod_old"})), \
+             patch("subscriptions.services.stripe_client.create_price",
+                   return_value=type("P2", (), {"id": "price_new2"})), \
+             patch("subscriptions.services.stripe_client.set_product_default_price") as mock_set_default, \
+             patch("subscriptions.services.stripe_client.archive_price") as mock_archive:
+            plan_sync.ensure_stripe_price(self.plan, user=self.user)
+            mock_set_default.assert_called_once_with("prod_old", "price_new2")
+            mock_archive.assert_called_once_with("price_old")
+        history = BillingPlanPriceHistory.objects.get()
+        self.assertEqual(history.old_stripe_price_id, "price_old")
+        self.assertEqual(history.new_stripe_price_id, "price_new2")
+        self.assertTrue(history.old_price_archived)
+        self.plan.refresh_from_db()
+        self.assertEqual(self.plan.stripe_price_id, "price_new2")
+
+    def test_stripe_error_on_product_propagates_and_no_save(self):
+        from subscriptions.services import plan_sync
+
+        self.plan.amount = Decimal("400.00")
+        with patch("subscriptions.services.stripe_client.get_or_create_product",
+                   side_effect=stripe_lib.error.StripeError("boom")):
+            with self.assertRaises(stripe_lib.error.StripeError):
+                plan_sync.ensure_stripe_price(self.plan, user=self.user)
+        self.assertEqual(BillingPlanPriceHistory.objects.count(), 0)
+        # stripe_price_id unchanged
+        self.plan.refresh_from_db()
+        self.assertEqual(self.plan.stripe_price_id, "price_old")
+
+    def test_stripe_error_on_archive_propagates_no_history(self):
+        from subscriptions.services import plan_sync
+
+        self.plan.amount = Decimal("400.00")
+        with patch("subscriptions.services.stripe_client.get_or_create_product",
+                   return_value=type("P", (), {"id": "prod_old"})), \
+             patch("subscriptions.services.stripe_client.create_price",
+                   return_value=type("P2", (), {"id": "price_new_err"})), \
+             patch("subscriptions.services.stripe_client.set_product_default_price"), \
+             patch("subscriptions.services.stripe_client.archive_price",
+                   side_effect=stripe_lib.error.StripeError("archive boom")):
+            with self.assertRaises(stripe_lib.error.StripeError):
+                plan_sync.ensure_stripe_price(self.plan, user=self.user)
+        self.assertEqual(BillingPlanPriceHistory.objects.count(), 0)
+        self.plan.refresh_from_db()
+        self.assertEqual(self.plan.stripe_price_id, "price_old")
+
+    def test_stripe_error_on_set_default_propagates_no_history(self):
+        from subscriptions.services import plan_sync
+
+        self.plan.amount = Decimal("400.00")
+        with patch("subscriptions.services.stripe_client.get_or_create_product",
+                   return_value=type("P", (), {"id": "prod_old"})), \
+             patch("subscriptions.services.stripe_client.create_price",
+                   return_value=type("P2", (), {"id": "price_new_err"})), \
+             patch("subscriptions.services.stripe_client.set_product_default_price",
+                   side_effect=stripe_lib.error.StripeError("default boom")):
+            with self.assertRaises(stripe_lib.error.StripeError):
+                plan_sync.ensure_stripe_price(self.plan, user=self.user)
+        self.assertEqual(BillingPlanPriceHistory.objects.count(), 0)
+        self.plan.refresh_from_db()
+        self.assertEqual(self.plan.stripe_price_id, "price_old")
+
+
+class LivePreviewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser("admin", "admin@x.com", "x")
+        self.client.force_login(self.user)
+        self.plan = BillingPlan.get_solo()
+        self.plan.amount = Decimal("299.00")
+        self.plan.currency = "MXN"
+        self.plan.interval = "month"
+        self.plan.stripe_price_id = "price_test"
+        self.plan.save()
+
+    def test_change_view_shows_confirmed(self):
+        fake_price = type("P", (), {
+            "id": "price_test",
+            "unit_amount": 29900,
+            "currency": "mxn",
+            "recurring": {"interval": "month"},
+        })
+        with patch("subscriptions.services.stripe_client.retrieve_price", return_value=fake_price):
+            response = self.client.get(f"/admin/subscriptions/billingplan/{self.plan.pk}/change/")
+        self.assertEqual(response.status_code, 200)
+        # extra_context flows into admin display via _stripe_live_summary
+        self.assertContains(response, "Confirmado por Stripe")
+        self.assertContains(response, "299.00")
+        self.assertContains(response, "MXN")
+
+    def test_change_view_handles_retrieve_failure(self):
+        with patch("subscriptions.services.stripe_client.retrieve_price",
+                   side_effect=Exception("network")):
+            response = self.client.get(f"/admin/subscriptions/billingplan/{self.plan.pk}/change/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "(no se pudo confirmar)")
+
+
+class BillingBlockedTest(ArtistTestBase):
+    def test_blocked_by_missing_price_id_uses_new_message(self):
+        from artworks.admin import _billing_blocked
+
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="")
+        msg = _billing_blocked(self.artist)
+        self.assertIsNotNone(msg)
+        self.assertIn("Configura el precio", str(msg))
+
+    def test_not_blocked_when_price_id_present(self):
+        from artworks.admin import _billing_blocked
+
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test", is_active_for_new_signups=True)
+        msg = _billing_blocked(self.artist)
+        self.assertIsNone(msg)
+
+    def test_blocked_by_inactive_signups(self):
+        from artworks.admin import _billing_blocked
+
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test", is_active_for_new_signups=False)
+        msg = _billing_blocked(self.artist)
+        self.assertIsNotNone(msg)
+        self.assertIn("pausadas", str(msg))
+
+    def test_blocked_by_missing_email(self):
+        from artworks.admin import _billing_blocked
+
+        artist_no_email = self.make_artist("Sin mail", email="")
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        msg = _billing_blocked(artist_no_email)
+        self.assertIsNotNone(msg)
+        self.assertIn("correo", str(msg).lower())

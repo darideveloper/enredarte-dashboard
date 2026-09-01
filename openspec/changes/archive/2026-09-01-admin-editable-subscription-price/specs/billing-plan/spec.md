@@ -1,8 +1,5 @@
-# billing-plan Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-stripe-artist-subscriptions. Update Purpose after archive.
-## Requirements
 ### Requirement: Singleton BillingPlan configuration
 The system SHALL provide a `BillingPlan` model registered with `django-solo` so that exactly one configuration row exists and is editable as a singleton in the Django Unfold admin under a "Plan de suscripción" section.
 
@@ -62,4 +59,3 @@ The system SHALL support exactly one active plan through `BillingPlan`; multiple
 #### Scenario: UI does not offer tier choice
 - **WHEN** an operator opens the artist subscription controls
 - **THEN** the system SHALL NOT present a "select plan" dropdown; the single `BillingPlan` SHALL be used unconditionally.
-

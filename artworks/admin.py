@@ -211,7 +211,7 @@ def _billing_blocked(artist):
         return gettext_lazy("Las nuevas suscripciones están pausadas en el Plan de suscripción.")
     if not plan.stripe_price_id:
         return gettext_lazy(
-            "Configura el `stripe_price_id` en Plan de suscripción antes de generar links."
+            "Configura el precio (monto y moneda) en Plan de suscripción antes de generar links."
         )
     return None
 
