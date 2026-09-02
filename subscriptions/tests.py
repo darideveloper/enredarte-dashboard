@@ -66,6 +66,32 @@ def make_invoice(customer_id, subscription_id, period_end=None, invoice_id="in_1
     }
 
 
+def _make_list_object(data):
+    """Return a minimal Stripe ListObject-shaped mock.
+
+    Replicates the real SDK guard at ``stripe/_list_object.py:99``: integer
+    indexing raises ``KeyError`` so ``subs[0]`` crashes while ``subs.data[0]``
+    succeeds. Existing tests keep plain-list mocks (backward-compatible via
+    ``hasattr(subs, \"data\")`` guard in ``artworks/admin.py:sync_from_stripe``);
+    these ListObject cases prove the fix handles the real SDK shape.
+    """
+
+    class _ListObject:
+        def __init__(self, data):
+            self.data = data
+
+        def __getitem__(self, key):
+            if isinstance(key, str):
+                return getattr(self, key)
+            raise KeyError(
+                "You tried to access the 0 index, but ListObject types only support string keys. "
+                "(HINT: List calls return an object with a 'data' (which is the data array). "
+                "You likely want to call .data[0])"
+            )
+
+    return _ListObject(data)
+
+
 class ArtistTestBase(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser("admin", "admin@x.com", "x")
@@ -545,6 +571,60 @@ class AdminEndpointTest(ArtistTestBase):
         ), patch(
             "artworks.admin.stripe_client.list_subscriptions",
             return_value=[],
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+
+    def test_sync_from_stripe_with_listobject_reconciles_state(self):
+        """ListObject-shaped mock with one active sub must succeed (real SDK shape).
+
+        Replicates ``stripe/_list_object.py:99`` guard: ``subs[0]`` would raise
+        ``KeyError``; the fix must use ``subs.data[0]``. Proves the previous bug.
+        """
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            stripe_customer_id="cus_123",
+        )
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active"])
+        lo = _make_list_object([make_subscription(status="active", period_end=future_epoch())])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=lo,
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.assertEqual(sub.customer_email, "a@x.com")
+        self.assertIsNotNone(sub.last_synced_at)
+        self.artist.refresh_from_db()
+        self.assertTrue(self.artist.is_active)
+
+    def test_sync_from_stripe_with_listobject_empty_sets_canceled(self):
+        """ListObject with ``data == []`` must be treated as empty (no crash)."""
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            stripe_customer_id="cus_123",
+        )
+        lo = _make_list_object([])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=lo,
         ):
             response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
         self.assertEqual(response.status_code, 302)

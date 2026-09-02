@@ -79,8 +79,12 @@ def fetch_customer(cus_id):
 def list_subscriptions(customer_id, limit=1):
     """Return the most recent subscriptions for a Stripe customer.
 
-    Used by the manual sync salvavidas: listing by customer stays robust when
-    the locally stored `stripe_subscription_id` is stale or was deleted.
+    Returns a Stripe ``ListObject`` (``stripe.Subscription.list``); callers
+    must read subscriptions via ``.data`` (e.g. ``result.data[0]``) and check
+    emptiness via ``not result.data`` — integer indexing ``result[0]`` raises
+    ``KeyError`` at ``stripe/_list_object.py:99``. Used by the manual sync
+    salvavidas: listing by customer stays robust when the locally stored
+    ``stripe_subscription_id`` is stale or was deleted.
     """
     return stripe.Subscription.list(customer=customer_id, limit=limit)
 

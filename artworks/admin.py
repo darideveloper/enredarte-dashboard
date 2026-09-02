@@ -502,14 +502,15 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         sub.customer_email = customer.email or sub.customer_email
 
         subs = stripe_client.list_subscriptions(sub.stripe_customer_id, limit=1)
-        if not subs:
+        subs_data = subs.data if hasattr(subs, "data") else subs
+        if not subs_data:
             sub.status = ArtistSubscription.Status.CANCELED
             sub.last_synced_at = timezone.now()
             sub.save(
                 update_fields=["status", "customer_email", "last_synced_at", "updated_at"]
             )
         else:
-            sub.apply_stripe_payload(subs[0])
+            sub.apply_stripe_payload(subs_data[0])
             sub.save(update_fields=["customer_email", "updated_at"])
 
         artist.is_active = compute_is_active(sub)
