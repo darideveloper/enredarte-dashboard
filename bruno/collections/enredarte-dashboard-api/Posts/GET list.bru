@@ -14,6 +14,7 @@ docs {
   # GET /api/blog/posts/ — List blog posts
   
   Returns the paginated list of active blog posts (summary view). Public endpoint.
+  Seed provides 25 posts (20 active + 5 drafts); active set paginates as 12 + 8.
   
   ## Status codes
   
@@ -23,25 +24,25 @@ docs {
   
   ```json
   {
-    "count": 1,
-    "next": null,
+    "count": 20,
+    "next": "http://localhost:8000/api/blog/posts/?page=2",
     "previous": null,
     "page": 1,
     "page_size": 12,
-    "total_pages": 1,
+    "total_pages": 2,
     "results": [
       {
         "id": 1,
-        "slug": "arte-contemporaneo-oaxaca",
+        "slug": "enredarte-abre-nuevas-salas",
         "author": "Equipo Enredarte",
-        "banner_image": "/media/blog/banners/oaxaca.webp",
+        "banner_image": "/media/blog/banners/banner-1.jpg",
         "published_at": "2026-08-20T12:00:00Z",
-        "title_es": "Arte Contemporáneo en Oaxaca",
-        "title_en": "Contemporary Art in Oaxaca",
-        "description_es": "Una mirada a la escena artística contemporánea de Oaxaca.",
-        "description_en": "A look at Oaxaca's contemporary art scene.",
-        "keywords_es": "arte, oaxaca, pintura",
-        "keywords_en": "art, oaxaca, painting"
+        "title_es": "Enredarte abre nuevas salas de exhibición",
+        "title_en": "Enredarte opens new exhibition rooms",
+        "description_es": "El museo amplía sus espacios con dos salas dedicadas a la plástica contemporánea mexicana.",
+        "description_en": "The museum expands its spaces with two rooms dedicated to contemporary Mexican art.",
+        "keywords_es": "museo, salas, exhibición, arte contemporáneo",
+        "keywords_en": "museum, rooms, exhibition, contemporary art"
       }
     ]
   }

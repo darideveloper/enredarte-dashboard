@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/api/blog/posts/arte-contemporaneo-oaxaca/
+  url: {{base_url}}/api/blog/posts/enredarte-abre-nuevas-salas/
   body: none
   auth: none
 }
@@ -14,6 +14,7 @@ docs {
   # GET /api/blog/posts/:slug/ — Retrieve a blog post
   
   Returns a single blog post by slug with full bilingual markdown content. Public endpoint.
+  Content is full Markdown (headings, lists, tables, code, blockquotes, images, links, hr) in both languages.
   
   ## Status codes
   
@@ -25,18 +26,18 @@ docs {
   ```json
   {
     "id": 1,
-    "slug": "arte-contemporaneo-oaxaca",
+    "slug": "enredarte-abre-nuevas-salas",
     "author": "Equipo Enredarte",
-    "banner_image": "/media/blog/banners/oaxaca.webp",
+    "banner_image": "/media/blog/banners/banner-1.jpg",
     "published_at": "2026-08-20T12:00:00Z",
-    "title_es": "Arte Contemporáneo en Oaxaca",
-    "title_en": "Contemporary Art in Oaxaca",
-    "description_es": "Una mirada a la escena artística contemporánea de Oaxaca.",
-    "description_en": "A look at Oaxaca's contemporary art scene.",
-    "keywords_es": "arte, oaxaca, pintura",
-    "keywords_en": "art, oaxaca, painting",
-    "content_es": "# Arte Contemporáneo en Oaxaca\n\nTexto completo en español con formato Markdown...",
-    "content_en": "# Contemporary Art in Oaxaca\n\nFull text in English with Markdown formatting..."
+    "title_es": "Enredarte abre nuevas salas de exhibición",
+    "title_en": "Enredarte opens new exhibition rooms",
+    "description_es": "El museo amplía sus espacios con dos salas dedicadas a la plástica contemporánea mexicana.",
+    "description_en": "The museum expands its spaces with two rooms dedicated to contemporary Mexican art.",
+    "keywords_es": "museo, salas, exhibición, arte contemporáneo",
+    "keywords_en": "museum, rooms, exhibition, contemporary art",
+    "content_es": "# Enredarte abre nuevas salas de exhibición\n\nTexto completo en español con formato Markdown (incluye H2/H3, listas, tabla, código, cita, imagen, enlace, regla)...",
+    "content_en": "# Enredarte opens new exhibition rooms\n\nFull text in English with Markdown formatting (includes H2/H3, lists, table, code, blockquote, image, link, hr)..."
   }
   ```
   
