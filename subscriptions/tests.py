@@ -158,6 +158,43 @@ class StripeCompatTest(TestCase):
         sub.apply_stripe_payload(obj)
         self.assertEqual(sub.status, ArtistSubscription.Status.PAST_DUE)
 
+    def test_to_plain_dict_handles_decimal(self):
+        import json
+        from decimal import Decimal
+
+        from subscriptions.services.stripe_compat import to_plain_dict
+
+        payload = {"id": "sub_123", "unit_amount_decimal": Decimal("9.99"), "nested": {"fx_rate": Decimal("1.234")}, "items": [{"amount": Decimal("5.5")}]}
+        plain = to_plain_dict(payload)
+        # must be JSON-serializable (prod bug: Decimal not serializable)
+        json.dumps(plain)  # should not raise TypeError
+        self.assertEqual(plain["unit_amount_decimal"], "9.99")
+        self.assertEqual(plain["nested"]["fx_rate"], "1.234")
+
+        # StripeObject with for_json=True path (stripe>=15)
+        import stripe
+
+        obj = stripe.Subscription.construct_from(
+            {"id": "sub_123", "unit_amount_decimal": Decimal("9.99")}, key="sk_test"
+        )
+        plain2 = to_plain_dict(obj)
+        json.dumps(plain2)
+
+    def test_apply_payload_with_decimal_is_json_serializable(self):
+        import json
+        from decimal import Decimal
+
+        from artworks.models import Artist
+
+        artist = Artist.objects.create(name="Compat3", email="c3@x.com", slug="compat-decimal")
+        sub = ArtistSubscription.objects.create(artist=artist, stripe_customer_id="cus_123")
+        payload = make_subscription(status="active", period_end=future_epoch())
+        payload["unit_amount_decimal"] = Decimal("9.99")
+        payload["nested"] = {"rate": Decimal("1.5")}
+        sub.apply_stripe_payload(payload)
+        # raw_state must be JSON-serializable for JSONField
+        json.dumps(sub.raw_state)
+
 
 class ArtistTestBase(TestCase):
     def setUp(self):

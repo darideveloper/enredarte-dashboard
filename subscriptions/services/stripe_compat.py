@@ -26,15 +26,42 @@ def sget(obj, key, default=None):
         return getattr(obj, key, default)
 
 
+def _convert_decimals(value):
+    """Recursively convert Decimal to string for JSON serialization."""
+    from decimal import Decimal
+
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _convert_decimals(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_convert_decimals(v) for v in value]
+    return value
+
+
 def to_plain_dict(obj):
-    """Convert StripeObject or dict to plain dict for JSONField storage."""
+    """Convert StripeObject or dict to plain JSON-serializable dict.
+
+    Uses ``to_dict(for_json=True)`` when available (stripe>=15) to handle
+    Decimals, otherwise falls back to plain ``to_dict`` / ``dict`` and
+    recursively converts remaining Decimals to strings.
+    """
     if obj is None:
         return {}
+    data = None
     if hasattr(obj, "to_dict"):
         try:
-            return obj.to_dict()
+            # stripe>=15 supports for_json=True for Decimal handling
+            try:
+                data = obj.to_dict(for_json=True)
+            except TypeError:
+                data = obj.to_dict()
         except Exception:
             pass
-    if isinstance(obj, dict):
-        return dict(obj)
-    return obj
+    if data is None:
+        if isinstance(obj, dict):
+            data = dict(obj)
+        else:
+            data = obj
+    # Ensure nested Decimals (e.g. unit_amount_decimal) are JSON-serializable
+    return _convert_decimals(data)

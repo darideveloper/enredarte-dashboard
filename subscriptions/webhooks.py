@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from subscriptions.models import ArtistSubscription, StripeEvent, epoch_to_datetime
+from subscriptions.services.stripe_compat import to_plain_dict
 from subscriptions.services.subscription_state import compute_is_active
 
 
@@ -107,7 +108,7 @@ def _handle_invoice_payment_succeeded(event):
     sub.status = ArtistSubscription.Status.ACTIVE
     sub.cancel_at_period_end = False
     sub.current_period_end = _invoice_period_end(invoice)
-    sub.raw_state = invoice
+    sub.raw_state = to_plain_dict(invoice)
     sub.last_synced_at = timezone.now()
     sub.save(
         update_fields=[
@@ -128,7 +129,7 @@ def _handle_invoice_payment_failed(event):
     if sub is None:
         return
     sub.status = ArtistSubscription.Status.PAST_DUE
-    sub.raw_state = invoice
+    sub.raw_state = to_plain_dict(invoice)
     sub.last_synced_at = timezone.now()
     sub.save(
         update_fields=["status", "raw_state", "last_synced_at", "updated_at"]
@@ -164,7 +165,12 @@ def stripe_webhook(request):
     except (ValueError, stripe.error.SignatureVerificationError):
         return HttpResponse(status=400)
 
-    event_dict = event.to_dict()
+    # Stripe v15: use for_json=True to handle Decimal; fallback for 11.x
+    try:
+        event_dict = event.to_dict(for_json=True)
+    except TypeError:
+        event_dict = event.to_dict()
+    event_dict = to_plain_dict(event_dict)
 
     try:
         # One transaction wraps the StripeEvent INSERT and the handler so they
