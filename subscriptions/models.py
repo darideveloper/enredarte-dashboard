@@ -8,6 +8,8 @@ from django.utils.translation import gettext_lazy as _
 from core.models import TimeStampedModel
 from solo.models import SingletonModel
 
+from subscriptions.services.stripe_compat import sget, to_plain_dict
+
 
 def epoch_to_datetime(ts):
     """Convert a Stripe unix timestamp to an aware datetime (UTC), or None."""
@@ -268,13 +270,13 @@ class ArtistSubscription(TimeStampedModel):
         Only fields derived from the new payload are touched; unrelated fields
         (e.g. `signup_url`) are left as-is. Persists immediately.
         """
-        self.stripe_subscription_id = stripe_sub.get("id")
-        self.stripe_customer_id = stripe_sub.get("customer")
-        self.customer_email = stripe_sub.get("customer_email") or self.customer_email
-        self.current_period_end = epoch_to_datetime(stripe_sub.get("current_period_end"))
-        self.cancel_at_period_end = bool(stripe_sub.get("cancel_at_period_end"))
-        self.status = map_stripe_status(stripe_sub.get("status"), self.cancel_at_period_end)
-        self.raw_state = stripe_sub
+        self.stripe_subscription_id = sget(stripe_sub, "id")
+        self.stripe_customer_id = sget(stripe_sub, "customer")
+        self.customer_email = sget(stripe_sub, "customer_email") or self.customer_email
+        self.current_period_end = epoch_to_datetime(sget(stripe_sub, "current_period_end"))
+        self.cancel_at_period_end = bool(sget(stripe_sub, "cancel_at_period_end"))
+        self.status = map_stripe_status(sget(stripe_sub, "status"), self.cancel_at_period_end)
+        self.raw_state = to_plain_dict(stripe_sub)
         self.last_synced_at = timezone.now()
         self.save(update_fields=[
             "status",
@@ -296,8 +298,8 @@ class ArtistSubscription(TimeStampedModel):
         `stripe_customer_id`. Returns the row, or None when no local
         `ArtistSubscription` matches (the event is logged but nothing changes).
         """
-        sub_id = stripe_sub.get("id")
-        cus_id = stripe_sub.get("customer")
+        sub_id = sget(stripe_sub, "id")
+        cus_id = sget(stripe_sub, "customer")
         obj = (
             cls.objects.filter(stripe_subscription_id=sub_id).first()
             or cls.objects.filter(stripe_customer_id=cus_id).first()

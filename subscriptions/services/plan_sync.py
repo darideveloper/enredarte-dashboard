@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from subscriptions.models import BillingPlanPriceHistory
 from subscriptions.services import stripe_client
+from subscriptions.services.stripe_compat import sget
 
 
 def ensure_stripe_price(plan, user=None):
@@ -39,7 +40,7 @@ def ensure_stripe_price(plan, user=None):
     product = stripe_client.get_or_create_product(
         name=plan.name, existing_id=old_product_id
     )
-    product_id = product.id if hasattr(product, "id") else product.get("id")
+    product_id = sget(product, "id")
 
     # 2. Create new Stripe price
     new_price = stripe_client.create_price(
@@ -48,7 +49,7 @@ def ensure_stripe_price(plan, user=None):
         currency=plan.currency,
         interval=plan.interval,
     )
-    new_price_id = new_price.id if hasattr(new_price, "id") else new_price.get("id")
+    new_price_id = sget(new_price, "id")
 
     # 3. Repoint product default_price before archiving (Stripe blocks
     # archiving a price that is the product's default_price).

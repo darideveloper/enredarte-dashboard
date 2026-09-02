@@ -11,6 +11,7 @@ from solo.admin import SingletonModelAdmin
 from subscriptions.admin_helpers import subscription_badge
 from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory, StripeEvent
 from subscriptions.services import stripe_client
+from subscriptions.services.stripe_compat import sget
 
 
 class BillingPlanForm(forms.ModelForm):
@@ -109,24 +110,16 @@ class BillingPlanAdmin(SingletonModelAdmin, ModelAdminUnfoldBase):
         if plan and plan.stripe_price_id:
             try:
                 price = stripe_client.retrieve_price(plan.stripe_price_id)
-                # price may be dict or object
-                if isinstance(price, dict):
-                    unit_amount = price.get("unit_amount", 0)
-                    currency = price.get("currency", "")
-                    recurring = price.get("recurring", {}) or {}
+                unit_amount = sget(price, "unit_amount", 0) or 0
+                currency = sget(price, "currency", "") or ""
+                recurring = sget(price, "recurring", None)
+                if isinstance(recurring, dict):
                     interval = recurring.get("interval", "")
-                    pid = price.get("id", plan.stripe_price_id)
+                elif recurring:
+                    interval = sget(recurring, "interval", "") or ""
                 else:
-                    unit_amount = getattr(price, "unit_amount", 0) or 0
-                    currency = getattr(price, "currency", "") or ""
-                    recurring = getattr(price, "recurring", None)
-                    if isinstance(recurring, dict):
-                        interval = recurring.get("interval", "")
-                    elif recurring:
-                        interval = getattr(recurring, "interval", "") or ""
-                    else:
-                        interval = ""
-                    pid = getattr(price, "id", plan.stripe_price_id)
+                    interval = ""
+                pid = sget(price, "id", plan.stripe_price_id)
                 extra_context["stripe_live_summary"] = (
                     f"Confirmado por Stripe: {unit_amount / 100:.2f} {currency.upper()} / {interval} ({pid})"
                 )

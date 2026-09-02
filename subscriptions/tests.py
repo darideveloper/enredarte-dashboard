@@ -92,6 +92,73 @@ def _make_list_object(data):
     return _ListObject(data)
 
 
+def _make_get_blocked_subscription(status="active", cancel_at_period_end=False, period_end=None):
+    """Return a dict-like object whose .get raises like stripe>=15 StripeObject."""
+
+    class _Blocked(dict):
+        def get(self, *a, **kw):
+            raise AttributeError(
+                "'get' is a dict method, but a Subscription is not a dict. Use .to_dict() to convert it. Docs: https://github.com/stripe/stripe-python#working-with-api-resources"
+            )
+
+    return _Blocked(make_subscription(status, cancel_at_period_end, period_end))
+
+
+class StripeCompatTest(TestCase):
+    """sget / to_plain_dict must handle plain dict and StripeObject (stripe>=15)."""
+
+    def test_sget_plain_dict(self):
+        from subscriptions.services.stripe_compat import sget
+
+        self.assertEqual(sget({"id": "sub_123"}, "id"), "sub_123")
+        self.assertEqual(sget({"id": "sub_123"}, "missing", "fallback"), "fallback")
+        self.assertIsNone(sget(None, "id"))
+
+    def test_sget_get_blocked(self):
+        from subscriptions.services.stripe_compat import sget
+
+        blocked = _make_get_blocked_subscription(status="active", period_end=future_epoch())
+        # must not raise AttributeError
+        self.assertEqual(sget(blocked, "id"), "sub_123")
+        self.assertEqual(sget(blocked, "missing", "x"), "x")
+
+    def test_sget_stripe_object(self):
+        from subscriptions.services.stripe_compat import sget
+        import stripe
+
+        obj = stripe.Subscription.construct_from(
+            make_subscription(status="active", period_end=future_epoch()), key="sk_test"
+        )
+        self.assertEqual(sget(obj, "id"), "sub_123")
+        self.assertEqual(sget(obj, "missing", "y"), "y")
+
+    def test_apply_payload_with_get_blocked(self):
+        from artworks.models import Artist
+
+        artist = Artist.objects.create(name="Compat", email="c@x.com", slug="compat-sget")
+        sub = ArtistSubscription.objects.create(artist=artist, stripe_customer_id="cus_123")
+        blocked = _make_get_blocked_subscription(status="active", period_end=future_epoch())
+        # must not raise AttributeError at stripe_sub.get
+        sub.apply_stripe_payload(blocked)
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.assertEqual(sub.stripe_subscription_id, "sub_123")
+        # raw_state is plain dict for JSONField
+        self.assertIsInstance(sub.raw_state, dict)
+        self.assertEqual(sub.raw_state["id"], "sub_123")
+
+    def test_apply_payload_with_stripe_object(self):
+        import stripe
+        from artworks.models import Artist
+
+        artist = Artist.objects.create(name="Compat2", email="c2@x.com", slug="compat-sget2")
+        sub = ArtistSubscription.objects.create(artist=artist, stripe_customer_id="cus_123")
+        obj = stripe.Subscription.construct_from(
+            make_subscription(status="past_due", period_end=future_epoch()), key="sk_test"
+        )
+        sub.apply_stripe_payload(obj)
+        self.assertEqual(sub.status, ArtistSubscription.Status.PAST_DUE)
+
+
 class ArtistTestBase(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser("admin", "admin@x.com", "x")
@@ -632,6 +699,31 @@ class AdminEndpointTest(ArtistTestBase):
         self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
         self.artist.refresh_from_db()
         self.assertFalse(self.artist.is_active)
+
+    def test_sync_from_stripe_with_listobject_and_get_blocked_reconciles(self):
+        """ListObject data contains a StripeObject-like whose .get is blocked (stripe>=15)."""
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            stripe_customer_id="cus_123",
+        )
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active"])
+        lo = _make_list_object([_make_get_blocked_subscription(status="active", period_end=future_epoch())])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=lo,
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.artist.refresh_from_db()
+        self.assertTrue(self.artist.is_active)
 
     def test_landing_pages_render(self):
         response = self.client.get(reverse("subscriptions:success"))
