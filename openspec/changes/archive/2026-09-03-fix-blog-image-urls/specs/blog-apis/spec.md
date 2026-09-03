@@ -1,9 +1,4 @@
-# blog-apis Specification
-
-## Purpose
-TBD - created by archiving change blog-apis. Update Purpose after archive.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Public Post Summary List Endpoint
 The system SHALL expose a public REST API endpoint `GET /api/blog/posts/` that returns a paginated list of summarized active blog posts without full markdown content or sort order.
@@ -43,16 +38,7 @@ The system SHALL expose a public REST API endpoint `GET /api/blog/posts/{slug}/`
 - **WHEN** a client sends a `GET` request to `/api/blog/posts/{slug}/` for a post that does not exist or has `is_active=False`
 - **THEN** the system SHALL return HTTP 404 Not Found
 
-### Requirement: Bruno Request Collection for Blog API
-The system SHALL provide Bruno request files for the blog API in `bruno/collections/enredarte-dashboard-api/Posts/` covering both `GET list.bru` and `GET detail.bru` with complete `docs` blocks describing status codes, response shapes, and error structures.
-
-#### Scenario: Blog posts list request in Bruno
-- **WHEN** `bruno/collections/enredarte-dashboard-api/Posts/GET list.bru` is opened in Bruno
-- **THEN** it targets `{{base_url}}/api/blog/posts/` with `auth: none` and contains a `docs` block documenting the paginated summary response and status 200.
-
-#### Scenario: Blog post detail request in Bruno
-- **WHEN** `bruno/collections/enredarte-dashboard-api/Posts/GET detail.bru` is opened in Bruno
-- **THEN** it targets `{{base_url}}/api/blog/posts/:slug/` with `auth: none` and contains a `docs` block documenting the full detail response, status 200, and status 404 error envelope.
+## ADDED Requirements
 
 ### Requirement: Blog image URLs use get_media_url
 All blog image fields returned by the API (`Post.banner_image` on both list and detail) SHALL be serialized as absolute URLs using `get_media_url()` from `utils/media.py`, consistent with `artworks-rest-api: Image URLs use get_media_url`. The project SHALL use `HOST` from `project/settings.py` for the local-prefix branch and load `.env.{ENV}` with `override=True`.
