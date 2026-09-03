@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from utils.media import get_media_url
+
 
 def _translation_value(obj, language, attr):
     translations = list(obj.translations.all())
@@ -24,7 +26,7 @@ class PostSummarySerializer(serializers.Serializer):
     keywords_en = serializers.SerializerMethodField()
 
     def get_banner_image(self, obj):
-        return obj.banner_image.url if obj.banner_image else None
+        return get_media_url(obj.banner_image) if obj.banner_image else None
 
     def get_title_es(self, obj):
         return _translation_value(obj, "es", "title")

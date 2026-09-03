@@ -15,6 +15,7 @@ docs {
   
   Returns a single blog post by slug with full bilingual markdown content. Public endpoint.
   Content is full Markdown (headings, lists, tables, code, blockquotes, images, links, hr) in both languages.
+  `banner_image` is an absolute URL via `utils/media.py:get_media_url` — `HOST + /media/...` when stored locally, pass-through for S3/DigitalOcean, relative fallback when `HOST` empty.
   
   ## Status codes
   
@@ -28,7 +29,7 @@ docs {
     "id": 1,
     "slug": "enredarte-abre-nuevas-salas",
     "author": "Equipo Enredarte",
-    "banner_image": "/media/blog/banners/banner-1.jpg",
+    "banner_image": "https://enredarte-dashboard.apps.darideveloper.com/media/blog/banners/banner-1.jpg",
     "published_at": "2026-08-20T12:00:00Z",
     "title_es": "Enredarte abre nuevas salas de exhibición",
     "title_en": "Enredarte opens new exhibition rooms",

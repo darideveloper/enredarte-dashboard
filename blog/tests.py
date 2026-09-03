@@ -1,7 +1,9 @@
+from unittest.mock import PropertyMock, patch
+
 from django.contrib import admin
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -9,6 +11,7 @@ from rest_framework.test import APIClient, APITestCase
 
 from blog.admin import BlogImageAdmin, PostAdmin
 from blog.models import BlogImage, Post, PostTranslation
+from utils.media import get_media_url
 
 _1PX_PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -158,6 +161,115 @@ class BlogAPITestCase(APITestCase):
         with self.assertNumQueries(3):
             response = self.client.get(url)
             self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class BlogBannerImageAbsoluteURLTestCase(APITestCase):
+    S3_URL = "https://daridev-django.sfo3.cdn.digitaloceanspaces.com/enredarte/media/blog/banners/banner-1.jpg"
+    S3_S3_URL = "https://mybucket.s3.amazonaws.com/media/blog/banners/banner-1.jpg"
+    HOST = "https://enredarte-dashboard.apps.darideveloper.com"
+
+    def setUp(self):
+        self.client = APIClient()
+        self.post = Post.objects.create(
+            slug="banner-test",
+            author="Tester",
+            published_at=timezone.now(),
+            is_active=True,
+            banner_image=SimpleUploadedFile("banner1.png", _1PX_PNG, content_type="image/png"),
+        )
+        PostTranslation.objects.create(
+            post=self.post,
+            language="es",
+            title="Banner ES",
+            description="Desc ES",
+            keywords="kw",
+            content="# ES",
+        )
+        PostTranslation.objects.create(
+            post=self.post,
+            language="en",
+            title="Banner EN",
+            description="Desc EN",
+            keywords="kw",
+            content="# EN",
+        )
+        self.post_no_image = Post.objects.create(
+            slug="no-banner",
+            author="Tester",
+            published_at=timezone.now(),
+            is_active=True,
+        )
+        PostTranslation.objects.create(
+            post=self.post_no_image,
+            language="es",
+            title="No Banner",
+            description="Desc",
+            keywords="kw",
+            content="# ES",
+        )
+
+    @override_settings(HOST="https://enredarte-dashboard.apps.darideveloper.com")
+    def test_banner_image_is_absolute_with_host_list_and_detail(self):
+        # List
+        list_resp = self.client.get(reverse("blog-posts-list"))
+        self.assertEqual(list_resp.status_code, status.HTTP_200_OK)
+        item = next(r for r in list_resp.json()["results"] if r["slug"] == "banner-test")
+        self.assertTrue(item["banner_image"].startswith(self.HOST))
+        self.assertIn("banner1", item["banner_image"])
+        self.assertNotIn("https://enredarte-dashboard.apps.darideveloper.comhttps://", item["banner_image"])
+        # Detail
+        detail_resp = self.client.get(reverse("blog-posts-detail", kwargs={"slug": "banner-test"}))
+        self.assertEqual(detail_resp.status_code, status.HTTP_200_OK)
+        banner = detail_resp.json()["banner_image"]
+        self.assertTrue(banner.startswith(self.HOST))
+        self.assertIn("banner1", banner)
+
+    @override_settings(HOST="https://enredarte-dashboard.apps.darideveloper.com")
+    def test_banner_image_s3_passthrough_no_double_host(self):
+        # Direct get_media_url S3 pass-through for both DO Spaces and S3
+        self.assertEqual(get_media_url(self.S3_URL), self.S3_URL)
+        self.assertEqual(get_media_url(self.S3_S3_URL), self.S3_S3_URL)
+        # Also verify FieldFile instance path passes through (covers serializer's get_media_url(FieldFile)):
+        from django.db.models.fields.files import FieldFile
+
+        mock_file = FieldFile(self.post, Post._meta.get_field("banner_image"), self.S3_URL.split("/media/")[-1])
+        # Force the underlying file name to produce S3 URL via storage mock
+        with patch.object(FieldFile, "url", new_callable=PropertyMock) as mock_url:
+            mock_url.return_value = self.S3_URL
+            # Scoped patch — only within this context; FieldFile.url restored after, no leak to other tests
+            list_resp = self.client.get(reverse("blog-posts-list"))
+            item = next(r for r in list_resp.json()["results"] if r["slug"] == "banner-test")
+            self.assertEqual(item["banner_image"], self.S3_URL)
+            self.assertNotIn("enredarte-dashboard", item["banner_image"].replace(self.S3_URL, ""))
+
+            detail_resp = self.client.get(reverse("blog-posts-detail", kwargs={"slug": "banner-test"}))
+            self.assertEqual(detail_resp.json()["banner_image"], self.S3_URL)
+
+        # ponytail: substring check only covers s3.amazonaws.com/digitaloceanspaces; custom CDN like https://cdn.example.com would currently be prefixed (host+url) — add AWS_S3_CUSTOM_DOMAIN allowlist if needed
+
+    @override_settings(HOST="enredarte-dashboard.apps.darideveloper.com")  # missing scheme
+    def test_host_without_scheme_falls_back_to_relative(self):
+        list_resp = self.client.get(reverse("blog-posts-list"))
+        item = next(r for r in list_resp.json()["results"] if r["slug"] == "banner-test")
+        self.assertTrue(item["banner_image"].startswith("/media/blog/banners/"))
+
+    @override_settings(HOST="")
+    def test_banner_image_relative_when_host_empty(self):
+        list_resp = self.client.get(reverse("blog-posts-list"))
+        item = next(r for r in list_resp.json()["results"] if r["slug"] == "banner-test")
+        self.assertTrue(item["banner_image"].startswith("/media/blog/banners/"))
+        self.assertIn("banner1", item["banner_image"])
+
+        detail_resp = self.client.get(reverse("blog-posts-detail", kwargs={"slug": "banner-test"}))
+        self.assertTrue(detail_resp.json()["banner_image"].startswith("/media/blog/banners/"))
+
+    def test_banner_image_null_when_no_file(self):
+        list_resp = self.client.get(reverse("blog-posts-list"))
+        item = next(r for r in list_resp.json()["results"] if r["slug"] == "no-banner")
+        self.assertIsNone(item["banner_image"])
+
+        detail_resp = self.client.get(reverse("blog-posts-detail", kwargs={"slug": "no-banner"}))
+        self.assertIsNone(detail_resp.json()["banner_image"])
 
 
 class BlogModelTestCase(APITestCase):

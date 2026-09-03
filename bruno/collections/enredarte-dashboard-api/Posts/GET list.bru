@@ -15,6 +15,7 @@ docs {
   
   Returns the paginated list of active blog posts (summary view). Public endpoint.
   Seed provides 25 posts (20 active + 5 drafts); active set paginates as 12 + 8.
+  `banner_image` is an absolute URL via `utils/media.py:get_media_url` — `HOST + /media/...` when stored locally, pass-through for S3/DigitalOcean (`s3.amazonaws.com` / `digitaloceanspaces`), relative fallback when `HOST` is empty.
   
   ## Status codes
   
@@ -35,7 +36,7 @@ docs {
         "id": 1,
         "slug": "enredarte-abre-nuevas-salas",
         "author": "Equipo Enredarte",
-        "banner_image": "/media/blog/banners/banner-1.jpg",
+        "banner_image": "https://enredarte-dashboard.apps.darideveloper.com/media/blog/banners/banner-1.jpg",
         "published_at": "2026-08-20T12:00:00Z",
         "title_es": "Enredarte abre nuevas salas de exhibición",
         "title_en": "Enredarte opens new exhibition rooms",
