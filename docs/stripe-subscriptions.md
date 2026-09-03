@@ -159,10 +159,13 @@ From the `Artist` change page the operator can:
   landing page `/subscriptions/portal-return/` (generic message) so an artist
   who just cancelled does not land on the "subscription active" success text.
 - **Sincronizar desde Stripe** — manual salvavidas: re-fetches customer and
-  latest subscription from the API and re-derives `is_active`. When the
-  customer exists but has **zero subscriptions** (all deleted), the local
-  status is set to `canceled` — the artist holds no paying subscription and
-  stops appearing on the public site.
+  latest subscription from the API and re-derives `is_active` via
+  `compute_is_active`. When the customer exists but has **zero subscriptions**,
+  the result is conditional: if local `status == pending` (link generated, never
+  paid) it **stays `pending`** (`is_active=False`, `last_synced_at` advances,
+  no flap to `canceled`); only if `status != pending` (e.g., `active` /
+  `past_due` / `canceling` — true deletion) it flips to `canceled` and
+  `is_active=False`.
 
 All of these are Unfold `actions_detail` buttons on the change-form header,
 gated by `admin.site.admin_view` (redirect to admin login for anonymous users,

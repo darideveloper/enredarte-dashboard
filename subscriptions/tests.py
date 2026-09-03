@@ -663,12 +663,15 @@ class AdminEndpointTest(ArtistTestBase):
         self.assertTrue(self.artist.is_active)
 
     def test_sync_from_stripe_no_subscriptions_sets_canceled(self):
+        # Fix sync pending flap: PENDING + [] must stay PENDING (not flap to CANCELED)
         self.client.force_login(self.user)
         sub = ArtistSubscription.objects.create(
             artist=self.artist,
             status=ArtistSubscription.Status.PENDING,
             stripe_customer_id="cus_123",
         )
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active"])
         with patch(
             "artworks.admin.stripe_client.fetch_customer",
             return_value=type("C", (), {"email": "a@x.com"}),
@@ -679,9 +682,13 @@ class AdminEndpointTest(ArtistTestBase):
             response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
         self.assertEqual(response.status_code, 302)
         sub.refresh_from_db()
-        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+        self.assertEqual(sub.customer_email, "a@x.com")
+        self.assertIsNotNone(sub.last_synced_at)
         self.artist.refresh_from_db()
         self.assertFalse(self.artist.is_active)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Pendiente de pago" in m for m in msgs))
 
     def test_sync_from_stripe_with_listobject_reconciles_state(self):
         """ListObject-shaped mock with one active sub must succeed (real SDK shape).
@@ -715,13 +722,72 @@ class AdminEndpointTest(ArtistTestBase):
         self.assertTrue(self.artist.is_active)
 
     def test_sync_from_stripe_with_listobject_empty_sets_canceled(self):
-        """ListObject with ``data == []`` must be treated as empty (no crash)."""
+        """ListObject with ``data == []`` must be treated as empty (no crash) — PENDING stays PENDING."""
         self.client.force_login(self.user)
         sub = ArtistSubscription.objects.create(
             artist=self.artist,
             status=ArtistSubscription.Status.PENDING,
             stripe_customer_id="cus_123",
         )
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active"])
+        lo = _make_list_object([])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=lo,
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+        self.assertEqual(sub.customer_email, "a@x.com")
+        self.assertIsNotNone(sub.last_synced_at)
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Pendiente de pago" in m for m in msgs))
+
+    def test_sync_from_stripe_active_no_subscriptions_sets_canceled(self):
+        """ACTIVE + [] must become CANCELED (true deletion)."""
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            stripe_customer_id="cus_123",
+        )
+        self.artist.is_active = True
+        self.artist.save(update_fields=["is_active"])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=[],
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.assertEqual(sub.customer_email, "a@x.com")
+        self.assertIsNotNone(sub.last_synced_at)
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Cancelada definitivamente" in m for m in msgs))
+
+    def test_sync_from_stripe_active_with_listobject_empty_sets_canceled(self):
+        """ACTIVE + ListObject(data=[]) must become CANCELED."""
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            stripe_customer_id="cus_123",
+        )
+        self.artist.is_active = True
+        self.artist.save(update_fields=["is_active"])
         lo = _make_list_object([])
         with patch(
             "artworks.admin.stripe_client.fetch_customer",
@@ -735,6 +801,84 @@ class AdminEndpointTest(ArtistTestBase):
         sub.refresh_from_db()
         self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
         self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+
+    def test_sync_from_stripe_past_due_no_subscriptions_sets_canceled(self):
+        """PAST_DUE + [] must become CANCELED."""
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PAST_DUE,
+            stripe_customer_id="cus_123",
+            current_period_end=timezone.now() + timedelta(days=5),
+        )
+        self.artist.is_active = True
+        self.artist.save(update_fields=["is_active"])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=[],
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.assertIsNotNone(sub.last_synced_at)
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Cancelada definitivamente" in m for m in msgs))
+
+    def test_sync_from_stripe_canceling_with_listobject_empty_sets_canceled(self):
+        """CANCELING + ListObject(data=[]) must become CANCELED."""
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.CANCELING,
+            stripe_customer_id="cus_123",
+            current_period_end=timezone.now() + timedelta(days=5),
+        )
+        self.artist.is_active = True
+        self.artist.save(update_fields=["is_active"])
+        lo = _make_list_object([])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=lo,
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+
+    def test_sync_from_stripe_canceled_no_subscriptions_stays_canceled(self):
+        """CANCELED + [] stays CANCELED (idempotent)."""
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.CANCELED,
+            stripe_customer_id="cus_123",
+        )
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active"])
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            return_value=type("C", (), {"email": "a@x.com"}),
+        ), patch(
+            "artworks.admin.stripe_client.list_subscriptions",
+            return_value=[],
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.assertIsNotNone(sub.last_synced_at)
         self.assertFalse(self.artist.is_active)
 
     def test_sync_from_stripe_with_listobject_and_get_blocked_reconciles(self):

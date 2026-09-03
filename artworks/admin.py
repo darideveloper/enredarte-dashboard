@@ -530,7 +530,8 @@ class ArtistAdmin(ModelAdminUnfoldBase):
 
         subs_data = subs.data if hasattr(subs, "data") else subs
         if not subs_data:
-            sub.status = ArtistSubscription.Status.CANCELED
+            if sub.status != ArtistSubscription.Status.PENDING:
+                sub.status = ArtistSubscription.Status.CANCELED
             sub.last_synced_at = timezone.now()
             sub.save(
                 update_fields=["status", "customer_email", "last_synced_at", "updated_at"]
