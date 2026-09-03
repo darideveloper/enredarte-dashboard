@@ -1,3 +1,6 @@
+import logging
+
+import stripe
 from django import forms
 from django.conf import settings
 from django.contrib import admin, messages
@@ -11,6 +14,8 @@ from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext, gettext_lazy
+
+logger = logging.getLogger(__name__)
 
 from artworks.admin_filters import YearFilter, has_related_filter
 from artworks.models import (
@@ -43,6 +48,7 @@ from project.admin_base import ModelAdminUnfoldBase, TranslatableNameAdminMixin
 from subscriptions.admin_helpers import subscription_badge_from_artist
 from subscriptions.models import ArtistSubscription, BillingPlan, epoch_to_datetime
 from subscriptions.services import stripe_client
+from subscriptions.services.stripe_compat import sget
 from subscriptions.services.subscription_state import compute_is_active
 from unfold.admin import StackedInline, TabularInline
 from unfold.decorators import action
@@ -401,13 +407,18 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             defaults={"status": ArtistSubscription.Status.PENDING},
         )
 
-        if not sub.stripe_customer_id:
-            customer = stripe_client.create_customer(artist.email)
-            sub.stripe_customer_id = customer.id
+        try:
+            if not sub.stripe_customer_id:
+                customer = stripe_client.create_customer(artist.email)
+                sub.stripe_customer_id = customer.id
 
-        session = stripe_client.create_checkout_session(
-            sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
-        )
+            session = stripe_client.create_checkout_session(
+                sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
+            )
+        except stripe.error.StripeError as e:
+            logger.warning("generate_link artist=%s StripeError: %s", artist.pk, e)
+            messages.error(request, f"Stripe no respondió: {e}")
+            return redirect(redirect_url)
         sub.signup_url = session.url
         sub.signup_url_expires_at = epoch_to_datetime(session.expires_at)
         sub.status = ArtistSubscription.Status.PENDING
@@ -451,13 +462,18 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             return redirect(redirect_url)
 
         plan = BillingPlan.get_solo()
-        if not sub.stripe_customer_id:
-            customer = stripe_client.create_customer(artist.email)
-            sub.stripe_customer_id = customer.id
+        try:
+            if not sub.stripe_customer_id:
+                customer = stripe_client.create_customer(artist.email)
+                sub.stripe_customer_id = customer.id
 
-        session = stripe_client.create_checkout_session(
-            sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
-        )
+            session = stripe_client.create_checkout_session(
+                sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
+            )
+        except stripe.error.StripeError as e:
+            logger.warning("regenerate_link artist=%s StripeError: %s", artist.pk, e)
+            messages.error(request, f"Stripe no respondió: {e}")
+            return redirect(redirect_url)
         sub.signup_url = session.url
         sub.signup_url_expires_at = epoch_to_datetime(session.expires_at)
         sub.last_synced_at = timezone.now()
@@ -484,7 +500,12 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             messages.warning(request, gettext("Aún no se generó un link de pago para este artista."))
             return redirect(redirect_url)
 
-        session = stripe_client.create_billing_portal_session(sub.stripe_customer_id)
+        try:
+            session = stripe_client.create_billing_portal_session(sub.stripe_customer_id)
+        except stripe.error.StripeError as e:
+            logger.warning("open_portal artist=%s StripeError: %s", artist.pk, e)
+            messages.error(request, f"Stripe no respondió: {e}")
+            return redirect(redirect_url)
         return redirect(session.url)
 
     @action(description="Sincronizar desde Stripe", url_path="sync-from-stripe", permissions=["sync_from_stripe"])
@@ -498,10 +519,15 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             return redirect(redirect_url)
 
         prev_label = sub.get_status_display()
-        customer = stripe_client.fetch_customer(sub.stripe_customer_id)
-        sub.customer_email = customer.email or sub.customer_email
+        try:
+            customer = stripe_client.fetch_customer(sub.stripe_customer_id)
+            subs = stripe_client.list_subscriptions(sub.stripe_customer_id, limit=1)
+        except stripe.error.StripeError as e:
+            logger.warning("sync_from_stripe artist=%s StripeError: %s", artist.pk, e)
+            messages.error(request, f"Stripe no respondió: {e}")
+            return redirect(redirect_url)
+        sub.customer_email = sget(customer, "email") or sub.customer_email
 
-        subs = stripe_client.list_subscriptions(sub.stripe_customer_id, limit=1)
         subs_data = subs.data if hasattr(subs, "data") else subs
         if not subs_data:
             sub.status = ArtistSubscription.Status.CANCELED
@@ -511,7 +537,6 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             )
         else:
             sub.apply_stripe_payload(subs_data[0])
-            sub.save(update_fields=["customer_email", "updated_at"])
 
         artist.is_active = compute_is_active(sub)
         artist.save(update_fields=["is_active", "updated_at"])

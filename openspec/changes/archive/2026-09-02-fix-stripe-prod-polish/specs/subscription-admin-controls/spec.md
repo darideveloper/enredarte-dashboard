@@ -1,8 +1,5 @@
-# subscription-admin-controls Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-stripe-artist-subscriptions. Update Purpose after archive.
-## Requirements
 ### Requirement: Subscription admin endpoints gated by staff
 The system SHALL expose admin-only HTTP endpoints for subscription control. Each endpoint MUST require `request.user.is_staff` and MUST be reachable from the Django admin change_view only.
 
@@ -120,3 +117,4 @@ The system SHALL register `StripeEvent` in the Django Unfold admin so an operato
 #### Scenario: Inspecting a failure
 - **WHEN** an administrator opens a `StripeEvent` row whose `error` is non-empty
 - **THEN** the change view SHALL show `error` and `payload` so the operator can diagnose the failure.
+

@@ -1,8 +1,5 @@
-# stripe-webhook-handler Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change add-stripe-artist-subscriptions. Update Purpose after archive.
-## Requirements
 ### Requirement: Signed Stripe webhook endpoint
 The system SHALL expose a single `POST /webhooks/stripe/` endpoint that accepts Stripe events. The endpoint MUST verify the `Stripe-Signature` header against the configured webhook secret before doing any work, and MUST be exempted from CSRF (`@csrf_exempt`).
 
@@ -88,3 +85,4 @@ The system SHALL provide a `StripeEvent` model with at least these fields (each 
 #### Scenario: Unique constraint protects against duplicates
 - **WHEN** two webhooks with the same `event_id` arrive concurrently
 - **THEN** the database SHALL accept only one row and the losing handler SHALL treat the duplicate as already processed.
+

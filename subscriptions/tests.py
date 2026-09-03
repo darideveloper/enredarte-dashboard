@@ -1197,6 +1197,19 @@ class LivePreviewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "(no se pudo confirmar)")
 
+    def test_shows_confirmed_with_stripe_object(self):
+        import stripe
+
+        obj = stripe.Price.construct_from(
+            {"id": "price_test", "unit_amount": 29900, "currency": "mxn", "recurring": {"interval": "month"}},
+            key="sk_test",
+        )
+        with patch("subscriptions.services.stripe_client.retrieve_price", return_value=obj):
+            response = self.client.get(f"/admin/subscriptions/billingplan/{self.plan.pk}/change/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Confirmado por Stripe: 299.00 MXN / month")
+        self.assertContains(response, "price_test")
+
 
 class BillingBlockedTest(ArtistTestBase):
     def test_blocked_by_missing_price_id_uses_new_message(self):
@@ -1234,3 +1247,140 @@ class BillingBlockedTest(ArtistTestBase):
         msg = _billing_blocked(artist_no_email)
         self.assertIsNotNone(msg)
         self.assertIn("correo", str(msg).lower())
+
+
+class AdminEndpointStripeErrorTest(ArtistTestBase):
+    """W1: StripeError in admin actions must be 302 + messages.error, no 500."""
+
+    def test_generate_link_stripe_error_on_create_customer(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        with patch("artworks.admin.stripe_client.create_customer", side_effect=stripe_lib.error.StripeError("boom")), \
+             patch("artworks.admin.logger") as mock_log:
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        self.assertFalse(ArtistSubscription.objects.filter(artist=self.artist, signup_url__contains="checkout").exists())
+        mock_log.warning.assert_called()
+
+    def test_regenerate_link_stripe_error(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            stripe_customer_id="cus_123",
+            signup_url="https://checkout.stripe.com/c/old",
+            signup_url_expires_at=timezone.now() - timedelta(hours=1),
+        )
+        with patch("artworks.admin.stripe_client.create_checkout_session", side_effect=stripe_lib.error.StripeError("boom")), \
+             patch("artworks.admin.logger") as mock_log:
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
+        self.assertEqual(response.status_code, 302)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        mock_log.warning.assert_called()
+
+    def test_open_portal_stripe_error(self):
+        self.client.force_login(self.user)
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            stripe_customer_id="cus_123",
+            signup_url="https://checkout.stripe.com/c/x",
+        )
+        with patch("artworks.admin.stripe_client.create_billing_portal_session", side_effect=stripe_lib.error.StripeError("boom")), \
+             patch("artworks.admin.logger") as mock_log:
+            response = self.client.get(self._action_url(self.artist, "open-portal"))
+        self.assertEqual(response.status_code, 302)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        mock_log.warning.assert_called()
+
+    def test_sync_from_stripe_stripe_error_on_fetch_customer(self):
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(artist=self.artist, stripe_customer_id="cus_123")
+        orig_status = sub.status
+        with patch("artworks.admin.stripe_client.fetch_customer", side_effect=stripe_lib.error.StripeError("boom")), \
+             patch("artworks.admin.logger") as mock_log:
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, orig_status)
+        mock_log.warning.assert_called()
+
+    def test_sync_from_stripe_stripe_error_on_list_subscriptions(self):
+        self.client.force_login(self.user)
+        sub = ArtistSubscription.objects.create(artist=self.artist, stripe_customer_id="cus_123")
+        with patch("artworks.admin.stripe_client.fetch_customer", return_value=type("C", (), {"email": "a@x.com"})), \
+             patch("artworks.admin.stripe_client.list_subscriptions", side_effect=stripe_lib.error.StripeError("boom")), \
+             patch("artworks.admin.logger") as mock_log:
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        mock_log.warning.assert_called()
+
+
+@override_settings(STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
+class WebhookEdgeTest(ArtistTestBase):
+    def test_invoice_payment_succeeded_with_empty_lines_keeps_period(self):
+        period_before = timezone.now() + timedelta(days=5)
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_123",
+            status=ArtistSubscription.Status.ACTIVE,
+            current_period_end=period_before,
+        )
+        self.artist.is_active = True
+        self.artist.save(update_fields=["is_active"])
+        invoice = {"id": "in_1", "customer": "cus_123", "subscription": "sub_123", "lines": {"data": []}}
+        event = make_event("invoice.payment_succeeded", "evt_empty_lines", invoice)
+        payload = json.dumps(event).encode()
+        response = self.client.post(
+            "/webhooks/stripe/",
+            data=payload,
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+        )
+        self.assertEqual(response.status_code, 200)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        # period should be unchanged (guard prevents wiping)
+        self.assertEqual(sub.current_period_end, period_before)
+
+    def test_map_stripe_status_unknown_returns_pending(self):
+        from subscriptions.models import map_stripe_status
+
+        status = map_stripe_status("weird_xyz", False)
+        self.assertEqual(status, ArtistSubscription.Status.PENDING)
+        # compute_is_active for pending is False
+        artist = self.make_artist("Weird", email="weird@x.com")
+        sub = ArtistSubscription.objects.create(artist=artist, status=status)
+        self.assertFalse(compute_is_active(sub))
+
+    def test_checkout_session_expired_clears_signup_url(self):
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            signup_url="https://checkout.stripe.com/c/pay",
+            signup_url_expires_at=timezone.now() + timedelta(hours=1),
+        )
+        session = {"id": "cs_exp", "url": "https://checkout.stripe.com/c/pay", "metadata": {"artist_id": str(self.artist.pk)}}
+        event = make_event("checkout.session.expired", "evt_exp", session)
+        payload = json.dumps(event).encode()
+        response = self.client.post(
+            "/webhooks/stripe/",
+            data=payload,
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+        )
+        self.assertEqual(response.status_code, 200)
+        sub.refresh_from_db()
+        self.assertEqual(sub.signup_url, "")
+        self.assertIsNone(sub.signup_url_expires_at)
+        self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)

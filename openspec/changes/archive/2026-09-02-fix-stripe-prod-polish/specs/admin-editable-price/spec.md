@@ -1,8 +1,5 @@
-# admin-editable-price Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change admin-editable-subscription-price. Update Purpose after archive.
-## Requirements
 ### Requirement: Editable price form fields
 The system SHALL expose the artist-subscription price in the `BillingPlan` admin as three ordinary form fields: `amount` (decimal, > 0), `currency` (dropdown restricted to `MXN` and `USD`), and `interval` (single choice `month`). The operator MUST NOT be required to type a Stripe `price_xxx` id anywhere in the form.
 
@@ -102,3 +99,4 @@ The system SHALL continue to call `stripe_client.create_checkout_session(custome
 #### Scenario: Old subscribers keep their old price
 - **WHEN** an artist is already subscribed (their Stripe Subscription references an old archived `price_xxx`) and a staff member changes the `BillingPlan` amount
 - **THEN** the artist's existing subscription SHALL continue to be billed at the old amount (Stripe's standard behavior for archived prices on existing subscriptions), and only NEW sign-ups SHALL use the new price.
+

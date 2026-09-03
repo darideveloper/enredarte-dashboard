@@ -1,8 +1,5 @@
-# artist-subscription-actions Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fix-stripe-prod-polish. Update Purpose after archive.
-## Requirements
 ### Requirement: Generate subscription link action
 The system SHALL provide a "Generar link de suscripción" changeform action on the Artist admin change page that creates a Stripe customer and checkout session when no subscription link has been generated yet. The action SHALL be visible only when the artist has no `signup_url` at all (no subscription or empty `signup_url`). When the Stripe API raises `stripe.error.StripeError` (network, auth, rate-limit), the system SHALL NOT return `500`; it SHALL `logger.warning` with the `artist_id` and error, show `messages.error` with prefix `Stripe no respondió` (e.g. `f"Stripe no respondió: {e}"`), and redirect `302` to the change form without persisting a partial link.
 
@@ -26,21 +23,6 @@ The system SHALL provide a "Generar link de suscripción" changeform action on t
 - **WHEN** `stripe.Customer.create` or `stripe.checkout.Session.create` raises `stripe.error.StripeError`
 - **THEN** the system SHALL show `messages.error` with prefix `Stripe no respondió` (e.g. `f"Stripe no respondió: {e}"`), log `warning` with `artist_id`, and return `302` to the change form without creating a half-persisted `ArtistSubscription` link (message assertion shall check prefix, not exact ellipsis).
 
-
-### Requirement: Copy subscription link button
-The system SHALL provide a "Copiar link" button on the Artist admin change page when a valid (non-expired) `signup_url` exists. The button SHALL render the URL in a `data-copy-url` attribute and copy it to the clipboard when clicked (a user gesture), without any server round-trip.
-
-#### Scenario: Copy button shown with preloaded link
-- **WHEN** an administrator opens an Artist change form and a valid (non-expired) `signup_url` exists
-- **THEN** a "Copiar link" button SHALL be shown with the `signup_url` preloaded in its `data-copy-url` attribute, and the "Generar link de suscripción" button SHALL NOT be shown
-
-#### Scenario: Copy button hidden without a valid link
-- **WHEN** an administrator opens an Artist change form with no subscription, no `signup_url`, or an expired `signup_url`
-- **THEN** the "Copiar link" button SHALL NOT be shown
-
-#### Scenario: Clicking copy writes to clipboard
-- **WHEN** an administrator clicks the "Copiar link" button
-- **THEN** the `data-copy-url` value SHALL be written to the clipboard and the button label SHALL briefly display "¡Copiado!" without removing the button icon
 
 ### Requirement: Regenerate subscription link action
 The system SHALL provide a "Regenerar link" changeform action on the Artist admin change page that reuses a valid existing checkout URL or creates a new one when expired. The action SHALL be visible whenever a subscription link exists (`signup_url` present, valid or expired). When Stripe raises `stripe.error.StripeError`, the system SHALL NOT return `500`; it SHALL `logger.warning`, show `messages.error` with prefix `Stripe no respondió`, and redirect `302`.
@@ -94,13 +76,3 @@ The system SHALL provide a "Sincronizar desde Stripe" changeform action on the A
 - **WHEN** Stripe returns the subscription's `customer` field as an expanded object `{"id":"cus_123", ...}` instead of string `cus_123`
 - **THEN** `sget(stripe_sub,"customer")` SHALL be unwrapped: if the value is a dict-like with `id`, store `sget(value,"id")` as `stripe_customer_id`, not the dict string.
 
-### Requirement: Unfold-native horizontal button layout
-The system SHALL render all server actions using Unfold's `actions_detail` API and the copy button as a single horizontal header item, with no vertical stacking or header overflow.
-
-#### Scenario: Buttons render horizontally
-- **WHEN** an administrator opens an Artist change form
-- **THEN** the subscription buttons SHALL appear as horizontal items in the Unfold header area, not as vertically stacked forms
-
-#### Scenario: Conditional visibility via permission methods
-- **WHEN** an administrator opens an Artist change form
-- **THEN** only the applicable buttons SHALL be shown based on the artist's subscription state — no link: generate + sync; link exists: regenerate + portal + sync; valid (non-expired) link additionally shows the copy button — enforced via `@action(permissions=[...])` and `has_<action>_permission` methods

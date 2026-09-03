@@ -1,9 +1,13 @@
+import logging
+
 import stripe
 from django import forms
 from django.contrib import admin, messages
 from django.db import transaction
 from django.db.models import Exists, OuterRef
 from django.utils.translation import gettext_lazy as _
+
+logger = logging.getLogger(__name__)
 
 from artworks.models import Artist
 from project.admin_base import ModelAdminUnfoldBase
@@ -102,6 +106,11 @@ class BillingPlanAdmin(SingletonModelAdmin, ModelAdminUnfoldBase):
 
     @admin.display(description=_("Confirmado por Stripe"))
     def display_stripe_live(self, obj):
+        # Thread-safe: prefer request._stripe_live_summary if available (set in change_view)
+        # Fallback to self for backwards compat / when request not present.
+        req = getattr(self, "_current_request", None)
+        if req is not None and hasattr(req, "_stripe_live_summary"):
+            return getattr(req, "_stripe_live_summary", "(sin confirmar)")
         return getattr(self, "_stripe_live_summary", "(sin confirmar)")
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
@@ -113,21 +122,23 @@ class BillingPlanAdmin(SingletonModelAdmin, ModelAdminUnfoldBase):
                 unit_amount = sget(price, "unit_amount", 0) or 0
                 currency = sget(price, "currency", "") or ""
                 recurring = sget(price, "recurring", None)
-                if isinstance(recurring, dict):
-                    interval = recurring.get("interval", "")
-                elif recurring:
-                    interval = sget(recurring, "interval", "") or ""
-                else:
-                    interval = ""
+                interval = sget(recurring, "interval", "") or ""
                 pid = sget(price, "id", plan.stripe_price_id)
                 extra_context["stripe_live_summary"] = (
                     f"Confirmado por Stripe: {unit_amount / 100:.2f} {currency.upper()} / {interval} ({pid})"
                 )
-            except Exception:
+            except stripe.error.StripeError as e:
+                logger.warning("BillingPlan preview StripeError price=%s: %s", plan.stripe_price_id, e)
+                extra_context["stripe_live_summary"] = "(no se pudo confirmar)"
+            except Exception as e:
+                logger.warning("BillingPlan preview failed price=%s: %s", plan.stripe_price_id, e)
                 extra_context["stripe_live_summary"] = "(no se pudo confirmar)"
         else:
             extra_context["stripe_live_summary"] = "(sin confirmar)"
-        self._stripe_live_summary = extra_context.get("stripe_live_summary", "(sin confirmar)")
+        # Thread-safe storage on request, keep self as fallback for display method
+        request._stripe_live_summary = extra_context.get("stripe_live_summary", "(sin confirmar)")
+        self._stripe_live_summary = request._stripe_live_summary
+        self._current_request = request
         return super().change_view(request, object_id, form_url, extra_context)
 
     @transaction.atomic

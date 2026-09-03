@@ -129,20 +129,14 @@ job in v1); the next event that crosses the boundary performs the flip.
 boundary is the `Stripe-Signature` header (`stripe.Webhook.construct_event`,
 `@csrf_exempt`).
 
-1. The event is INSERTed into `StripeEvent` inside its own savepoint, keyed by
-   the unique `event_id`. A duplicate INSERT raises `IntegrityError` and the
-   endpoint returns `200` immediately — **no** side effects (the unique index
-   is the lock; the savepoint keeps an enclosing transaction healthy).
-2. Handled events run inside one `transaction.atomic()` block:
-   `ArtistSubscription` mirror + `Artist.is_active` commit together.
-3. If the handler raises, the transaction rolls back, the `error` is persisted
-   on the `StripeEvent` row **outside** the atomic block, and the endpoint
-   returns `500` so Stripe retries.
+1. The event is INSERTed into `StripeEvent` inside a single `transaction.atomic()` together with the handler, keyed by the unique `event_id`. A duplicate INSERT raises `IntegrityError` and the endpoint returns `200` immediately — **no** side effects (the unique index is the lock).
+2. Handled events run inside that same `transaction.atomic()` block: `StripeEvent` + `ArtistSubscription` mirror + `Artist.is_active` commit together.
+3. If the handler raises, the entire transaction including the `StripeEvent` row is rolled back, the endpoint returns `500` so Stripe retries (retry is fresh, no row exists), and the error is logged via `logger.exception` rather than persisted on the row.
 
-Dispatch table: `checkout.session.completed`,
+Dispatch table: `checkout.session.completed`, `checkout.session.expired`,
 `customer.subscription.created/updated/deleted`, `invoice.payment_succeeded`,
 `invoice.payment_failed`. Unhandled event types are still recorded and return
-`200`.
+`200`. `checkout.session.expired` clears an expired `signup_url` for pending links (status stays `pending`).
 
 Correlation is by `stripe_subscription_id` first, then `stripe_customer_id`;
 `checkout.session.completed` correlates via `metadata.artist_id` (set on the

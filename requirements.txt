@@ -26,7 +26,7 @@ django-solo>=2.3.0
 requests>=2.32.3
 
 # payments
-stripe>=15.5.1
+stripe>=15.5.1,<16
 
 # storage
 django-storages==1.14.4

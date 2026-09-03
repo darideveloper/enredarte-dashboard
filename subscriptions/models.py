@@ -271,7 +271,11 @@ class ArtistSubscription(TimeStampedModel):
         (e.g. `signup_url`) are left as-is. Persists immediately.
         """
         self.stripe_subscription_id = sget(stripe_sub, "id")
-        self.stripe_customer_id = sget(stripe_sub, "customer")
+        cus = sget(stripe_sub, "customer")
+        # Handle expanded customer object {"id": "cus_xxx", ...} vs string id
+        if isinstance(cus, dict):
+            cus = sget(cus, "id", cus) or cus
+        self.stripe_customer_id = cus
         self.customer_email = sget(stripe_sub, "customer_email") or self.customer_email
         self.current_period_end = epoch_to_datetime(sget(stripe_sub, "current_period_end"))
         self.cancel_at_period_end = bool(sget(stripe_sub, "cancel_at_period_end"))
@@ -300,6 +304,8 @@ class ArtistSubscription(TimeStampedModel):
         """
         sub_id = sget(stripe_sub, "id")
         cus_id = sget(stripe_sub, "customer")
+        if isinstance(cus_id, dict):
+            cus_id = sget(cus_id, "id", cus_id) or cus_id
         obj = (
             cls.objects.filter(stripe_subscription_id=sub_id).first()
             or cls.objects.filter(stripe_customer_id=cus_id).first()

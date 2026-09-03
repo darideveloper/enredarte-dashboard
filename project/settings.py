@@ -267,3 +267,18 @@ UNFOLD = {
         "navigation": [],
     },
 }
+
+# Logging — stripe money-path observability (W3)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {"class": "logging.StreamHandler"},
+    },
+    "loggers": {
+        "django": {"handlers": ["console"], "level": "INFO"},
+        "subscriptions": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "artworks": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
+# Optional SENTRY_DSN pass-through (no SDK dep) — env is read by external forwarder if present; no handler added here

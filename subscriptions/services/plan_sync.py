@@ -1,4 +1,11 @@
-"""Orchestrator for BillingPlan -> Stripe price sync."""
+"""Orchestrator for BillingPlan -> Stripe price sync.
+
+Retry creates another price, orphan remains in Stripe until manual archive.
+"""
+
+import logging
+
+import stripe
 
 from django.db import transaction
 from django.utils import timezone
@@ -6,6 +13,8 @@ from django.utils import timezone
 from subscriptions.models import BillingPlanPriceHistory
 from subscriptions.services import stripe_client
 from subscriptions.services.stripe_compat import sget
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_stripe_price(plan, user=None):
@@ -59,9 +68,14 @@ def ensure_stripe_price(plan, user=None):
 
     # 4. Archive old price if present
     if old_price_id:
-        stripe_client.archive_price(old_price_id)
+        try:
+            stripe_client.archive_price(old_price_id)
+        except stripe.error.StripeError as e:
+            logger.warning("orphan price new=%s old=%s StripeError: %s", new_price_id, old_price_id, e)
+            raise
 
     # 5. Create history row + update plan atomically
+    # Retry creates another price, orphan remains in Stripe until manual archive.
     with transaction.atomic():
         BillingPlanPriceHistory.objects.create(
             billing_plan=plan,
@@ -73,6 +87,7 @@ def ensure_stripe_price(plan, user=None):
             old_price_archived=bool(old_price_id),
             changed_by=user,
         )
+        logger.info("plan_sync price %s -> %s amount %s", old_price_id, new_price_id, plan.amount)
 
         plan.stripe_product_id = product_id
         plan.stripe_price_id = new_price_id
