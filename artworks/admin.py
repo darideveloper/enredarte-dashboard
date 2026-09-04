@@ -1,3 +1,4 @@
+import json
 import logging
 
 import stripe
@@ -45,7 +46,7 @@ from artworks.models import (
     ThemeTranslation,
 )
 from project.admin_base import ModelAdminUnfoldBase, TranslatableNameAdminMixin
-from subscriptions.admin_helpers import subscription_badge_from_artist
+from subscriptions.admin_helpers import subscription_badge, subscription_badge_from_artist
 from subscriptions.models import ArtistSubscription, BillingPlan, epoch_to_datetime
 from subscriptions.services import stripe_client
 from subscriptions.services.stripe_compat import sget
@@ -112,6 +113,82 @@ class ArtistSocialLinkInline(TabularInline):
     verbose_name = "Red social"
     verbose_name_plural = "Redes sociales"
     extra = 1
+
+
+class ArtistSubscriptionInline(StackedInline):
+    model = ArtistSubscription
+    fk_name = "artist"
+    verbose_name = "Suscripción"
+    verbose_name_plural = "Suscripción"
+    extra = 0
+    max_num = 1
+    min_num = 0
+    can_delete = False
+    show_change_link = True
+    template = "admin/subscriptions/artistsubscription/edit_inline/stacked.html"
+    fields = [
+        "display_status",
+        "stripe_customer_id",
+        "stripe_subscription_id",
+        "customer_email",
+        "current_period_end",
+        "cancel_at_period_end",
+        "display_signup_url",
+        "signup_url_expires_at",
+        "last_synced_at",
+        "created_at",
+        "updated_at",
+        "display_raw_state",
+    ]
+    readonly_fields = fields
+
+    @admin.display(description="Estado")
+    def display_status(self, obj):
+        if obj is None:
+            return subscription_badge(None)
+        return subscription_badge(obj)
+
+    @admin.display(description="Link de pago")
+    def display_signup_url(self, obj):
+        if obj is None:
+            return format_html('<span style="color:#6b7280">—</span>')
+        url = getattr(obj, "signup_url", "") or ""
+        expires_at = getattr(obj, "signup_url_expires_at", None)
+        if not url:
+            return format_html(
+                '<span style="color:#6b7280">—</span> <span style="color:#991b1b;font-size:12px">(expirado)</span>'
+            )
+        # Reuse _link_is_valid semantics: valid when url exists and not expired
+        is_expired = bool(expires_at and expires_at <= timezone.now())
+        if is_expired:
+            return format_html(
+                '<a href="{}" target="_blank">{}</a> <span style="color:#991b1b;font-size:12px">(expirado)</span>',
+                url,
+                url,
+            )
+        # Valid: clickable + copy affordance
+        return format_html(
+            '<a href="{}" target="_blank">{}</a> <span data-copy-url="{}" style="margin-left:8px;cursor:pointer;color:#6b7280" title="Copiar link">⎘</span>',
+            url,
+            url,
+            url,
+        )
+
+    @admin.display(description="Auditoría")
+    def display_raw_state(self, obj):
+        if obj is None or not getattr(obj, "raw_state", None):
+            return format_html('<span style="color:#6b7280">—</span>')
+        try:
+            pretty = json.dumps(obj.raw_state, indent=2, ensure_ascii=False)
+        except Exception:
+            pretty = str(obj.raw_state)
+        return format_html('<pre style="max-height:320px;overflow:auto">{}</pre>', pretty)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ArtCuratorTranslationInline(TranslationInline):
@@ -225,7 +302,7 @@ def _billing_blocked(artist):
 @admin.register(Artist)
 class ArtistAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "palette"
-    inlines = [ArtistTranslationInline, ArtistSocialLinkInline]
+    inlines = [ArtistTranslationInline, ArtistSocialLinkInline, ArtistSubscriptionInline]
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name", "email", "slug", "translations__bio"]
     list_filter = [

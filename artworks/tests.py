@@ -1,4 +1,6 @@
 import base64
+import json
+from datetime import timedelta
 
 from django.contrib import admin
 from django.contrib.admin import RelatedOnlyFieldListFilter
@@ -8,6 +10,7 @@ from django.core.management import call_command
 from django.db import IntegrityError
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
@@ -16,6 +19,7 @@ from core.models import unique_slugify
 
 from artworks.admin import (
     ArtistAvailableWorksFilter,
+    ArtistSubscriptionInline,
     ArtCuratorAdmin,
     ArtCuratorTranslationInline,
     ArtistAdmin,
@@ -89,6 +93,18 @@ class ArtistAdminTestCase(TestCase):
     def test_artist_admin_has_translation_inline(self):
         artist_admin = admin.site._registry[Artist]
         self.assertIn(ArtistTranslationInline, artist_admin.inlines)
+        # Subscription inline is now part of ArtistAdmin (set membership, not positional)
+        self.assertIn(ArtistSubscriptionInline, artist_admin.inlines)
+
+    def test_artist_admin_inlines_include_subscription(self):
+        artist_admin = admin.site._registry[Artist]
+        self.assertEqual(
+            set(artist_admin.inlines),
+            {ArtistTranslationInline, ArtistSocialLinkInline, ArtistSubscriptionInline},
+        )
+        self.assertEqual(artist_admin.inlines[0], ArtistTranslationInline)
+        self.assertEqual(artist_admin.inlines[1], ArtistSocialLinkInline)
+        self.assertEqual(artist_admin.inlines[2], ArtistSubscriptionInline)
 
     def test_artist_admin_changelist_view(self):
         artist = Artist.objects.create(
@@ -133,6 +149,128 @@ class ArtistAdminTestCase(TestCase):
         formset = response.context_data["inline_admin_formsets"][0].formset
         self.assertEqual(len(formset.extra_forms), 0)
         self.assertEqual(len(formset.forms), 2)
+
+class ArtistSubscriptionInlineTestCase(TestCase):
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(
+            username="admin", email="admin@example.com", password="password123"
+        )
+        self.client.login(username="admin", password="password123")
+
+    def test_inline_config_is_readonly(self):
+        self.assertEqual(ArtistSubscriptionInline.model.__name__, "ArtistSubscription")
+        self.assertEqual(ArtistSubscriptionInline.fk_name, "artist")
+        self.assertEqual(ArtistSubscriptionInline.verbose_name, "Suscripción")
+        self.assertEqual(ArtistSubscriptionInline.extra, 0)
+        self.assertEqual(ArtistSubscriptionInline.max_num, 1)
+        self.assertEqual(ArtistSubscriptionInline.min_num, 0)
+        self.assertFalse(ArtistSubscriptionInline.can_delete)
+        self.assertTrue(ArtistSubscriptionInline.show_change_link)
+        self.assertEqual(
+            ArtistSubscriptionInline.template,
+            "admin/subscriptions/artistsubscription/edit_inline/stacked.html",
+        )
+        self.assertEqual(ArtistSubscriptionInline.fields, ArtistSubscriptionInline.readonly_fields)
+
+    def test_inline_fields_order_flat(self):
+        expected = [
+            "display_status",
+            "stripe_customer_id",
+            "stripe_subscription_id",
+            "customer_email",
+            "current_period_end",
+            "cancel_at_period_end",
+            "display_signup_url",
+            "signup_url_expires_at",
+            "last_synced_at",
+            "created_at",
+            "updated_at",
+            "display_raw_state",
+        ]
+        self.assertEqual(list(ArtistSubscriptionInline.fields), expected)
+        self.assertEqual(list(ArtistSubscriptionInline.readonly_fields), expected)
+
+    def test_inline_permissions(self):
+        request = RequestFactory().get("/")
+        request.user = self.superuser
+        inline = ArtistSubscriptionInline(Artist, admin.site)
+        self.assertFalse(inline.has_add_permission(request))
+        self.assertFalse(inline.has_add_permission(request, obj=None))
+        self.assertFalse(inline.has_delete_permission(request))
+        self.assertFalse(inline.has_delete_permission(request, obj=None))
+
+    def test_change_view_renders_subscription_badge_and_link(self):
+        from subscriptions.models import ArtistSubscription
+
+        artist = Artist.objects.create(
+            name="Frida Kahlo", slug="frida-kahlo-2", email="frida2@example.com"
+        )
+        ArtistSubscription.objects.create(
+            artist=artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            stripe_customer_id="cus_test123",
+            stripe_subscription_id="sub_test123",
+            customer_email="frida@example.com",
+            signup_url="https://checkout.stripe.com/c/pay_test",
+            signup_url_expires_at=timezone.now() + timedelta(hours=1),
+            raw_state={"id": "sub_test123", "status": "active"},
+        )
+        url = reverse("admin:artworks_artist_change", args=[artist.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        # Card title
+        self.assertContains(response, "Suscripción")
+        # Badge palette (active → Activa)
+        self.assertContains(response, "Activa")
+        # Clickable signup_url + copy affordance
+        self.assertContains(response, "https://checkout.stripe.com/c/pay_test")
+        self.assertContains(response, 'data-copy-url="https://checkout.stripe.com/c/pay_test"')
+        self.assertContains(response, 'target="_blank"')
+        # Stripe ids
+        self.assertContains(response, "cus_test123")
+        self.assertContains(response, "sub_test123")
+        # Pretty JSON raw_state with Auditoría label
+        self.assertContains(response, "Auditoría")
+        self.assertContains(response, "&quot;id&quot;")
+        # show_change_link points to standalone ArtistSubscription admin
+        self.assertContains(response, "/admin/subscriptions/artistsubscription/")
+
+    def test_change_view_renders_empty_state(self):
+        artist = Artist.objects.create(
+            name="Sin Sub", slug="sin-sub", email="sinsub@example.com"
+        )
+        url = reverse("admin:artworks_artist_change", args=[artist.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Suscripción")
+        self.assertContains(response, "Sin suscripción — usa")
+
+    def test_change_view_renders_expired_hint(self):
+        from subscriptions.models import ArtistSubscription
+
+        artist = Artist.objects.create(
+            name="Expirado", slug="expirado", email="exp@example.com"
+        )
+        ArtistSubscription.objects.create(
+            artist=artist,
+            status=ArtistSubscription.Status.PENDING,
+            signup_url="https://checkout.stripe.com/c/old",
+            signup_url_expires_at=timezone.now() - timedelta(hours=1),
+            raw_state={},
+        )
+        url = reverse("admin:artworks_artist_change", args=[artist.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "(expirado)")
+        self.assertContains(response, "https://checkout.stripe.com/c/old")
+
+    def test_display_methods_guard_none(self):
+        inline = ArtistSubscriptionInline(Artist, admin.site)
+        # subscription_badge(None) returns muted "Sin suscripción"
+        self.assertIn("Sin suscripción", inline.display_status(None))
+        self.assertIn("—", inline.display_signup_url(None))
+        self.assertIn("—", inline.display_raw_state(None))
+
 
 class ArtCuratorAdminTestCase(TestCase):
     def setUp(self):
