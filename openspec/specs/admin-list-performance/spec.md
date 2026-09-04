@@ -4,8 +4,7 @@
 To define the performance requirements for the Django Admin changelists and
 filters, ensuring Artist and Artwork changelists render without per-row queries,
 translated names and counts are computed in the main query or from prefetched
-caches, and admin views remain testable under pytest without a staticfiles
-manifest.
+caches, and admin views remain testable during Django tests via IS_TESTING fallback.
 
 ## Requirements
 
@@ -129,18 +128,13 @@ filtering with `Exists`/`OuterRef` subqueries instead of inner joins plus
 - **THEN** the changelist SHALL preserve the default ordering and pagination of
   the underlying model.
 
-### Requirement: Admin views render under pytest without a staticfiles manifest
-The system SHALL provide a project-level pytest fixture (`conftest.py`) that
-overrides the staticfiles storage backend to `StaticFilesStorage` during tests,
-so admin changelist, change, and add views render under pytest without requiring
-a `staticfiles.json` manifest built by `collectstatic`.
+### Requirement: Admin views render during Django tests without a staticfiles manifest
+The system SHALL use Django's `IS_TESTING` (`project/settings.py:88`) to select `django.contrib.staticfiles.storage.StaticFilesStorage` for the `staticfiles` backend during `python manage.py test` (`project/settings.py:203-214`), so admin changelist, change, and add views render without requiring a `staticfiles.json` manifest built by `collectstatic`. No pytest fixture (`conftest.py`) SHALL be required. Outside tests the configured Whitenoise manifest backend SHALL remain unchanged.
 
-#### Scenario: pytest run renders admin views
-- **WHEN** an administrator runs the test suite via `pytest`
-- **THEN** admin changelist, change, and add views SHALL render successfully
-  without a "Missing staticfiles manifest entry" error.
+#### Scenario: Django test run renders admin views
+- **WHEN** the test suite runs via `python manage.py test`
+- **THEN** admin changelist, change, and add views SHALL render successfully without a "Missing staticfiles manifest entry" error.
 
 #### Scenario: Production staticfiles behavior unchanged
 - **WHEN** the application runs outside tests
-- **THEN** the configured whitenoise manifest storage backend SHALL remain
-  unchanged.
+- **THEN** the configured `whitenoise.storage.CompressedManifestStaticFilesStorage` backend SHALL remain unchanged and SHALL still require `collectstatic` to build `staticfiles.json`.

@@ -381,9 +381,12 @@ Verify the project configuration and ensure that the test environment is correct
 # Verify the complete configuration
 python manage.py check
 
-# Run tests to ensure test-specific database isolation
+# Run tests to ensure test-specific database isolation (canonical; do not use pytest)
 python manage.py test
+# or: venv/bin/python manage.py test --verbosity=2
 ```
+
+> Canonical runner is `venv/bin/python manage.py test` (`python manage.py test` when venv active) per `openspec/specs/testing-contract/spec.md`; `pytest` is not supported.
 
 ### 10. Required Project Wiring
 These files are essential for the infrastructure and global behaviors defined in `settings.py`.

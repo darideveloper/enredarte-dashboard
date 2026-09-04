@@ -11,6 +11,7 @@ temp.*
 # Dependencies
 venv
 .venv
+/.venv/
 
 # Environment
 .env

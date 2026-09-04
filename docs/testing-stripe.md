@@ -12,6 +12,8 @@ status: active
 
 # Testing Stripe Subscriptions
 
+> Testing contract: canonical runner is `venv/bin/python manage.py test` per `openspec/specs/testing-contract/spec.md`; do not use `pytest`.
+
 This document covers how to configure the Stripe Dashboard, run the local
 webhook bridge, and exercise the subscription lifecycle end-to-end against a
 test (dev) environment first, then how to validate the same flow in live
