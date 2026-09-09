@@ -8,6 +8,7 @@ from django.views.generic import RedirectView
 from subscriptions import webhooks
 
 urlpatterns = [
+    path("admin/system/", include("core.urls")),
     path("admin/", admin.site.urls),
     path("", RedirectView.as_view(url="/admin/"), name="home-redirect-admin"),
     path("apis/artworks/", include("artworks.urls")),

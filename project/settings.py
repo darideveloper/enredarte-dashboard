@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from django.templatetags.static import static
+from django.urls import reverse_lazy
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
@@ -26,6 +27,11 @@ STRIPE_SUCCESS_URL = os.getenv("STRIPE_SUCCESS_URL", f"{HOST}/subscriptions/succ
 STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL", f"{HOST}/subscriptions/cancel/")
 STRIPE_PORTAL_RETURN_URL = f"{HOST}/subscriptions/portal-return/"
 STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
+
+# Coolify deploy webhook (publish changes button) — single URL incl. uuid/token params
+DEPLOY_WEBHOOK_URL = os.getenv("DEPLOY_WEBHOOK_URL", "")
+# Coolify API token with `deploy` permission, sent as Bearer auth header
+COOLIFY_API_TOKEN = os.getenv("COOLIFY_API_TOKEN", "")
 
 INSTALLED_APPS = [
     "unfold",
@@ -264,7 +270,21 @@ UNFOLD = {
     "SIDEBAR": {
         "show_search": True,
         "show_all_applications": True,
-        "navigation": [],
+        "navigation": [
+            {
+                "title": "Sistema",
+                "separator": True,
+                "collapsible": False,
+                "items": [
+                    {
+                        "title": "Publicar Cambios",
+                        "icon": "publish",
+                        "link": reverse_lazy("core:publish-changes"),
+                        "permission": lambda request: request.user.is_staff,
+                    },
+                ],
+            },
+        ],
     },
 }
 
