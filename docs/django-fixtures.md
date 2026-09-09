@@ -109,15 +109,19 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 FIXTURE_DIRS = [
-    os.path.join(BASE_DIR, "catalog", "fixtures", "catalog"),
+    os.path.join(BASE_DIR, "artworks", "fixtures", "artworks"),
 ]
 ```
 
 Notes:
 
 - By default, Django already searches `<each_app>/fixtures/` for fixture files, so
-  `catalog/fixtures/catalog/Category.json` is found even without `FIXTURE_DIRS`.
+  `artworks/fixtures/artworks/*.json` is found even without `FIXTURE_DIRS`.
   Setting `FIXTURE_DIRS` explicitly is optional but makes the location explicit.
+- Live inventory in this project: artworks ships base fixtures plus a `seed/`
+  series; blog ships seed-only fixtures (`00_Post`, `01_PostTranslation`,
+  `02_BlogImage`); core and subscriptions ship no fixtures. See
+  [[enredarte-fixtures-env|Enredarte Fixtures & Environments]].
 
 ---
 

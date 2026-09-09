@@ -103,7 +103,7 @@ vars {
 - `@description('''...''')` documents a variable; the `'''...'''` form supports multiline strings, while `@description("...")` is the single-line variant.
 - Adding `dev`, `prod`, or `staging` environments is a **one-file copy** of this template with new values.
 
-> **Security note:** environment files (e.g. `dev.bru`) hold real tokens and are gitignored — never commit them. The committed template is the `dev.bru.example` sibling: copy it to `dev.bru`, paste a real token, and keep the `.bru` file local. Because the template is committed as `.example`, every clone gets the placeholder with no risk of committing a live credential.
+> **Security note:** environment files hold real tokens and are gitignored — never commit them. The committed templates are the `.bru.example` siblings (e.g. `dev.bru.example` and the `prod` sample file): copy to a local untracked file, paste a real token, and keep it local. Every clone gets the placeholder with no risk of committing a live credential.
 
 ---
 
@@ -113,7 +113,7 @@ Each request is a single `.bru` file. Every request begins with a `meta` block (
 
 ### 6.1 Authenticated GET — DRF Token header (per-model list)
 
-Every endpoint under `/apis/artworks/` requires authentication. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset. The collection ships one folder per model, each with `GET list.bru` and `GET detail.bru` (e.g. the artworks list):
+Every endpoint under `/api/artworks/` requires authentication (`IsAuthenticated`). The blog collection (`Posts/` → `/api/blog/posts/`) is public and needs no `Authorization` header. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset. The collection ships one folder per model, each with `GET list.bru` and `GET detail.bru` (e.g. the artworks list):
 
 ```bru
 meta {
@@ -123,7 +123,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/apis/artworks/artworks/
+  url: {{base_url}}/api/artworks/artworks/
   body: none
   auth: none
 }
@@ -143,7 +143,7 @@ meta {
 }
 
 get {
-  url: {{base_url}}/apis/artworks/
+  url: {{base_url}}/api/artworks/
   body: none
   auth: none
 }
@@ -165,7 +165,7 @@ meta {
 }
 
 post {
-  url: {{base_url}}/api/thing/
+  url: {{base_url}}/api/artworks/artworks/
   body: json
   auth: none
 }
@@ -193,7 +193,7 @@ The block is raw Markdown, placed after the `headers` block, and documents at mi
 
 ```bru
 docs {
-  # GET /apis/artworks/artworks/ — List artworks
+  # GET /api/artworks/artworks/ — List artworks
 
   Returns the paginated list of artworks. Requires `Authorization: Token`.
 
@@ -292,6 +292,7 @@ This guide does not automate Bruno. When the API grows a login/token endpoint, t
 ## 12. Pitfalls & lessons learned
 
 - **`Invalid workspace: workspace.yml not found`** — the folder must be opened as a workspace at the `workspace.yml` level, not at a standalone collection.
+- **Blog Posts are public** — the `Posts/` folder targets `/api/blog/posts/` with no `Authorization` header, unlike the `/api/artworks/` folders.
 - **Environment name = file basename** — renaming `local.bru` → `dev.bru` is how you rename an environment; there is no in-file name field.
 - **Subdomain derives from the project dir name**, not from any `HOST` env var: with the repo folder named `enredarte-dashboard`, the portless URL is `https://enredarte-dashboard.localhost`, even though both subdomains sit in `ALLOWED_HOSTS`.
 - **Environment files are gitignored; the template is committed as `.example`** — copy `dev.bru.example` to `dev.bru` and paste a real token locally; never commit the `.bru` file itself.

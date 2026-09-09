@@ -128,7 +128,10 @@ if STORAGE_AWS:
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
     AWS_DEFAULT_ACL = None
 else:
-    # Fallback to local storage for development
+    # Fallback to local storage for development (no `private` key locally;
+    # during tests the staticfiles backend additionally falls back to
+    # `StaticFilesStorage` so admin views render without a manifest —
+    # see project/settings.py IS_TESTING branch)
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -149,7 +152,7 @@ else:
 | `AWS_ACCESS_KEY_ID` | Your API access key | `DO00xxxxxxxxxxxxxxxxxx` |
 | `AWS_SECRET_ACCESS_KEY` | Your API secret key | `QR0mj22q...` |
 | `AWS_STORAGE_BUCKET_NAME`| The name of the bucket/space | `my-project-storage` |
-| `AWS_PROJECT_FOLDER` | Subfolder inside the bucket | `leochan-sh` |
+| `AWS_PROJECT_FOLDER` | Subfolder inside the bucket | `your-project-folder` |
 | `AWS_S3_REGION_NAME` | Cloud region | `sfo3` |
 | `AWS_S3_ENDPOINT_URL` | API endpoint | `https://sfo3.digitaloceanspaces.com` |
 | `AWS_S3_CUSTOM_DOMAIN` | CDN or Custom domain | `bucket.sfo3.cdn.digitaloceanspaces.com` |

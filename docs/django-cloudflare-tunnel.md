@@ -216,17 +216,17 @@ The tunnel makes `python manage.py runserver` publicly reachable over HTTPS. `ru
 With the tunnel running, point the Stripe CLI at the public URL:
 
 ```bash
-stripe listen --forward-to https://<project-name>.your-domain.com/payments/webhook/
+stripe listen --forward-to https://<project-name>.your-domain.com/webhooks/stripe/
 ```
 
 Or register the webhook URL directly in the Stripe Dashboard. The tunnel is now the public callback endpoint for Stripe events.
 
-### OAuth2 Callbacks
+### OAuth2 Callbacks (blueprint only)
 
-Google, Microsoft, and other OAuth providers require a public HTTPS redirect URI. Use the tunnel hostname as the authorized redirect domain:
+Google, Microsoft, and other OAuth providers require a public HTTPS redirect URI. Use the tunnel hostname as the authorized redirect domain. (This project has no OAuth callback route — substitute the real callback path of the project reusing this guide.)
 
 ```
-https://<project-name>.your-domain.com/accounts/callback/
+https://<project-name>.your-domain.com/<callback-path>/
 ```
 
 No port forwarding or ngrok needed — Cloudflare handles TLS and DNS.

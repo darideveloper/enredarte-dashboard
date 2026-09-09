@@ -17,22 +17,23 @@ is still pending, and the exact steps to go live.
 
 ## Account
 
-- **Account:** Enredarte sandbox — `acct_1U8pQHA37WTwarsM`
-- **Mode:** test
-- Dashboard keys: https://dashboard.stripe.com/acct_1U8pQHA37WTwarsM/apikeys
+- **Account:** Enredarte sandbox (test mode). See account details in the
+  Stripe Dashboard (switch to the Enredarte account, test mode).
 - The Stripe MCP server (global opencode config `~/.config/opencode/opencode.json`)
   was reconfigured from the DariDevsTeam live key to the Enredarte **test** secret
   key so MCP/CLI operations target this account.
+
+> No secrets belong here. Account, product, price and portal IDs are referenced
+> only via the Dashboard; actual values live in gitignored `.env` files.
 
 ## Changes already done (test mode)
 
 ### Stripe Dashboard / API
 
-1. **Product `Membresía Enredarte`** — `prod_V984cG7B3YRfqq`, active, service.
-2. **Recurring price** — `price_1U8pogA37WTwarsM5km3SsV2`
-   - MXN 299.00 / month, default price of the product.
-3. **Customer Portal** — auto-created default configuration
-   `bpc_1U8psNA37WTwarsMIpwsZmB8` (active, default). Features: customer
+1. **Product `Membresía Enredarte`** — active, service type (see Products in the Dashboard, test mode).
+2. **Recurring price** — monthly plan price in MXN, set as the product's
+   default price (see the price row in the Dashboard).
+3. **Customer Portal** — auto-created default configuration (active, default). Features: customer
    update, invoice history, payment method update, cancel at period end.
    No manual configuration needed; `create_billing_portal_session` works.
  4. Webhook signing secret obtained via `stripe listen --print-secret`:
@@ -42,17 +43,17 @@ is still pending, and the exact steps to go live.
 
 ### Code changes
 
-- `project/settings.py` — added `STRIPE_PRICE_ID` env var
-  (`STRIPE_PORTAL_RETURN_URL` line).
-- `subscriptions/models.py` — `BillingPlan.stripe_price_id` default now comes
-  from `default_stripe_price_id()` (reads `settings.STRIPE_PRICE_ID`);
-  admin can still override per-plan.
-- Migrations:
-  - `subscriptions/migrations/0002_backfill_billingplan_price_id.py` —
-    backfills existing `BillingPlan.stripe_price_id` rows with
-    `settings.STRIPE_PRICE_ID` when empty.
-  - `subscriptions/migrations/0003_alter_billingplan_stripe_price_id.py` —
-    records the callable default (env-driven, no literal baked in).
+- `project/settings.py` — added Stripe env vars (`STRIPE_SECRET_KEY`,
+  `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_API_VERSION`,
+  `STRIPE_PRICE_ID` seed, derived `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` /
+  `STRIPE_PORTAL_RETURN_URL`).
+- `subscriptions/models.py` — `BillingPlan` is a django-solo singleton with
+  admin-editable `amount` / `currency` / `interval`; `stripe_product_id` /
+  `stripe_price_id` are auto-managed read-only fields.
+- Migrations (latest: `0004_admin_editable_price`) — `STRIPE_PRICE_ID` is only
+  an initial seed consumed by the migration via `stripe.Price.retrieve`
+  (best-effort); after that the `BillingPlan` row in the DB is the only source
+  of truth and no code reads `STRIPE_PRICE_ID` at runtime.
 - `.env.dev`, `.env.dev.example`, `.env.prod.example` — added
   `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,
   `STRIPE_API_VERSION` and `STRIPE_PRICE_ID` entries; `.env.dev` populated
@@ -83,8 +84,9 @@ is still pending, and the exact steps to go live.
    `invoice.payment_succeeded`, `invoice.payment_failed`. Copy the `whsec_...`
    into `STRIPE_WEBHOOK_SECRET`.
 3. Confirm the exact membership amount/currency is correct
-   (currently MXN 299.00/month).
-4. Apply `0002`/`0003` migrations to the dev database
+   (edited from the admin: **Suscripciones → Plan de suscripción** —
+   Monto/Moneda; the price is dynamic and may change).
+4. Apply pending migrations to the dev database
    (`python manage.py migrate`), which is reachable only with the dev DB
    credentials.
 
@@ -100,9 +102,11 @@ Same Stripe account, switch to live keys. Product/prices/portal must be
 
 2. **Create the live product + price**
    - In live mode, add the product **Membresía Enredarte** with a recurring
-     monthly price (confirm amount/currency, e.g. MXN 299.00).
-   - Copy the live `price_...` into `STRIPE_PRICE_ID` (or into the
-     BillingPlan singleton in the admin to override).
+     monthly price (confirm amount/currency in the admin form — the price is
+     dynamic and managed from **Suscripciones → Plan de suscripción**).
+   - Saving the plan in the admin creates the live `price_...` under the same
+     product and archives the previous one. `STRIPE_PRICE_ID` is only an
+     initial seed for fresh databases, not the runtime source of truth.
    - Verify `BillingPlan.is_active_for_new_signups = True`.
 
 3. **Webhook endpoint (live)**
@@ -134,16 +138,16 @@ Same Stripe account, switch to live keys. Product/prices/portal must be
 
 6. **Deploy + migrate**
    - Deploy the app with the live env vars, run
-     `python manage.py migrate` (applies `0002`/`0003`).
-   - Note: migration `0002` only backfills when `STRIPE_PRICE_ID` is set in
-     the environment at migrate time; for a fresh production DB the callable
-     default handles it.
+     `python manage.py migrate` (applies up to `0004_admin_editable_price`).
+   - Note: the seed migration only backfills when `STRIPE_PRICE_ID` is set in
+     the environment at migrate time; for a fresh production DB the admin
+     form creates the price on first save.
 
 7. **End-to-end smoke test in live**
    - Create a test `Artist`, generate the link, pay with a real (or a live
      test) card in a sandbox checkout, and confirm webhooks update
      `ArtistSubscription` + `Artist.is_active`, and the artist appears in
-     `/apis/artworks/artists/`.
+     `/api/artworks/artists/`.
 
 8. **Security / hygiene**
    - Never commit live keys. `.env*` files are gitignored; keep live values

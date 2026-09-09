@@ -98,4 +98,4 @@ document.querySelectorAll('[data-copy-url]').forEach((button) => {
 - `static/js/copy_clipboard.js`: handles the actual clipboard interaction on the client-side.
 - `project/settings.py`: provides the `HOST` setting used for absolute URL generation.
 
-> The same pattern is used by the Artist change form (`admin/artworks/artist/change_form.html` + `ArtistAdmin.change_view`) for the Stripe subscription "Copiar link" button.
+> The same pattern is used by the Artist change form (`project/templates/admin/artworks/artist/change_form.html` + `ArtistAdmin.change_view`) for the Stripe subscription "Copiar link" button.

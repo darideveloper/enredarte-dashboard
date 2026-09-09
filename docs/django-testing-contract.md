@@ -61,8 +61,7 @@ else:
     STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
         "staticfiles": {"BACKEND": staticfiles_backend},
-        # add private storage even locally if you use it
-        "private": {"BACKEND": "django.core.files.storage.FileSystemStorage", "OPTIONS": {"location": MEDIA_ROOT / "private-media"}},
+        # NOTE: no local `private` key in this project (S3 mode adds it)
     }
 ```
 

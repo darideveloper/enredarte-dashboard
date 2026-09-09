@@ -37,10 +37,11 @@ test (dev) environment first, then how to validate the same flow in live
 2. Name it (e.g. "Membresía Enredarte") and add a recurring price
    (`Recurring`) in the plan currency (default `MXN`).
 3. Copy the price ID (`price_xxx`) from the price row.
-4. Set `STRIPE_PRICE_ID=price_xxx` in `.env.dev` (default for the BillingPlan
-   singleton) — or paste it directly into **Suscripciones → Plan de suscripción
-   → ID de precio en Stripe** to override. Make sure **Aceptar nuevas
-   suscripciones** is checked.
+4. Set `STRIPE_PRICE_ID=price_xxx` in `.env.dev` — one-time seed consumed by
+   migration `0004` on fresh databases. The runtime control plane is the admin
+   form (**Suscripciones → Plan de suscripción**: **Monto** / **Moneda** /
+   **Periodicidad**); there is no price-ID paste-and-override field. Make sure
+   **"Aceptar nuevas suscripciones"** is checked.
 
 ## 2. Webhook bridge for local development
 
@@ -78,7 +79,7 @@ Use a staff admin account. Cards: `4242 4242 4242 4242` (success),
      `customer.subscription.created`.
    - `ArtistSubscription.status == "active"` in the admin and
      `Artist.is_active == True`.
-   - `/apis/artworks/artists/` includes the artist.
+   - `/api/artworks/artists/` includes the artist.
 
 ### 3.2 Cancel (friendly cancellation)
 
@@ -90,7 +91,7 @@ Use a staff admin account. Cards: `4242 4242 4242 4242` (success),
    `Artist.is_active` is **still True** (visible through period end).
 4. When the period ends, `customer.subscription.deleted` arrives.
    Verify `status == "canceled"` and `Artist.is_active == False` — the artist
-   disappears from `/apis/artworks/artists/`.
+   disappears from `/api/artworks/artists/`.
 
 ### 3.3 Grace (payment failure)
 
@@ -123,7 +124,9 @@ stripe trigger checkout.session.completed
 
 Each trigger returns 200 if the signature verifies and the handler succeeds.
 Every received event appears in **Suscripciones → Eventos de Stripe** (audit
-log); failed processing persists the error on the row and Stripe retries.
+log); if the handler raises, the whole transaction (including the `StripeEvent`
+row) rolls back, the endpoint returns 500 so Stripe retries, and the error is
+logged via `logger.exception` (see `subscriptions/webhooks.py`).
 
 ## 5. Live testing (production cutover)
 
@@ -141,8 +144,9 @@ one artist) and refund it from the Dashboard afterwards.
   (pin a fixed version, matching the SDK's default), `STRIPE_PRICE_ID`
   (`price_...`), and `HOST=https://<host>`. Keep these in your gitignored
   production env file — never in the repository or docs.
-- `BillingPlan` in the admin: **Aceptar nuevas suscripciones** checked and
-  **ID de precio en Stripe** set to the live recurring `price_...`.
+- `BillingPlan` in the admin: **"Aceptar nuevas suscripciones"** checked and
+  the price saved via **Monto** / **Moneda** (the admin creates the live recurring
+  `price_...` under the product on save).
 - Every `Artist` you will bill has a real email.
 
 ### 5.2 Verify the live webhook endpoint
@@ -176,7 +180,7 @@ one artist) and refund it from the Dashboard afterwards.
    - `checkout.session.completed` → `customer.subscription.created` →
      `invoice.payment_succeeded` recorded.
    - `ArtistSubscription.status == "active"`, `Artist.is_active == True`.
-   - `GET /apis/artworks/artists/` includes the artist.
+   - `GET /api/artworks/artists/` includes the artist.
 4. **Abrir Customer Portal** → cancel. Verify `status == "canceling"` and the
    artist stays visible until `current_period_end`, then `status == "canceled"`
    and the artist disappears after `customer.subscription.deleted`.
@@ -184,8 +188,8 @@ one artist) and refund it from the Dashboard afterwards.
 
 ### 5.5 Rollback
 
-- If something misbehaves: set **Aceptar nuevas suscripciones** off in the
-  `BillingPlan` singleton (blocks new links), or clear `STRIPE_PRICE_ID` /
-  unset the `BillingPlan` price. Disabling the webhook endpoint in the
+- If something misbehaves: set **"Aceptar nuevas suscripciones"** off in the
+  `BillingPlan` singleton (blocks new links — this is the kill-switch).
+  Disabling the webhook endpoint in the
   Dashboard pauses all subscription state updates. `Artist.is_active` only
   changes via webhooks, so with the endpoint disabled nothing flips.

@@ -7,10 +7,16 @@ tags:
   - celery
   - cache
 type: resource
-status: active
+status: aspirational-not-installed
 ---
 
 # Redis in Django Integration Guide
+
+> **Not installed in this project.** Neither `django-redis` nor `celery` is in
+> `requirements.txt`, and no `CACHES` / `CELERY_*` / `REDIS_URL` settings exist
+> in `project/settings.py`. Keep this guide as an aspirational recipe for a
+> future project that needs caching/background tasks — do not treat it as
+> current architecture.
 
 This guide details how to implement Redis (external) in a Django project for caching and background tasks.
 

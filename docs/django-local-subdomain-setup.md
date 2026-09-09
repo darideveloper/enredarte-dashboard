@@ -24,7 +24,7 @@ The goal is to start all project services (Django, Celery, Frontend, Proxies) wi
 Ensure the following are installed on the development machine:
 - **`tmux`**: Terminal multiplexer for managing background processes.
 - **`portless`**: Manages local proxying and TLS trust.
-- **`python-decouple`**: For managing environment-based settings in Django.
+- **`python-dotenv`**: For managing environment-based settings in Django.
 
 ---
 
@@ -119,8 +119,8 @@ tmux select-window -t $SESSION_NAME:0
 tmux attach -t $SESSION_NAME
 ```
 
-### Case B: Complex Django (Celery + Redis + Stripe)
-Ideal for projects with background tasks and external webhooks.
+### Case B: Complex Django (background tasks + Stripe)
+Ideal for projects with background tasks and external webhooks. (Note: this repo has no Celery/Redis installed — the worker/beat lines below are a blueprint for projects that do.)
 
 ```bash
 # Add to dev.sh
@@ -128,11 +128,11 @@ tmux new-session -d -s $SESSION_NAME -n 'django' -c "$PWD" \
     "bash -c '${VENV_CMD}portless $PROJECT_NAME --app-port $PORT -- python manage.py runserver $PORT; read'"
 tmux new-window -n 'worker' -c "$PWD" "${VENV_CMD}celery -A config worker -l info"
 tmux new-window -n 'beat' -c "$PWD" "${VENV_CMD}celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
-tmux new-window -n 'stripe' -c "$PWD" "stripe listen --forward-to localhost:$PORT/payments/webhook/"
+tmux new-window -n 'stripe' -c "$PWD" "stripe listen --forward-to localhost:$PORT/webhooks/stripe/"
 ```
 
-### Case C: Monorepo (Frontend + Backend)
-For projects with separate frontend (React/Astro/Next.js) and Django backend.
+### Case C: Monorepo (Frontend + Backend) — blueprint only
+For projects with separate frontend (React/Astro/Next.js) and Django backend. (Not applicable to this repo, which has no `frontend/` directory.)
 
 ```bash
 # Add to dev.sh

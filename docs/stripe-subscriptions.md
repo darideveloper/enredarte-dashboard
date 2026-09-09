@@ -19,7 +19,7 @@ How paid membership gating works in the Enredarte dashboard.
 Each `Artist` has at most one `ArtistSubscription` (1:1). Stripe is the source
 of truth for the subscription lifecycle; the dashboard mirrors the minimal
 state it needs and derives `Artist.is_active` from it. The public API
-(`/apis/artworks/artists/`) keeps filtering on `Artist.is_active` — it does not
+(`/api/artworks/artists/`) keeps filtering on `Artist.is_active` — it does not
 know about subscriptions at all.
 
 Layers:
@@ -89,20 +89,20 @@ From the Artist change page, the header buttons depend on the subscription state
 - **Sincronizar desde Stripe** - Manual state re-sync escape hatch
 
 ### 7. Public API
-`/apis/artworks/artists/` filters on `Artist.is_active` - unchanged API, only the driver of `is_active` changes.
+`/api/artworks/artists/` filters on `Artist.is_active` - unchanged API, only the driver of `is_active` changes.
 
-## Editar el precio desde el admin
+## Editing the price from the admin
 
-El precio de la suscripción se edita desde **Suscripciones → Plan de suscripción** con tres campos amigables: **Monto** (decimal > 0), **Moneda** (MXN / USD) y **Periodicidad** (actualmente solo `month`). El operador nunca escribe un `price_xxx` manualmente.
+The subscription price is edited from **Suscripciones → Plan de suscripción** with three friendly fields: **Monto** (decimal > 0), **Moneda** (MXN / USD) and **Periodicidad** (currently only `month`). The operator never types a `price_xxx` manually.
 
-- **Campos auto-gestionados (solo lectura):** `stripe_product_id`, `stripe_price_id` y `last_synced_stripe_at`. Se rellenan automáticamente al guardar. La UI muestra una línea de solo lectura **"Confirmado por Stripe"** que hace `stripe.Price.retrieve(stripe_price_id)` al cargar el formulario (GET) para verificar que la DB coincide con Stripe.
-- **Semilla inicial `STRIPE_PRICE_ID`:** la variable de entorno solo se usa una vez, en la migración `0004`, para poblar `amount`/`currency`/`interval`/`stripe_product_id`/`stripe_price_id` vía `stripe.Price.retrieve` (best-effort). Si no está configurada o Stripe no responde, `amount` queda en `0` y el operador debe guardar el formulario una vez. Después de la migración, el `BillingPlan` en la DB es la única fuente de verdad; ningún código lee `STRIPE_PRICE_ID` en tiempo de ejecución.
-- **Qué pasa con suscriptores existentes:** cambiar el precio crea un nuevo `price_xxx` bajo el mismo producto y archiva el anterior. Las suscripciones ya activas siguen facturándose al precio antiguo (comportamiento estándar de Stripe: archivar un precio no afecta suscripciones existentes). Solo las nuevas altas usan el precio nuevo. Documentado como callout principal para evitar sorpresas.
-- **Auditoría:** cada cambio exitoso crea una fila en `BillingPlanPriceHistory` (`old_stripe_price_id` → `new_stripe_price_id`, `amount`/`currency`/`interval`, `old_price_archived`, `changed_by`, `changed_at`). Visible como inline de solo lectura en el cambio de `BillingPlan`, ordenado por `-changed_at`.
+- **Auto-managed fields (read-only):** `stripe_product_id`, `stripe_price_id` and `last_synced_stripe_at`. They are filled automatically on save. The UI shows a read-only **"Confirmado por Stripe"** line that calls `stripe.Price.retrieve(stripe_price_id)` when loading the form (GET) to verify the DB matches Stripe.
+- **Initial `STRIPE_PRICE_ID` seed:** the environment variable is used only once, in migration `0004`, to populate `amount`/`currency`/`interval`/`stripe_product_id`/`stripe_price_id` via `stripe.Price.retrieve` (best-effort). If it is unset or Stripe is unreachable, `amount` stays `0` and the operator must save the form once. After the migration, the `BillingPlan` row in the DB is the only source of truth; no code reads `STRIPE_PRICE_ID` at runtime.
+- **What happens to existing subscribers:** changing the price creates a new `price_xxx` under the same product and archives the previous one. Already-active subscriptions keep billing at the old price (standard Stripe behavior: archiving a price does not affect existing subscriptions). Only new signups use the new price. Documented as the main callout to avoid surprises.
+- **Audit:** every successful change creates a `BillingPlanPriceHistory` row (`old_stripe_price_id` → `new_stripe_price_id`, `amount`/`currency`/`interval`, `old_price_archived`, `changed_by`, `changed_at`). Visible as a read-only inline on the `BillingPlan` change page, ordered by `-changed_at`.
 
 ### Old-price archival
 
-En cada cambio que crea un nuevo precio, el `price_xxx` anterior se archiva en Stripe con `stripe.Price.modify(old_id, active=False)` de modo que no pueda reutilizarse para nuevos checkouts. Si no había precio previo (primera creación), no se archiva nada y `old_stripe_price_id=""` en el historial.
+On every change that creates a new price, the previous `price_xxx` is archived in Stripe with `stripe.Price.modify(old_id, active=False)` so it cannot be reused for new checkouts. If there was no previous price (first creation), nothing is archived and `old_stripe_price_id=""` in the history.
 
 ## The `compute_is_active` rule
 
@@ -194,9 +194,11 @@ data rewrite of existing subscriptions.
 ## Environment variables
 
 - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`,
-  `STRIPE_API_VERSION`, `STRIPE_PRICE_ID`
+  `STRIPE_API_VERSION`, `STRIPE_PRICE_ID` (initial seed only — the admin-owned
+  `BillingPlan` row is the runtime source of truth)
 - Derived: `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` (from `HOST`, defaulting
-  to `/subscriptions/success/` and `/subscriptions/cancel/`).
+  to `/subscriptions/success/` and `/subscriptions/cancel/`) and
+  `STRIPE_PORTAL_RETURN_URL` (`{HOST}/subscriptions/portal-return/`, no env override).
 
 ## Deployment notes
 
@@ -204,7 +206,7 @@ data rewrite of existing subscriptions.
   `https://<host>/webhooks/stripe/` and set `STRIPE_WEBHOOK_SECRET`.
 - Until `BillingPlan.stripe_price_id` is set, link generation refuses with an
   admin message and existing `Artist.is_active=True` behavior is unchanged.
-  `STRIPE_PRICE_ID` solo se usa como semilla inicial en la migración `0004`; después el admin es la fuente de verdad (ver "Editar el precio desde el admin").
+  `STRIPE_PRICE_ID` is only used as the initial seed in migration `0004`; afterwards the admin is the source of truth (see "Editing the price from the admin").
 - The migration that makes `Artist.email` required backfills existing rows with
   `""` and prints a console warning listing affected artists for follow-up.
 
@@ -233,7 +235,7 @@ data rewrite of existing subscriptions.
    - `stripe listen` shows `checkout.session.completed` + `customer.subscription.created`
    - `ArtistSubscription.status == "active"`
    - `Artist.is_active == True`
-   - Artist appears in `/apis/artworks/artists/`
+   - Artist appears in `/api/artworks/artists/`
 
 #### Cancel (Friendly Cancellation)
 1. Click **Abrir Customer Portal** → cancel subscription

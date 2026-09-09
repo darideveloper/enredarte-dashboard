@@ -11,7 +11,7 @@ status: active
 
 # Project Setup Guide
 
-Follow these steps to set up the `leochan.sh.dashboard` project from scratch.
+Follow these steps to set up the `enredarte-dashboard` project from scratch.
 
 ### 1. Add requirements.txt
 Create a `requirements.txt` file in the root directory with the following dependencies:
@@ -33,6 +33,9 @@ pillow>=11.1.0             # Image processing library
 # drf & jwt
 djangorestframework>=3.16.1 # REST API toolkit
 django-filter>=24.3        # Dynamic API filtering
+
+# payments
+stripe>=15.5.1,<16         # Stripe SDK for artist subscriptions
 
 # testing
 selenium>=4.40.0           # Browser automation for E2E tests
@@ -90,7 +93,9 @@ Initialize a Git repository to track your changes and commit the initial project
 # Initialize git
 git init
 
-# Create .gitignore file
+# Create .gitignore file (abridged — see repo .gitignore for the full version,
+# which also covers venv, .env* (except *.example), bruno environments,
+# sqlite, staticfiles/media, IDE files, credentials.json, and .*/ dotfiles)
 cat <<EOF > .gitignore
 __pycache__
 *__pycache__
@@ -135,46 +140,62 @@ The `.env` file is a **pure selector**: it contains ONLY the `ENV` variable. All
 ENV=dev
 ```
 
-**`.env.dev`** (Local development defaults)
+**`.env.dev`** (Local development defaults — mirrors `.env.dev.example`)
 ```env
-SECRET_KEY=randoms-chars
+SECRET_KEY=django-insecure-change-me-in-production
 DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-CORS_ALLOWED_ORIGINS=http://localhost:4321,http://127.0.0.1:8000
-CSRF_TRUSTED_ORIGINS=http://localhost:4321,http://127.0.0.1:8000
-HOST=http://localhost:8000
+ALLOWED_HOSTS=localhost,127.0.0.1,enredarte.localhost,enredarte-dashboard.localhost,enredarte-dashboard.<your-domain>
+CORS_ALLOWED_ORIGINS=https://enredarte.localhost,https://enredarte-dashboard.localhost,https://enredarte-dashboard.<your-domain>
+CSRF_TRUSTED_ORIGINS=https://enredarte.localhost,https://enredarte-dashboard.localhost,https://enredarte-dashboard.<your-domain>
+HOST=http://enredarte-dashboard.localhost
 DB_ENGINE=django.db.backends.postgresql
-DB_NAME=
+DB_NAME=enredarte
 DB_USER=db_user
-DB_PASSWORD=
+DB_PASSWORD=db_password
 DB_HOST=localhost
 DB_PORT=5432
 STORAGE_AWS=False
+STRIPE_SECRET_KEY=sk_test_xxxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxx
+STRIPE_API_VERSION=2026-07-29.dahlia
+STRIPE_PRICE_ID=price_xxxx
+DEPLOY_WEBHOOK_URL=https://apps.darideveloper.com/api/v1/deploy?uuid=XXXX&force=false
+COOLIFY_API_TOKEN=xxxx
+CLOUDFLARE_TUNNEL_NAME=enredarte-dashboard-dev
+CLOUDFLARE_TUNNEL_HOST=enredarte-dashboard.<your-domain>
 
 ```
 
-**`.env.prod`** (Production-ready placeholders)
+**`.env.prod`** (Production-ready placeholders — mirrors `.env.prod.example`)
 ```env
-SECRET_KEY=
+SECRET_KEY=django-insecure-change-me-in-production
 DEBUG=False
-ALLOWED_HOSTS=localhost,127.0.0.1
-CORS_ALLOWED_ORIGINS=http://localhost:4321,http://127.0.0.1:8000
-CSRF_TRUSTED_ORIGINS=http://localhost:4321,http://127.0.0.1:8000
-HOST=
+ALLOWED_HOSTS=example.com,www.example.com
+CORS_ALLOWED_ORIGINS=https://example.com
+CSRF_TRUSTED_ORIGINS=https://example.com
+HOST=https://example.com
 DB_ENGINE=django.db.backends.postgresql
-DB_NAME=
-DB_USER=db_user
-DB_PASSWORD=
-DB_HOST=
-DB_PORT=
+DB_NAME=your_db_name
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_HOST=your-db-host.amazonaws.com
+DB_PORT=5432
 STORAGE_AWS=True
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_STORAGE_BUCKET_NAME=
-AWS_PROJECT_FOLDER=
-AWS_S3_REGION_NAME=
-AWS_S3_ENDPOINT_URL=
-AWS_S3_CUSTOM_DOMAIN=
+AWS_ACCESS_KEY_ID=your-access-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-access-key
+AWS_STORAGE_BUCKET_NAME=your-bucket-name
+AWS_PROJECT_FOLDER=your-project-folder
+AWS_S3_REGION_NAME=us-east-1
+AWS_S3_ENDPOINT_URL=https://s3.amazonaws.com
+AWS_S3_CUSTOM_DOMAIN=cdn.example.com
+STRIPE_SECRET_KEY=sk_live_xxxx
+STRIPE_PUBLISHABLE_KEY=pk_live_xxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxx
+STRIPE_API_VERSION=2026-07-29.dahlia
+STRIPE_PRICE_ID=price_xxxx
+DEPLOY_WEBHOOK_URL=https://apps.darideveloper.com/api/v1/deploy?uuid=XXXX&force=false
+COOLIFY_API_TOKEN=xxxx
 
 ```
 
@@ -206,8 +227,8 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 ```
 
 **Update `INSTALLED_APPS` and `MIDDLEWARE`:**
-- Include `corsheaders`, `rest_framework`, `rest_framework.authtoken`, `solo`, and `storages`.
-- **Add your local application:** Include the `{app_name}` you created in Step 3 in `INSTALLED_APPS`.
+- Include `unfold`, `unfold.contrib.filters`, `unfold.contrib.forms`, `unfold.contrib.inlines`, `corsheaders`, `rest_framework`, `rest_framework.authtoken`, `django_filters`, `solo`, and `storages`.
+- **Add your local applications:** `core`, `artworks`, `blog`, `subscriptions` (plus the `{app_name}` you created in Step 3).
 - Add `CorsMiddleware` and `WhiteNoiseMiddleware` to `MIDDLEWARE`.
 - **Admin Theme:** The project uses [[django-unfold-admin|Django Unfold]] for a modern admin interface.
 
@@ -248,10 +269,10 @@ else:
 ```
 
 **Internationalization:**
-> **Note:** Prompt the user for their preferred time zone. Default is `America/Mexico_City`.
+> **Note:** This project runs a Spanish admin (`LANGUAGE_CODE = "es"`, `TIME_ZONE = "America/Mexico_City"`). See [[django-i18n-es-admin|Spanish Django Admin]].
 
 ```python
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es'
 TIME_ZONE = "America/Mexico_City"
 USE_I18N = True
 USE_TZ = True
@@ -301,19 +322,20 @@ if STORAGE_AWS:
         },
     }
 else:
-    # Local Storage Configuration
+    # Local Storage Configuration (no `private` key locally; S3 mode adds it).
+    # During tests (`IS_TESTING`) the staticfiles backend falls back to
+    # `StaticFilesStorage` so admin views render without a manifest.
+    staticfiles_backend = (
+        "django.contrib.staticfiles.storage.StaticFilesStorage"
+        if IS_TESTING
+        else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    )
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-        },
-        "private": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-            "OPTIONS": {
-                "location": os.path.join(MEDIA_ROOT, "private-media"),
-            },
+            "BACKEND": staticfiles_backend,
         },
     }
 ```
@@ -361,7 +383,7 @@ DATETIME_FORMAT = f"{DATE_FORMAT} {TIME_FORMAT}"
 ```
 
 **Email SMTP Configuration:**
-> **Note:** Skip this subsection if the project does not require email functionality.
+> **Note:** This project currently sends no email — no `EMAIL_*` settings exist in `settings.py`. Skip this subsection unless the project gains email functionality. If emails are required, add the block below and the corresponding variables per environment.
 
 ```python
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -392,7 +414,7 @@ python manage.py test
 These files are essential for the infrastructure and global behaviors defined in `settings.py`.
 
 #### project/urls.py
-Global URL configuration featuring DRF router, root redirects, and static/media file serving.
+Global URL configuration with everything under `/api/`: `api/artworks/` (artworks app, authenticated), `api/blog/` (blog app, public posts), `admin/system/` (core publish flow), `subscriptions/` (success/cancel/portal-return pages), `webhooks/stripe/` (Stripe endpoint), plus admin and root redirect.
 ```python
 import project.admin  # required: `project` is not in INSTALLED_APPS, so Django does not auto-discover its admin module; without this import the custom UserAdmin/GroupAdmin/TokenAdmin are silently ignored
 
@@ -401,20 +423,22 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
-from rest_framework import routers
 
-# Initialize DRF Router
-router = routers.DefaultRouter()
+from subscriptions import webhooks
 
 urlpatterns = [
     # Admin Interface
     path("admin/", admin.site.urls),
-    
+
     # Root Redirect to Admin
     path("", RedirectView.as_view(url="/admin/"), name="home-redirect-admin"),
-    
-    # API Endpoints
-    path("api/", include(router.urls)),
+
+    # API + app endpoints (all under /api/)
+    path("admin/system/", include("core.urls")),
+    path("api/artworks/", include("artworks.urls")),
+    path("api/blog/", include("blog.urls")),
+    path("subscriptions/", include(("subscriptions.urls", "subscriptions"), namespace="subscriptions")),
+    path("webhooks/stripe/", webhooks.stripe_webhook),
 ]
 
 # Serve Media Files in Development
@@ -503,7 +527,7 @@ does not duplicate it.
 > **DRF-only**: `TokenAdmin` / `TokenProxy` (from `rest_framework.authtoken`) are only required if the project uses DRF's `TokenAuthentication`. If not using DRF, omit those imports, the `unregister(TokenProxy)` call, and the `TokenAdmin` class.
 
 #### project/templates/admin/base.html
-Customizes the Django Unfold admin theme by loading additional CSS and JavaScript libraries. Always extend `"admin/base.html"` — never extend `unfold/layouts/base.html` directly, as this breaks Unfold's sticky bottom bar and responsive layout logic.
+Customizes the Django Unfold admin theme by loading additional CSS and JavaScript libraries. Always extend `"admin/base.html"` — never extend `unfold/layouts/base.html` directly, as this breaks Unfold's sticky bottom bar and responsive layout logic. (The override file is `base.html`, not `base_site.html`.)
 ```html
 {% extends "admin/base.html" %}
 {% load static %}
@@ -648,7 +672,7 @@ python manage.py createsuperuser
 ```
 
 ### 13. OpenSpec Setup (Gemini CLI)
-Initialize and configure OpenSpec to manage project context and change proposals with Gemini CLI. Ensure you follow the [[openspec-ignoring-proposals|ignoring strategy]] for `.gitignore`.
+Initialize and configure OpenSpec to manage project context and change proposals with Gemini CLI.
 
 ```bash
 openspec init
@@ -706,6 +730,18 @@ ARG STORAGE_AWS
 ARG ENV
 ARG DEBUG
 ARG ALLOWED_HOSTS
+ARG HOST
+
+# Stripe / deploy / tunnel ARGs (needed if referenced at build time)
+ARG STRIPE_SECRET_KEY
+ARG STRIPE_PUBLISHABLE_KEY
+ARG STRIPE_WEBHOOK_SECRET
+ARG STRIPE_API_VERSION
+ARG STRIPE_PRICE_ID
+ARG DEPLOY_WEBHOOK_URL
+ARG COOLIFY_API_TOKEN
+ARG CLOUDFLARE_TUNNEL_NAME
+ARG CLOUDFLARE_TUNNEL_HOST
 
 # Export them as ENVs so the 'RUN' commands below can see them
 ENV SECRET_KEY=${SECRET_KEY} \
@@ -728,7 +764,18 @@ ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
 
 ENV ENV=${ENV} \
     DEBUG=${DEBUG} \
-    ALLOWED_HOSTS=${ALLOWED_HOSTS}
+    ALLOWED_HOSTS=${ALLOWED_HOSTS} \
+    HOST=${HOST}
+
+ENV STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY} \
+    STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY} \
+    STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET} \
+    STRIPE_API_VERSION=${STRIPE_API_VERSION} \
+    STRIPE_PRICE_ID=${STRIPE_PRICE_ID} \
+    DEPLOY_WEBHOOK_URL=${DEPLOY_WEBHOOK_URL} \
+    COOLIFY_API_TOKEN=${COOLIFY_API_TOKEN} \
+    CLOUDFLARE_TUNNEL_NAME=${CLOUDFLARE_TUNNEL_NAME} \
+    CLOUDFLARE_TUNNEL_HOST=${CLOUDFLARE_TUNNEL_HOST}
 
 # Install system dependencies (e.g., for PostgreSQL support)
 RUN apt-get update && apt-get install -y \
@@ -760,9 +807,10 @@ The `start.sh` script handles database migrations and starts the Gunicorn server
 set -e
 
 echo "Running migrations..."
-# Validate that migrations are committed (fail loudly if any are missing).
-# Run `makemigrations` locally before building the image and commit the files.
-python manage.py makemigrations --check --noinput
+# NOTE: the shipped start.sh runs `makemigrations --noinput` (generates) then
+# `migrate --noinput`. Prefer `makemigrations --check` in CI to fail loudly on
+# missing migrations; never rely on generated migrations at deploy time.
+python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 
 # Base data (reference/lookup rows) is required for the system to work.

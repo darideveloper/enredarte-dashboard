@@ -23,9 +23,12 @@ whose admin runs on django-unfold** a fully Spanish UI. Every example uses
 leaks in. Replicate it as-is in any project that uses Unfold as its admin theme;
 §9 covers the strings that are specific to Unfold itself.
 
-The whole system is **`LANGUAGE_CODE` plus hard-coded Spanish strings** — no
-custom translation catalog, no `gettext`/`_()`, no `.po`/`.mo` files (the only
-exception is the unfold-only strings in §9).
+The whole system is **`LANGUAGE_CODE = "es"` plus hard-coded Spanish strings**
+for model/admin texts — with a small `gettext` footprint where the codebase
+already uses it (e.g. `subscriptions/models.py` uses `gettext_lazy` for
+choice labels; `LANGUAGES` and `LOCALE_PATHS` exist in `project/settings.py`
+for that and the Unfold-only strings in §9). New projects without those needs
+can skip the catalog entirely.
 
 ---
 
@@ -54,7 +57,7 @@ everything else (B–D).
 LANGUAGE_CODE = "es"
 USE_I18N = True
 USE_TZ = True
-TIME_ZONE = "Europe/Madrid"   # optional, admin date rendering
+TIME_ZONE = "America/Mexico_City"   # this project's zone; adjust per deploy
 ```
 
 Minimal requirements:
@@ -66,9 +69,9 @@ Minimal requirements:
 
 | Setting | Result | Do it when |
 |---|---|---|
-| `LOCALE_PATHS` | A custom translation catalog (`.po`/`.mo`). | **Almost never.** Only to translate strings that have no Spanish shipped (see §9, django-unfold case). |
+| `LOCALE_PATHS` | A custom translation catalog (`.po`/`.mo`). | For Unfold-only strings with no shipped Spanish (§9), or when the codebase uses `gettext_lazy` labels (as `subscriptions` does here). Otherwise skip. |
 | `LocaleMiddleware` | Per-user / per-request language switching (URL prefix, `Cookie`). | Only if the site must be **multi-language**. A fixed-Spanish admin doesn't need it. |
-| `LANGUAGES` | The set of allowed languages (es / en / …) for the whole project. | Only if a language selector is wanted. |
+| `LANGUAGES` | The set of allowed languages (es / en / …) for the whole project. | Only if a language selector is wanted (this project declares es/en in `settings.py`). |
 
 None of these are needed for a fully Spanish admin. Adding any is extra moving
 parts — skip them unless you explicitly need language switching.
@@ -358,12 +361,17 @@ Any template you write under `templates/admin/…` is just literal Spanish — y
 don't need `{% load i18n %}` at all:
 
 ```html
-{% extends "admin/change_list.html" %}
+{% extends "admin/base_site.html" %}
 {% block object-tools-items %}
   <li><a class="addlink" href="{% url 'admin:books_book_import' %}">Importar libro (.docx)</a></li>
   {{ block.super }}
 {% endblock %}
 ```
+
+> Standalone custom pages like this one may extend `admin/base_site.html`. The
+> theme override itself (`project/templates/admin/base.html`) must extend
+> `admin/base.html` — never `unfold/layouts/base.html` — to keep Unfold's
+> sticky bottom bar and responsive layout.
 
 ```html
 <!-- templates/admin/books/import.html -->
@@ -474,14 +482,14 @@ Extend the `texts` array with additional `[name]`→placeholder pairs as needed.
 
 | Thing | File | What to write |
 |---|---|---|
-| Global settings | `settings.py` | `LANGUAGE_CODE = "es"`, keep `USE_I18N = True`. Don't add `LOCALE_PATHS` (unless §9). |
+| Global settings | `settings.py` | `LANGUAGE_CODE = "es"`, keep `USE_I18N = True`. `LOCALE_PATHS`/`LANGUAGES` only for §9 Unfold-only strings and existing `gettext_lazy` labels — not for the base system. |
 | Generic chrome | — | Nothing: comes from Django's shipped `es` catalogs |
 | Model fields/help | each `models.py` | `verbose_name`/`help_text` in Spanish; choices Spanish label, English value; `Meta.verbose_name(_plural)` in Spanish |
 | App name | `apps.py` | `verbose_name = "…"` on the `AppConfig` |
 | Fieldset titles, custom headers | `admin.py` | Spanish `short_description` / `fieldsets` names / view `title`s |
 | Admin-only rename (rare) | `admin.py` | `Model._meta.verbose_name = "…"` patch |
 | Custom admin screens | `templates/admin/…` | literal Spanish, no `{% trans %}` needed |
-| Architecture | — | **No** `LOCALE_PATHS` for the base system (only §9 unfold-only strings), no gettext, no `.po`, no `LocaleMiddleware` (single-language) |
+| Architecture | — | **No** `LOCALE_PATHS` for the base system (only §9 unfold-only strings and pre-existing `gettext_lazy` labels), no `LocaleMiddleware` (single-language) |
 | Unfold-only strings | `templates/unfold/…` or `locale/es/LC_MESSAGES/django.po` | template override, or a tiny `LOCALE_PATHS` catalog (see §9) |
 
 ### Pitfalls to avoid

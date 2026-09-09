@@ -27,7 +27,15 @@ Django is a high-level Python web framework that encourages rapid development an
 *   [[django-i18n-es-admin|Spanish Django Admin]]
 *   [[django-bruno|Bruno API Client Guide]]
 *   [[django-cloudflare-tunnel|Cloudflare Tunnel for Local Development]]
-*   [[20-areas/work/mermaid/mermaid-diagram-generation|Mermaid Diagram Generation]]
+*   [[django-testing-contract|Django Testing Contract]]
+*   [[django-artworks-mockups|Artwork Room Mockups (parked proposal)]]
+*   [[stripe-subscriptions|Stripe Artist Subscriptions]]
+*   [[stripe-account-setup|Stripe Account Setup]]
+*   [[testing-stripe|Testing Stripe Subscriptions]]
+*   [[enredarte-overview|Enredarte Overview]]
+*   [[enredarte-artworks-blog-api|Enredarte Artworks & Blog API]]
+*   [[enredarte-deploy|Enredarte Deploy]]
+*   [[enredarte-fixtures-env|Enredarte Fixtures & Environments]]
 
 ### **Wikilinks & Portability**
 

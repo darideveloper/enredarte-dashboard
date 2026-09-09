@@ -234,20 +234,20 @@ print(token.key)
 
 ### Build / API client credential (SSG build)
 
-Every endpoint under `/apis/artworks/` requires authentication (`IsAuthenticated`) like every other endpoint; the SSG build authenticates with a DRF Token sent as an API key.
+Every endpoint under `/api/artworks/` requires authentication (`IsAuthenticated`) like every other endpoint; the SSG build authenticates with a DRF Token sent as an API key.
 
 The build no longer fetches a single monolithic catalog. Instead it paginates through the 10 per-model read-only endpoints:
 
-- `GET /apis/artworks/artists/`
-- `GET /apis/artworks/art-curators/`
-- `GET /apis/artworks/locations/`
-- `GET /apis/artworks/galleries/`
-- `GET /apis/artworks/disciplines/`
-- `GET /apis/artworks/techniques/`
-- `GET /apis/artworks/themes/`
-- `GET /apis/artworks/formats/`
-- `GET /apis/artworks/scales/`
-- `GET /apis/artworks/artworks/`
+- `GET /api/artworks/artists/`
+- `GET /api/artworks/art-curators/`
+- `GET /api/artworks/locations/`
+- `GET /api/artworks/galleries/`
+- `GET /api/artworks/disciplines/`
+- `GET /api/artworks/techniques/`
+- `GET /api/artworks/themes/`
+- `GET /api/artworks/formats/`
+- `GET /api/artworks/scales/`
+- `GET /api/artworks/artworks/`
 
 Each list response is paginated (`page_size` query param, max 100); translations are nested as `{language: {field: value}}` dicts, related models are referenced via `{id, slug}` objects, and artwork images use absolute URLs.
 
@@ -459,7 +459,7 @@ class ArticleViewSet(viewsets.ReadOnlyModelViewSet):
 
 Key points:
 
-- `lookup_field = "slug"` — URL lookups use the slug instead of the primary key: `/api/articles/<slug>/`.
+- `lookup_field = "slug"` — URL lookups use the slug instead of the primary key: `/api/artworks/articles/<slug>/`. (Convention only: in this project the artworks endpoints use ID lookup, e.g. `artworks/1/`, while the blog posts endpoint uses slug.)
 - `get_queryset()` — override to filter by request context (headers, query params, user) and set ordering.
 - `get_serializer_class()` — return a different serializer per request, driven by query parameters:
 
@@ -473,9 +473,9 @@ Key points:
 
 ## 10. Routing
 
-Use a DRF router so the viewset maps to RESTful URLs automatically, including a browsable API-root listing.
+Use a DRF router so the viewset maps to RESTful URLs automatically, including a browsable API-root listing. The standard is **everything under `/api/`** (see `project/urls.py`): the artworks app mounts its router at `/api/artworks/`, the blog app at `/api/blog/`.
 
-Create `project/urls.py`:
+Create `project/urls.py` entries per app:
 
 ```python
 from django.urls import path, include
@@ -496,19 +496,21 @@ urlpatterns = [
 ]
 ```
 
-Generated routes:
+Generated routes (artworks example; blog uses `/api/blog/` with slug lookup):
 
 ```
-GET  /api/                             -> API root (lists all registered endpoints)
-GET  /api/articles/                    -> list
-POST /api/articles/                    -> create (405 for read-only viewsets)
-GET  /api/articles/<slug>/             -> retrieve
-PUT/PATCH/DELETE /api/articles/<slug>/ -> write operations (405 for read-only)
+GET  /api/artworks/                             -> API root (lists all registered endpoints)
+GET  /api/artworks/articles/                    -> list
+POST /api/artworks/articles/                    -> create (405 for read-only viewsets)
+GET  /api/artworks/articles/1/                  -> retrieve (artworks detail uses ID)
+PUT/PATCH/DELETE /api/artworks/articles/1/      -> write operations (405 for read-only)
 ```
 
 ---
 
-## 11. Public Proxy Endpoints (APIView pattern)
+## 11. Public Proxy Endpoints (APIView pattern — blueprint only)
+
+> This section is a reusable blueprint: no proxy `APIView` module exists in this repo today. Follow it when an anonymous/upstream-proxy endpoint is needed.
 
 For endpoints that must be anonymous and/or proxy to an external system, use plain `APIView` classes. A shared base class keeps authentication, error mapping, and retry logic in one place.
 
@@ -669,7 +671,7 @@ self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
 | `custom_exception_handler` | `project/handlers.py` | Uniform `{status, message, data}` error format |
 | Serializers | `myapp/serializers.py` | Field mapping, validation, computed fields |
 | Viewsets | `myapp/views.py` | Grouped list/detail logic, read-only by default |
-| Router | `project/urls.py` | Auto-generates RESTful URLs under `/api/` |
+| Router | `project/urls.py` | All routers live under `/api/`: `api/artworks/` (artworks) + `api/blog/` (blog) |
 | Public `APIView` classes | `myapp/api_views.py` | Anonymous endpoints, upstream proxying |
 | `APITestCase` base | `myapp/tests/` | Auth + pagination + serializer coverage |
 

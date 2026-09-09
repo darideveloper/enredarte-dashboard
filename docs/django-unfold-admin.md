@@ -16,7 +16,7 @@ This document describes how `django-unfold` is integrated into this project to p
 
 ## 0. Prerequisites
 
-Before proceeding, ensure the core infrastructure (Environment Variables, Static Files, and Templates) has been set up following the [Project Setup Guide](project-setup.md).
+Before proceeding, ensure the core infrastructure (Environment Variables, Static Files, and Templates) has been set up following the [[django-project-setup|Project Setup Guide]].
 
 ## 1. Dependencies
 
@@ -48,16 +48,16 @@ INSTALLED_APPS = [
 
 ### 2.2 Static Files & Templates
 
-Ensure root static and templates directories are configured in `settings.py` to allow overriding admin assets, as described in the [Project Setup Guide](project-setup.md#6-core-settings--app-integration).
+Ensure root static and templates directories are configured in `settings.py` to allow overriding admin assets, as described in the [[django-project-setup|Project Setup Guide]] (§6).
 
 ## 3. UNFOLD Settings Dictionary
 
-Key logic:
+Key logic (live values from `project/settings.py`):
 - **SITE_ICON**: When used, the **SITE_HEADER** and **SITE_SUBHEADER** remain visible in the sidebar.
 - **SITE_FAVICONS**: When used, it replaces the **SITE_ICON**, but the **SITE_HEADER** and **SITE_SUBHEADER** remain visible.
-- **SITE_LOGO**: When used, it replaces the **SITE_FAVICONS**, **SITE_HEADER**, and **SITE_SUBHEADER** in the sidebar.
-- **COLORS**: Defined using OKLCH for modern browser support and consistent shading.
-- **SIDEBAR**: `show_all_applications: True` with an empty `navigation: []` switches the sidebar to **auto-render mode**: every registered `ModelAdmin` in `INSTALLED_APPS` is listed, filtered by the request user's per-model permissions. The sidebar body is rendered by a project-level template override at `project/templates/unfold/helpers/navigation.html` (Unfold's bundled template falls back to Django's classic `admin/app_list.html` when `navigation` is empty, which is not Unfold-styled; the override is required to get an Unfold-styled auto sidebar). See §3.1 below.
+- **SITE_LOGO**: When used, it replaces the **SITE_FAVICONS**, **SITE_HEADER**, and **SITE_SUBHEADER** in the sidebar. (Not currently set in this project.)
+- **COLORS**: Defined using OKLCH for modern browser support and consistent shading (primary hue 20 — Enredarte red).
+- **SIDEBAR**: `show_all_applications: True` auto-renders every registered `ModelAdmin` (filtered by per-model permissions), plus a single pinned `navigation` group ("Sistema" → "Publicar Cambios", staff-only). The sidebar body is rendered by a project-level template override at `project/templates/unfold/helpers/navigation.html` (Unfold's bundled template falls back to Django's classic `admin/app_list.html` when `navigation` is empty, which is not Unfold-styled; the override is required to get an Unfold-styled auto sidebar). See §3.1 below.
 
 ```python
 from django.templatetags.static import static
@@ -65,13 +65,12 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 UNFOLD = {
-    "SITE_TITLE": "leochan.sh Dashboard",
-    "SITE_HEADER": "leochan.sh Admin", # Fallback when logo is missing
-    "SITE_SUBHEADER": "leochan.sh Dashboard", # Visible below logo
+    "SITE_TITLE": "Enredarte Admin",
+    "SITE_HEADER": "ENREDARTE DASHBOARD", # Fallback when logo is missing
+    "SITE_SUBHEADER": "Sistema de gestión", # Visible below header
     "SITE_URL": "/",
     "SITE_ICON": lambda request: static("favicon.png"),
-    "SITE_LOGO": lambda request: static("logo.webp"),
-    "SITE_SYMBOL": "directions_car",
+    "SITE_SYMBOL": "palette",
     "SITE_FAVICONS": [
         {
             "rel": "icon",
@@ -86,60 +85,33 @@ UNFOLD = {
     "THEME": "light",
     "COLORS": {
         "primary": {
-            "50": "oklch(0.97 0.02 296)",
-            "100": "oklch(0.92 0.04 296)",
-            "200": "oklch(0.85 0.08 296)",
-            "300": "oklch(0.75 0.15 296)",
-            "400": "oklch(0.70 0.22 296)",
-            "500": "oklch(0.68 0.28 296)",  # C92FFF
-            "600": "oklch(0.60 0.25 296)",
-            "700": "oklch(0.50 0.20 296)",
-            "800": "oklch(0.40 0.16 296)",
-            "900": "oklch(0.30 0.12 296)",
-            "950": "oklch(0.20 0.08 296)",
+            "50": "oklch(0.97 0.02 20)",
+            "100": "oklch(0.92 0.04 20)",
+            "200": "oklch(0.85 0.08 20)",
+            "300": "oklch(0.75 0.12 20)",
+            "400": "oklch(0.64 0.17 20)",
+            "500": "oklch(0.53 0.20 20)",
+            "600": "oklch(0.44 0.18 20)",
+            "700": "oklch(0.36 0.15 20)",
+            "800": "oklch(0.29 0.12 20)",
+            "900": "oklch(0.22 0.08 20)",
+            "950": "oklch(0.17 0.04 20)",
         },
     },
     "SIDEBAR": {
         "show_search": True,
-        "show_all_applications": False,
+        "show_all_applications": True,
         "navigation": [
             {
-                "title": _("Autenticación"),
+                "title": "Sistema",
                 "separator": True,
                 "collapsible": False, # Keep open by default
                 "items": [
                     {
-                        "title": _("Usuarios"),
-                        "icon": "person",
-                        "link": reverse_lazy("admin:auth_user_changelist"),
-                    },
-                ],
-            },
-            {
-                "title": _("Tienda"),
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": _("Ventas"),
-                        "icon": "payments",
-                        "link": reverse_lazy("admin:store_sale_changelist"),
-                    },
-                ],
-            },
-            {
-                "title": _("Sección de Traslados"),
-                "separator": True,
-                "items": [], # Used as a section divider
-            },
-            {
-                "title": _("App Name"),
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": _("Models"),
-                        "icon": "directions_car",
-                        "link": reverse_lazy("admin:app_model_changelist"),
+                        "title": "Publicar Cambios",
+                        "icon": "publish",
+                        "link": reverse_lazy("core:publish-changes"),
+                        "permission": lambda request: request.user.is_staff,
                     },
                 ],
             },
@@ -148,7 +120,7 @@ UNFOLD = {
 }
 ```
 
-> **Note**: the multi-group `navigation` example above is a reference snippet. In the `clients` project the sidebar is configured for **auto-render mode** (`navigation: []`, `show_all_applications: True`) so that adding a new `ModelAdmin` requires no settings change and the rendered list is filtered by the request user's per-model permissions. See §3.1.
+> **Note**: the snippet above is the live `enredarte-dashboard` sidebar: auto-render (`show_all_applications: True`) plus one pinned `navigation` group ("Sistema" → "Publicar Cambios", staff-only) so the Coolify publish flow is always one click away. Adding a new `ModelAdmin` requires no settings change. See §3.1.
 
 ### 3.1. Permission-aware auto sidebar
 
@@ -156,15 +128,29 @@ UNFOLD = {
 
 To get an Unfold-styled, permission-filtered auto sidebar, this project overrides Unfold's helper at `project/templates/unfold/helpers/navigation.html`. The override iterates `available_apps` (Django's permission-filtered app list, provided by `AdminSite.get_app_list(request)`) using Unfold's group/link DOM, applies the `active` class set when a model's `admin_url` matches the request path, and falls back to the `unfold/helpers/messages/error.html` partial for users with no admin permissions.
 
-Resulting `SIDEBAR` block in `project/settings.py`:
+Resulting `SIDEBAR` block in `project/settings.py` (live values):
 
 ```python
 "SIDEBAR": {
     "show_search": True,
     "show_all_applications": True,
-    "navigation": [],
+    "navigation": [
+        {
+            "title": "Sistema",
+            "separator": True,
+            "collapsible": False,
+            "items": [
+                {
+                    "title": "Publicar Cambios",
+                    "icon": "publish",
+                    "link": reverse_lazy("core:publish-changes"),
+                    "permission": lambda request: request.user.is_staff,
+                },
+            ],
+        },
+    ],
 },
-# No `permission` callback, no Python helper, no custom `AdminSite` subclass,
+# No `permission` callback module, no Python helper, no custom `AdminSite` subclass,
 # and no `core/admin.py` changes are required.
 ```
 
@@ -387,7 +373,7 @@ Django's `filter_horizontal`/`filter_vertical` widgets inject a `<p class="helpt
 
 Override the base admin template to inject SimpleMDE and other custom assets. To ensure Unfold's sticky bottom bar and responsive layout logic are preserved, always extend `"admin/base.html"` instead of the internal layout directly.
 
-### project/templates/admin/base_site.html
+### project/templates/admin/base.html
 ```html
 {% extends "admin/base.html" %} {% load static %} {% block extrahead %}
 {{ block.super }}
@@ -471,7 +457,7 @@ class ModelAdminUnfoldBase(ModelAdmin):
 
     actions_row = ["edit"]
 
-    @action(description="Edit", permissions=["change"])
+    @action(description="Editar", permissions=["change"])
     def edit(self, request, object_id):
         return redirect(reverse(f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_change", args=[object_id]))
 ```
@@ -479,9 +465,9 @@ class ModelAdminUnfoldBase(ModelAdmin):
 **Custom sidebar icon per model.** The auto-rendered sidebar (`project/templates/unfold/helpers/navigation.html`) uses the `ModelAdminUnfoldBase.sidebar_icon` class attribute as the Material symbol for each model link. Default is `"database"`. Override per admin:
 
 ```python
-@admin.register(Client)
-class ClientAdmin(ModelAdminUnfoldBase):
-    sidebar_icon = "directions_car"
+@admin.register(Artwork)
+class ArtworkAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "palette"
 ```
 
 The icon map is built by `utils.admin_icons.build_sidebar_icon_map()` and injected into every template via `utils.context_processors.user_palette`. The template reads the map through a `get_item` filter defined in `utils.templatetags.sidebar_extras`. No per-model wiring is needed; setting the attribute on the admin is sufficient.
@@ -493,7 +479,7 @@ Use Unfold-native button patterns everywhere; **custom-inject a button only for 
 - **Server actions** → declare them in `actions_detail` (change-form header) or `actions_row` (changelist rows) with `@action(description=..., url_path=..., permissions=[...])`. Conditional visibility is enforced only when `permissions=[...]` is passed, which wires the `has_<action>_permission` method.
 - **Copy-link buttons** → the only exception. Inject `copy_button_extra_attrs` (a `mark_safe` attribute string: `type="button" data-copy-url="<url>"`) from a `change_view` override, then render the button in an `object-tools-items` override through `{% component "unfold/components/button.html" %}` with `extra_attrs=copy_button_extra_attrs`. `static/js/copy_clipboard.js` (loaded via the admin's `Media`) wires the click-to-copy.
 
-Both the Artist subscription buttons (`artworks/admin.py` + `admin/artworks/artist/change_form.html`) and the blog image copy button (`blog/admin.py` + `admin/blog/blogimage/change_form.html`) follow this pattern. See [[django-image-copy-link|Image Copy Link]].
+Both the Artist subscription buttons (`artworks/admin.py` + `project/templates/admin/artworks/artist/change_form.html`) and the blog image copy button (`blog/admin.py` + `project/templates/admin/blog/blogimage/change_form.html`) follow this pattern. See [[django-image-copy-link|Image Copy Link]].
 
 ## 8. Layout Constraints
 

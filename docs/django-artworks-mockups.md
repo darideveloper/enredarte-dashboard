@@ -10,10 +10,15 @@ tags:
   - design
   - exploration
 type: design
-status: active
+status: parked-proposal
 ---
 
 # Artwork Room Mockups — Design Investigation
+
+> **Parked proposal — not implemented.** `Artwork` has only the free-text
+> `dimensions` field; no `width_cm`/`height_cm` columns and no PIL/numpy
+> generation pipeline exist in the codebase. Keep for a future spec; do not
+> treat it as current behavior.
 
 Auto-generated mockup images that place each artwork inside a realistic interior
 (kitchen, dining room, etc.), mounted on a wall at physically-proportional size,
