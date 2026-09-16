@@ -1756,16 +1756,16 @@ class ArtworksAPITestCase(APITestCase):
         return self.client.get(path)
 
     def test_anonymous_request_rejected(self):
-        response = APIClient().get("/apis/artworks/artworks/")
+        response = APIClient().get("/api/artworks/artworks/")
         self.assertEqual(response.status_code, 401)
 
     def test_router_root_lists_all_endpoints(self):
-        response = self._auth_get("/apis/artworks/")
+        response = self._auth_get("/api/artworks/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()), 10)
 
     def test_artwork_list_paginated_envelope(self):
-        response = self._auth_get("/apis/artworks/artworks/")
+        response = self._auth_get("/api/artworks/artworks/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         for key in ("count", "next", "previous", "page", "page_size", "total_pages", "results"):
@@ -1773,19 +1773,19 @@ class ArtworksAPITestCase(APITestCase):
         self.assertEqual(data["count"], 1)
 
     def test_page_size_param_respected(self):
-        response = self._auth_get("/apis/artworks/artworks/?page_size=50")
+        response = self._auth_get("/api/artworks/artworks/?page_size=50")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["page_size"], 50)
 
     def test_inactive_artists_excluded(self):
-        response = self._auth_get("/apis/artworks/artists/")
+        response = self._auth_get("/api/artworks/artists/")
         self.assertEqual(response.status_code, 200)
         slugs = [a["slug"] for a in response.json()["results"]]
         self.assertIn("ana-alvarez", slugs)
         self.assertNotIn("inactiva", slugs)
 
     def test_artist_detail_shape(self):
-        response = self._auth_get(f"/apis/artworks/artists/{self.artist.id}/")
+        response = self._auth_get(f"/api/artworks/artists/{self.artist.id}/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["location"], {"id": self.location.id, "slug": "ciudad-de-mexico"})
@@ -1795,7 +1795,7 @@ class ArtworksAPITestCase(APITestCase):
         self.assertNotIn("sort_order", data)
 
     def test_artwork_detail_shape(self):
-        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        response = self._auth_get(f"/api/artworks/artworks/{self.artwork.id}/")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["artist"], {"id": self.artist.id, "slug": "ana-alvarez"})
@@ -1813,14 +1813,14 @@ class ArtworksAPITestCase(APITestCase):
         GalleryTranslation.objects.create(
             gallery=gallery, language="es", name="Galería X", description=""
         )
-        response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
+        response = self._auth_get(f"/api/artworks/galleries/{gallery.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["translations"], {"es": {"name": "Galería X"}})
 
     def test_gallery_serializer_includes_is_primary(self):
         Gallery.objects.create(slug="galeria-a", is_primary=True)
         Gallery.objects.create(slug="galeria-b")
-        response = self._auth_get("/apis/artworks/galleries/")
+        response = self._auth_get("/api/artworks/galleries/")
         self.assertEqual(response.status_code, 200)
         results = response.json()["results"]
         by_slug = {g["slug"]: g for g in results}
@@ -1828,7 +1828,7 @@ class ArtworksAPITestCase(APITestCase):
         self.assertFalse(by_slug["galeria-b"]["is_primary"])
 
     def test_404_returns_error_envelope(self):
-        response = self._auth_get("/apis/artworks/artworks/9999/")
+        response = self._auth_get("/api/artworks/artworks/9999/")
         self.assertEqual(response.status_code, 404)
         data = response.json()
         self.assertEqual(data["status"], "error")
@@ -1847,7 +1847,7 @@ class ArtworksAPITestCase(APITestCase):
             url="https://x.com/ana",
             is_active=False,
         )
-        response = self._auth_get(f"/apis/artworks/artists/{self.artist.id}/")
+        response = self._auth_get(f"/api/artworks/artists/{self.artist.id}/")
         self.assertEqual(response.status_code, 200)
         links = response.json()["social_links"]
         self.assertEqual(len(links), 1)
@@ -1855,7 +1855,7 @@ class ArtworksAPITestCase(APITestCase):
 
     def test_inactive_location_returns_null(self):
         Location.objects.filter(pk=self.location.pk).update(is_active=False)
-        response = self._auth_get(f"/apis/artworks/artists/{self.artist.id}/")
+        response = self._auth_get(f"/api/artworks/artists/{self.artist.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["location"])
 
@@ -1863,7 +1863,7 @@ class ArtworksAPITestCase(APITestCase):
         curator = ArtCurator.objects.create(name="Curador", slug="curador")
         gallery = Gallery.objects.create(slug="galeria-a", curator=curator)
         ArtCurator.objects.filter(pk=curator.pk).update(is_active=False)
-        response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
+        response = self._auth_get(f"/api/artworks/galleries/{gallery.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["curator"])
 
@@ -1897,7 +1897,7 @@ class ArtworksAPITestCase(APITestCase):
         ArtworkGallery.objects.create(
             artwork=artwork2, gallery=gallery, is_active=False
         )
-        response = self._auth_get(f"/apis/artworks/galleries/{gallery.id}/")
+        response = self._auth_get(f"/api/artworks/galleries/{gallery.id}/")
         self.assertEqual(response.status_code, 200)
         links = response.json()["artwork_links"]
         self.assertEqual([l["id"] for l in links], [active_link.id])
@@ -1917,7 +1917,7 @@ class ArtworksAPITestCase(APITestCase):
         ArtworkGallery.objects.create(
             artwork=self.artwork, gallery=third_gallery, is_active=False
         )
-        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        response = self._auth_get(f"/api/artworks/artworks/{self.artwork.id}/")
         self.assertEqual(response.status_code, 200)
         links = response.json()["gallery_links"]
         self.assertEqual([l["id"] for l in links], [active_link.id])
@@ -1927,7 +1927,7 @@ class ArtworksAPITestCase(APITestCase):
             slug="escultura", is_active=False
         )
         self.artwork.disciplines.add(inactive)
-        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        response = self._auth_get(f"/api/artworks/artworks/{self.artwork.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json()["disciplines"],
@@ -1940,17 +1940,17 @@ class ArtworksAPITestCase(APITestCase):
             image=SimpleUploadedFile("inactive.png", _1PX_PNG),
             is_active=False,
         )
-        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        response = self._auth_get(f"/api/artworks/artworks/{self.artwork.id}/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()["images"]), 1)
 
     def test_artwork_of_inactive_artist_excluded(self):
         Artist.objects.filter(pk=self.artist.pk).update(is_active=False)
-        response = self._auth_get("/apis/artworks/artworks/")
+        response = self._auth_get("/api/artworks/artworks/")
         self.assertEqual(response.status_code, 200)
         slugs = [a["slug"] for a in response.json()["results"]]
         self.assertNotIn("obra-1", slugs)
 
-        response = self._auth_get(f"/apis/artworks/artworks/{self.artwork.id}/")
+        response = self._auth_get(f"/api/artworks/artworks/{self.artwork.id}/")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["status"], "error")

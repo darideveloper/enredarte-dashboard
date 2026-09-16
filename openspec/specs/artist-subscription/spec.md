@@ -93,15 +93,15 @@ The system SHALL automatically re-activate an artist whose subscription lapses, 
 - **THEN** the system SHALL refresh `current_period_end` and SHALL NOT trigger any visible side effects.
 
 ### Requirement: Public visibility follows subscription state
-The system SHALL exclude an artist from the public API (`GET /apis/artworks/artists/`) whenever their subscription is not in a paying state — `pending` (link generated, unpaid), `canceled`, or `past_due` past its grace window — by persisting the `compute_is_active` boolean onto `Artist.is_active`, which already drives the public queryset.
+The system SHALL exclude an artist from the public API (`GET /api/artworks/artists/`) whenever their subscription is not in a paying state — `pending` (link generated, unpaid), `canceled`, or `past_due` past its grace window — by persisting the `compute_is_active` boolean onto `Artist.is_active`, which already drives the public queryset.
 
 #### Scenario: Lapsed artist disappears from the public API
 - **WHEN** an artist's subscription becomes `canceled` (or `past_due` past the grace period) and a webhook persists `Artist.is_active=False` via `compute_is_active`
-- **THEN** the artist SHALL NOT appear in `GET /apis/artworks/artists/`.
+- **THEN** the artist SHALL NOT appear in `GET /api/artworks/artists/`.
 
 #### Scenario: Unpaid pending artist is not listed
 - **WHEN** an artist has a `pending` `ArtistSubscription` (link generated, no payment) and no active subscription
-- **THEN** the artist SHALL NOT appear in `GET /apis/artworks/artists/`.
+- **THEN** the artist SHALL NOT appear in `GET /api/artworks/artists/`.
 
 ### Requirement: Operator-controlled sync from Stripe
 The system SHALL expose a per-subscription path that re-fetches Stripe state (Customer, Subscription, latest invoices) and updates the local `ArtistSubscription` row + `Artist.is_active` via `compute_is_active`, used as a manual salvavidas when a webhook is missed. The implementation MUST correctly handle the Stripe SDK `ListObject` return type from `Subscription.list` (accessing the subscriptions via `.data`, not via integer index on the ListObject itself) for both empty and non-empty results, MUST handle Stripe v15 `StripeObject` where `dict.get` is blocked (use `sget`/`to_plain_dict` via `obj[key]`/`getattr`, not `.get`), and MUST handle `Decimal` fields (`unit_amount_decimal` etc.) via `to_dict(for_json=True)` + `Decimal→str` so `JSONField` storage never raises `TypeError: Object of type Decimal is not JSON serializable`. When the customer holds zero subscriptions, the system SHALL NOT unconditionally mark a `PENDING` subscription as `CANCELED`; the empty-list → `CANCELED` transition SHALL apply only when the local `status != PENDING` (YAGNI guard).

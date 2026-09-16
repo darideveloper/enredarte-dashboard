@@ -1,17 +1,4 @@
-# Artworks API Bruno Collection Specification
-
-## Purpose
-
-This specification defines a Bruno API collection for all 10 model endpoints exposed by the `artworks-rest-api` spec. It replaces the legacy `bruno-api-collection` which only covered `GET /api/catalog/` and `GET /api/`.
-
-## Requirements
-
-### Requirement: Per-model request folders
-The system SHALL organize 20 Bruno request files into 10 folders, one per model: `Artists/`, `ArtCurators/`, `Locations/`, `Galleries/`, `Disciplines/`, `Techniques/`, `Themes/`, `Formats/`, `Scales/`, `Artworks/`. Each folder SHALL contain exactly two files: `GET list.bru` and `GET detail.bru`.
-
-#### Scenario: Each model has two request files
-- **WHEN** the `bruno/collections/enredarte-dashboard-api/` directory is inspected
-- **THEN** it SHALL contain 10 subdirectories, each with `GET list.bru` and `GET detail.bru`.
+## MODIFIED Requirements
 
 ### Requirement: List requests target paginated list endpoints
 Each `GET list.bru` SHALL send `GET {{base_url}}/api/artworks/<resource>/` with header `Authorization: Token {{token}}`. The `meta` block SHALL set `type: http` and assign a sequential `seq` number. Each `GET list.bru` SHALL also contain a `docs` block documenting the endpoint purpose, the auth requirement, the `200` and `401` status codes, and the paginated response envelope with a list-item JSON example matching the resource's serializer.
@@ -38,20 +25,6 @@ Each `GET detail.bru` SHALL send `GET {{base_url}}/api/artworks/<resource>/1/` w
 #### Scenario: Nested sort_order preserved in examples
 - **WHEN** a `docs` block documents artwork or gallery detail
 - **THEN** `images`, `gallery_links`, and `artwork_links` items SHALL still include `sort_order`.
-
-### Requirement: Environment file preserved and reused
-The existing `bruno/collections/enredarte-dashboard-api/environments/dev.bru` SHALL be preserved with its `base_url` and `token` variables. The tracked `dev.bru.example` template SHALL also remain unchanged. No new environment files SHALL be created. All 20 new request files SHALL reference `{{base_url}}` and `{{token}}`.
-
-#### Scenario: Dev environment unchanged
-- **WHEN** the change is applied
-- **THEN** `environments/dev.bru` SHALL contain the same `base_url` and `token` variables it had before the change, and `environments/dev.bru.example` SHALL remain the committed placeholder template.
-
-### Requirement: Workspace and collection metadata preserved
-The existing `bruno/workspace.yml` and `bruno/collections/enredarte-dashboard-api/bruno.json` SHALL be preserved. Their content SHALL NOT change.
-
-#### Scenario: Workspace structure maintained
-- **WHEN** the Bruno workspace is opened after the change
-- **THEN** the workspace SHALL load successfully with all 20 request files visible in the Bruno app.
 
 ### Requirement: README updated to reflect new endpoints
 The `bruno/README.md` SHALL be updated to document the new endpoint structure. It SHALL explain that the API now has 10 model-specific endpoints under `/api/artworks/` instead of a single catalog endpoint, and SHALL describe how to use the per-model request files.

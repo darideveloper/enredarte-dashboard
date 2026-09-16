@@ -11,7 +11,7 @@ urlpatterns = [
     path("admin/system/", include("core.urls")),
     path("admin/", admin.site.urls),
     path("", RedirectView.as_view(url="/admin/"), name="home-redirect-admin"),
-    path("apis/artworks/", include("artworks.urls")),
+    path("api/artworks/", include("artworks.urls")),
     path("api/blog/", include("blog.urls")),
     path("subscriptions/", include(("subscriptions.urls", "subscriptions"), namespace="subscriptions")),
     path("webhooks/stripe/", webhooks.stripe_webhook),
