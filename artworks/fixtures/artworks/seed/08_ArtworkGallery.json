@@ -5,7 +5,7 @@
     "fields": {
       "artwork": 1,
       "gallery": 1,
-      "slug": "memoria-silente-en-galeria-luz",
+      "slug": "ciudad-reflejada-en-galeria-luz",
       "is_active": true,
       "sort_order": 1,
       "created_at": "2026-01-05T00:00:00Z",
@@ -18,9 +18,9 @@
     "fields": {
       "artwork": 1,
       "gallery": 2,
-      "slug": "memoria-silente-en-espacio-urbano",
+      "slug": "ciudad-reflejada-en-espacio-urbano",
       "is_active": true,
-      "sort_order": 2,
+      "sort_order": 1,
       "created_at": "2026-01-05T00:00:00Z",
       "updated_at": "2026-01-05T00:00:00Z"
     }
@@ -30,10 +30,10 @@
     "pk": 3,
     "fields": {
       "artwork": 2,
-      "gallery": 2,
-      "slug": "fragmento-urbano-en-espacio-urbano",
+      "gallery": 1,
+      "slug": "estallido-calido-en-galeria-luz",
       "is_active": true,
-      "sort_order": 1,
+      "sort_order": 2,
       "created_at": "2026-01-05T00:00:00Z",
       "updated_at": "2026-01-05T00:00:00Z"
     }
@@ -44,9 +44,9 @@
     "fields": {
       "artwork": 3,
       "gallery": 1,
-      "slug": "jardin-imaginado-en-galeria-luz",
+      "slug": "marea-interior-en-galeria-luz",
       "is_active": true,
-      "sort_order": 1,
+      "sort_order": 3,
       "created_at": "2026-01-05T00:00:00Z",
       "updated_at": "2026-01-05T00:00:00Z"
     }
@@ -56,10 +56,10 @@
     "pk": 5,
     "fields": {
       "artwork": 4,
-      "gallery": 2,
-      "slug": "horizonte-beton-en-espacio-urbano",
+      "gallery": 1,
+      "slug": "valle-azul-en-galeria-luz",
       "is_active": true,
-      "sort_order": 1,
+      "sort_order": 4,
       "created_at": "2026-01-05T00:00:00Z",
       "updated_at": "2026-01-05T00:00:00Z"
     }
@@ -70,9 +70,9 @@
     "fields": {
       "artwork": 5,
       "gallery": 1,
-      "slug": "postales-de-ayer-en-galeria-luz",
+      "slug": "montanas-en-silencio-en-galeria-luz",
       "is_active": true,
-      "sort_order": 1,
+      "sort_order": 5,
       "created_at": "2026-01-05T00:00:00Z",
       "updated_at": "2026-01-05T00:00:00Z"
     }
@@ -83,9 +83,9 @@
     "fields": {
       "artwork": 6,
       "gallery": 1,
-      "slug": "flujo-neon-en-galeria-luz",
+      "slug": "fusion-calida-en-galeria-luz",
       "is_active": true,
-      "sort_order": 1,
+      "sort_order": 6,
       "created_at": "2026-01-05T00:00:00Z",
       "updated_at": "2026-01-05T00:00:00Z"
     }
@@ -94,11 +94,336 @@
     "model": "artworks.artworkgallery",
     "pk": 8,
     "fields": {
-      "artwork": 6,
+      "artwork": 7,
       "gallery": 2,
-      "slug": "flujo-neon-en-espacio-urbano",
+      "slug": "espiral-de-concreto-en-espacio-urbano",
       "is_active": true,
       "sort_order": 2,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 9,
+    "fields": {
+      "artwork": 8,
+      "gallery": 2,
+      "slug": "relieve-gris-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 3,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 10,
+    "fields": {
+      "artwork": 9,
+      "gallery": 2,
+      "slug": "gran-via-al-atardecer-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 4,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 11,
+    "fields": {
+      "artwork": 10,
+      "gallery": 2,
+      "slug": "puente-al-atardecer-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 5,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 12,
+    "fields": {
+      "artwork": 11,
+      "gallery": 2,
+      "slug": "faroles-en-la-niebla-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 6,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 13,
+    "fields": {
+      "artwork": 12,
+      "gallery": 2,
+      "slug": "flujo-nocturno-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 7,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 14,
+    "fields": {
+      "artwork": 13,
+      "gallery": 1,
+      "slug": "cien-miradas-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 7,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 15,
+    "fields": {
+      "artwork": 14,
+      "gallery": 1,
+      "slug": "mirada-pop-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 8,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 16,
+    "fields": {
+      "artwork": 15,
+      "gallery": 1,
+      "slug": "idea-luminosa-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 9,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 17,
+    "fields": {
+      "artwork": 16,
+      "gallery": 1,
+      "slug": "pliegue-y-memoria-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 10,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 18,
+    "fields": {
+      "artwork": 17,
+      "gallery": 1,
+      "slug": "silencio-pop-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 11,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 19,
+    "fields": {
+      "artwork": 17,
+      "gallery": 2,
+      "slug": "silencio-pop-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 8,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 20,
+    "fields": {
+      "artwork": 18,
+      "gallery": 1,
+      "slug": "rostro-pintado-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 12,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 21,
+    "fields": {
+      "artwork": 19,
+      "gallery": 2,
+      "slug": "figura-en-rojo-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 9,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 22,
+    "fields": {
+      "artwork": 20,
+      "gallery": 2,
+      "slug": "sombrero-infinito-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 10,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 23,
+    "fields": {
+      "artwork": 21,
+      "gallery": 2,
+      "slug": "infinito-recursivo-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 11,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 24,
+    "fields": {
+      "artwork": 22,
+      "gallery": 2,
+      "slug": "suspension-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 12,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 25,
+    "fields": {
+      "artwork": 23,
+      "gallery": 2,
+      "slug": "mural-del-caminante-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 13,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 26,
+    "fields": {
+      "artwork": 24,
+      "gallery": 1,
+      "slug": "muro-amarillo-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 13,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 27,
+    "fields": {
+      "artwork": 24,
+      "gallery": 2,
+      "slug": "muro-amarillo-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 14,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 28,
+    "fields": {
+      "artwork": 25,
+      "gallery": 2,
+      "slug": "el-gesto-creador-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 15,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 29,
+    "fields": {
+      "artwork": 26,
+      "gallery": 1,
+      "slug": "proceso-en-azul-y-rojo-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 14,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 30,
+    "fields": {
+      "artwork": 27,
+      "gallery": 2,
+      "slug": "la-mirada-del-visitante-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 16,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 31,
+    "fields": {
+      "artwork": 28,
+      "gallery": 1,
+      "slug": "ciudad-sinapsis-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 15,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 32,
+    "fields": {
+      "artwork": 29,
+      "gallery": 1,
+      "slug": "mascara-y-mano-en-galeria-luz",
+      "is_active": true,
+      "sort_order": 16,
+      "created_at": "2026-01-05T00:00:00Z",
+      "updated_at": "2026-01-05T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkgallery",
+    "pk": 33,
+    "fields": {
+      "artwork": 30,
+      "gallery": 2,
+      "slug": "neon-vertical-en-espacio-urbano",
+      "is_active": true,
+      "sort_order": 17,
       "created_at": "2026-01-05T00:00:00Z",
       "updated_at": "2026-01-05T00:00:00Z"
     }

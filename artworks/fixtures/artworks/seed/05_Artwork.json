@@ -5,16 +5,16 @@
     "fields": {
       "artist": 1,
       "year": 2021,
-      "dimensions": "120x90 cm",
+      "dimensions": "150x75",
       "disciplines": [
         1
       ],
       "techniques": [
-        1
+        2
       ],
       "themes": [
-        9,
-        10
+        6,
+        3
       ],
       "formats": [
         1
@@ -22,10 +22,12 @@
       "scales": [
         2
       ],
-      "price_mxn": 48000.0,
-      "price_usd": 2800.0,
+      "price_mxn": 68000.0,
+      "price_usd": 4000.0,
       "status": "available",
-      "slug": "memoria-silente",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "ciudad-reflejada",
       "is_active": true,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
@@ -35,29 +37,30 @@
     "model": "artworks.artwork",
     "pk": 2,
     "fields": {
-      "artist": 2,
-      "year": 2022,
-      "dimensions": "45x30x20 cm",
+      "artist": 1,
+      "year": 2023,
+      "dimensions": "120x80",
       "disciplines": [
-        5
-      ],
-      "techniques": [
-        4
-      ],
-      "themes": [
-        6,
-        8
-      ],
-      "formats": [
-        5
-      ],
-      "scales": [
         1
       ],
-      "price_mxn": 85000.0,
-      "price_usd": 4900.0,
-      "status": "reserved",
-      "slug": "fragmento-urbano",
+      "techniques": [
+        1
+      ],
+      "themes": [
+        4
+      ],
+      "formats": [
+        1
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 52000.0,
+      "price_usd": 3060.0,
+      "status": "available",
+      "is_highlighted": true,
+      "views_count": 0,
+      "slug": "estallido-calido",
       "is_active": true,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"
@@ -67,114 +70,14 @@
     "model": "artworks.artwork",
     "pk": 3,
     "fields": {
-      "artist": 3,
-      "year": 2023,
-      "dimensions": "60x60 cm",
-      "disciplines": [
-        3
-      ],
-      "techniques": [
-        2
-      ],
-      "themes": [
-        12,
-        14
-      ],
-      "formats": [
-        1
-      ],
-      "scales": [
-        1
-      ],
-      "price_mxn": 32500.0,
-      "price_usd": 1900.0,
-      "status": "available",
-      "slug": "jardin-imaginado",
-      "is_active": true,
-      "created_at": "2026-01-03T00:00:00Z",
-      "updated_at": "2026-01-03T00:00:00Z"
-    }
-  },
-  {
-    "model": "artworks.artwork",
-    "pk": 4,
-    "fields": {
-      "artist": 4,
-      "year": 2020,
-      "dimensions": "90x60 cm",
-      "disciplines": [
-        4
-      ],
-      "techniques": [
-        4
-      ],
-      "themes": [
-        3,
-        6
-      ],
-      "formats": [
-        3
-      ],
-      "scales": [
-        2
-      ],
-      "price_mxn": 15000.0,
-      "price_usd": 850.0,
-      "status": "sold",
-      "slug": "horizonte-beton",
-      "is_active": true,
-      "created_at": "2026-01-03T00:00:00Z",
-      "updated_at": "2026-01-03T00:00:00Z"
-    }
-  },
-  {
-    "model": "artworks.artwork",
-    "pk": 5,
-    "fields": {
-      "artist": 5,
-      "year": 2024,
-      "dimensions": "30x30 cm",
-      "disciplines": [
-        2
-      ],
-      "techniques": [
-        5,
-        6
-      ],
-      "themes": [
-        11,
-        8
-      ],
-      "formats": [
-        2,
-        4
-      ],
-      "scales": [
-        1
-      ],
-      "price_mxn": 12500.0,
-      "price_usd": 700.0,
-      "status": "available",
-      "slug": "postales-de-ayer",
-      "is_active": true,
-      "created_at": "2026-01-03T00:00:00Z",
-      "updated_at": "2026-01-03T00:00:00Z"
-    }
-  },
-  {
-    "model": "artworks.artwork",
-    "pk": 6,
-    "fields": {
       "artist": 1,
-      "year": 2025,
-      "dimensions": "150x120 cm",
+      "year": 2022,
+      "dimensions": "100x70",
       "disciplines": [
-        1,
-        6
+        1
       ],
       "techniques": [
-        1,
-        4
+        5
       ],
       "themes": [
         4,
@@ -186,10 +89,928 @@
       "scales": [
         2
       ],
-      "price_mxn": 120000.0,
-      "price_usd": 6900.0,
+      "price_mxn": 48000.0,
+      "price_usd": 2820.0,
+      "status": "reserved",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "marea-interior",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 4,
+    "fields": {
+      "artist": 1,
+      "year": 2024,
+      "dimensions": "160x80",
+      "disciplines": [
+        1
+      ],
+      "techniques": [
+        1
+      ],
+      "themes": [
+        3,
+        1
+      ],
+      "formats": [
+        1
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 85000.0,
+      "price_usd": 5000.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "valle-azul",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 5,
+    "fields": {
+      "artist": 1,
+      "year": 2020,
+      "dimensions": "120x70",
+      "disciplines": [
+        1
+      ],
+      "techniques": [
+        3
+      ],
+      "themes": [
+        3,
+        1
+      ],
+      "formats": [
+        1
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 46000.0,
+      "price_usd": 2710.0,
+      "status": "sold",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "montanas-en-silencio",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 6,
+    "fields": {
+      "artist": 1,
+      "year": 2024,
+      "dimensions": "110x80",
+      "disciplines": [
+        1
+      ],
+      "techniques": [
+        1
+      ],
+      "themes": [
+        4
+      ],
+      "formats": [
+        1
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 54000.0,
+      "price_usd": 3180.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "fusion-calida",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 7,
+    "fields": {
+      "artist": 2,
+      "year": 2022,
+      "dimensions": "80x120",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        6,
+        15
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 22000.0,
+      "price_usd": 1290.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "espiral-de-concreto",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 8,
+    "fields": {
+      "artist": 2,
+      "year": 2023,
+      "dimensions": "70x50",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        4,
+        15
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 18500.0,
+      "price_usd": 1090.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "relieve-gris",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 9,
+    "fields": {
+      "artist": 2,
+      "year": 2021,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        6,
+        3
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 64000.0,
+      "price_usd": 3760.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "gran-via-al-atardecer",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 10,
+    "fields": {
+      "artist": 2,
+      "year": 2020,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        6,
+        11
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 58000.0,
+      "price_usd": 3410.0,
+      "status": "sold",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "puente-al-atardecer",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 11,
+    "fields": {
+      "artist": 2,
+      "year": 2023,
+      "dimensions": "90x120",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        6,
+        10
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 24000.0,
+      "price_usd": 1410.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "faroles-en-la-niebla",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 12,
+    "fields": {
+      "artist": 2,
+      "year": 2024,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        6
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 72000.0,
+      "price_usd": 4240.0,
+      "status": "available",
+      "is_highlighted": true,
+      "views_count": 0,
+      "slug": "flujo-nocturno",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 13,
+    "fields": {
+      "artist": 3,
+      "year": 2023,
+      "dimensions": "100x100",
+      "disciplines": [
+        2
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        9,
+        5
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 28000.0,
+      "price_usd": 1650.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "cien-miradas",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 14,
+    "fields": {
+      "artist": 3,
+      "year": 2024,
+      "dimensions": "100x100",
+      "disciplines": [
+        2
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        8,
+        2
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 26000.0,
+      "price_usd": 1530.0,
+      "status": "available",
+      "is_highlighted": true,
+      "views_count": 0,
+      "slug": "mirada-pop",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 15,
+    "fields": {
+      "artist": 3,
+      "year": 2022,
+      "dimensions": "90x90",
+      "disciplines": [
+        2
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        5,
+        14
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 24500.0,
+      "price_usd": 1440.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "idea-luminosa",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 16,
+    "fields": {
+      "artist": 3,
+      "year": 2021,
+      "dimensions": "80x80",
+      "disciplines": [
+        2
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        10,
+        9
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 21000.0,
+      "price_usd": 1240.0,
+      "status": "reserved",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "pliegue-y-memoria",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 17,
+    "fields": {
+      "artist": 3,
+      "year": 2024,
+      "dimensions": "90x120",
+      "disciplines": [
+        2
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        8,
+        2
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 27000.0,
+      "price_usd": 1590.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "silencio-pop",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 18,
+    "fields": {
+      "artist": 3,
+      "year": 2023,
+      "dimensions": "80x120",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        2,
+        9
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 23000.0,
+      "price_usd": 1350.0,
       "status": "on_loan",
-      "slug": "flujo-neon",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "rostro-pintado",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 19,
+    "fields": {
+      "artist": 4,
+      "year": 2023,
+      "dimensions": "80x120",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        2,
+        14
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 25000.0,
+      "price_usd": 1470.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "figura-en-rojo",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 20,
+    "fields": {
+      "artist": 4,
+      "year": 2022,
+      "dimensions": "100x100",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        2,
+        8
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 26500.0,
+      "price_usd": 1560.0,
+      "status": "available",
+      "is_highlighted": true,
+      "views_count": 0,
+      "slug": "sombrero-infinito",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 21,
+    "fields": {
+      "artist": 4,
+      "year": 2024,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        5,
+        9
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 66000.0,
+      "price_usd": 3880.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "infinito-recursivo",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 22,
+    "fields": {
+      "artist": 4,
+      "year": 2023,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        5,
+        6
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 62000.0,
+      "price_usd": 3650.0,
+      "status": "reserved",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "suspension",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 23,
+    "fields": {
+      "artist": 4,
+      "year": 2024,
+      "dimensions": "120x80",
+      "disciplines": [
+        4,
+        6
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        8,
+        6
+      ],
+      "formats": [
+        3
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 42000.0,
+      "price_usd": 2470.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "mural-del-caminante",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 24,
+    "fields": {
+      "artist": 4,
+      "year": 2022,
+      "dimensions": "100x70",
+      "disciplines": [
+        4,
+        6
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        6,
+        8
+      ],
+      "formats": [
+        3
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 19500.0,
+      "price_usd": 1150.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "muro-amarillo",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 25,
+    "fields": {
+      "artist": 5,
+      "year": 2023,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        9
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 20000.0,
+      "price_usd": 1180.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "el-gesto-creador",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 26,
+    "fields": {
+      "artist": 5,
+      "year": 2024,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        9,
+        4
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 21500.0,
+      "price_usd": 1260.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "proceso-en-azul-y-rojo",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 27,
+    "fields": {
+      "artist": 5,
+      "year": 2022,
+      "dimensions": "120x80",
+      "disciplines": [
+        4
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        8
+      ],
+      "formats": [
+        2
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 19000.0,
+      "price_usd": 1120.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "la-mirada-del-visitante",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 28,
+    "fields": {
+      "artist": 5,
+      "year": 2024,
+      "dimensions": "120x80",
+      "disciplines": [
+        3
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        13,
+        6
+      ],
+      "formats": [
+        1
+      ],
+      "scales": [
+        2
+      ],
+      "price_mxn": 56000.0,
+      "price_usd": 3290.0,
+      "status": "on_loan",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "ciudad-sinapsis",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 29,
+    "fields": {
+      "artist": 5,
+      "year": 2023,
+      "dimensions": "45x30x20",
+      "disciplines": [
+        5
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        9,
+        5
+      ],
+      "formats": [
+        5
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 24000.0,
+      "price_usd": 1410.0,
+      "status": "available",
+      "is_highlighted": true,
+      "views_count": 0,
+      "slug": "mascara-y-mano",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artwork",
+    "pk": 30,
+    "fields": {
+      "artist": 5,
+      "year": 2025,
+      "dimensions": "90x120",
+      "disciplines": [
+        6
+      ],
+      "techniques": [
+        4
+      ],
+      "themes": [
+        4,
+        6
+      ],
+      "formats": [
+        1
+      ],
+      "scales": [
+        1
+      ],
+      "price_mxn": 17500.0,
+      "price_usd": 1030.0,
+      "status": "available",
+      "is_highlighted": false,
+      "views_count": 0,
+      "slug": "neon-vertical",
       "is_active": true,
       "created_at": "2026-01-03T00:00:00Z",
       "updated_at": "2026-01-03T00:00:00Z"

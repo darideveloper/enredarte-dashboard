@@ -1,6 +1,6 @@
 [
-  { "model": "artworks.artcuratortranslation", "pk": 1, "fields": { "art_curator": 1, "language": "es", "bio": "Curadora independiente especializada en arte contemporáneo latinoamericano." } },
-  { "model": "artworks.artcuratortranslation", "pk": 2, "fields": { "art_curator": 1, "language": "en", "bio": "Independent curator specialized in Latin American contemporary art." } },
-  { "model": "artworks.artcuratortranslation", "pk": 3, "fields": { "art_curator": 2, "language": "es", "bio": "Curador enfocado en arte urbano y nuevas narrativas visuales." } },
-  { "model": "artworks.artcuratortranslation", "pk": 4, "fields": { "art_curator": 2, "language": "en", "bio": "Curator focused on street art and new visual narratives." } }
+  { "model": "artworks.artcuratortranslation", "pk": 1, "fields": { "art_curator": 1, "language": "es", "bio": "Curadora independiente enfocada en pintura, collage y nuevos lenguajes visuales. Acompaña a Galería Luz en la selección de obra contemporánea latinoamericana, del óleo al objeto digital." } },
+  { "model": "artworks.artcuratortranslation", "pk": 2, "fields": { "art_curator": 1, "language": "en", "bio": "Independent curator focused on painting, collage, and new visual languages. She oversees Galería Luz's selection of Latin American contemporary work, from oil to digital object." } },
+  { "model": "artworks.artcuratortranslation", "pk": 3, "fields": { "art_curator": 2, "language": "es", "bio": "Curador con dos décadas de trayectoria en fotografía, arte urbano y narrativas de la ciudad. Está a cargo de Espacio Urbano: arquitectura, noche y calle como materia." } },
+  { "model": "artworks.artcuratortranslation", "pk": 4, "fields": { "art_curator": 2, "language": "en", "bio": "Curator with two decades of work in photography, street art, and city narratives. He leads Espacio Urbano: architecture, night, and street as subject matter." } }
 ]

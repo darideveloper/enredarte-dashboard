@@ -1,6 +1,42 @@
 [
-  { "model": "artworks.gallerytranslation", "pk": 1, "fields": { "gallery": 1, "language": "es", "name": "Galería Luz", "description": "Espacio dedicado a la pintura contemporánea y la identidad mexicana." } },
-  { "model": "artworks.gallerytranslation", "pk": 2, "fields": { "gallery": 1, "language": "en", "name": "Luz Gallery", "description": "Space dedicated to contemporary painting and Mexican identity." } },
-  { "model": "artworks.gallerytranslation", "pk": 3, "fields": { "gallery": 2, "language": "es", "name": "Espacio Urbano", "description": "Galería orientada a arte urbano y prácticas experimentales." } },
-  { "model": "artworks.gallerytranslation", "pk": 4, "fields": { "gallery": 2, "language": "en", "name": "Urban Space", "description": "Gallery focused on street art and experimental practices." } }
+  {
+    "model": "artworks.gallerytranslation",
+    "pk": 1,
+    "fields": {
+      "gallery": 1,
+      "language": "es",
+      "name": "Galería Luz",
+      "description": "Espacio dedicado a la pintura, el collage y los nuevos lenguajes visuales: del óleo al objeto digital."
+    }
+  },
+  {
+    "model": "artworks.gallerytranslation",
+    "pk": 2,
+    "fields": {
+      "gallery": 1,
+      "language": "en",
+      "name": "Light Gallery",
+      "description": "Space devoted to painting, collage, and new visual languages: from oil to digital object."
+    }
+  },
+  {
+    "model": "artworks.gallerytranslation",
+    "pk": 3,
+    "fields": {
+      "gallery": 2,
+      "language": "es",
+      "name": "Espacio Urbano",
+      "description": "Espacio dedicado a la fotografía, el arte urbano y la ciudad como materia: arquitectura, noche y calle."
+    }
+  },
+  {
+    "model": "artworks.gallerytranslation",
+    "pk": 4,
+    "fields": {
+      "gallery": 2,
+      "language": "en",
+      "name": "Urban Space",
+      "description": "Space devoted to photography, street art, and the city as matter: architecture, night, and street."
+    }
+  }
 ]

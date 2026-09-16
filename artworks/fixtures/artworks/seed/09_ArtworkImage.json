@@ -4,12 +4,12 @@
     "pk": 1,
     "fields": {
       "artwork": 1,
-      "image": "artworks/obra-1.jpg",
-      "alt_es": "Vista principal de la obra Memorias silentes",
-      "alt_en": "Main view of Silent Memory",
+      "image": "artworks/ciudad-reflejada.jpg",
+      "alt_es": "Reflejo de rascacielos en el agua al atardecer",
+      "alt_en": "Skyscraper reflection on water at dusk",
       "is_primary": true,
       "sort_order": 1,
-      "slug": "memoria-silente-obra-1",
+      "slug": "ciudad-reflejada-obra-1",
       "is_active": true,
       "created_at": "2026-01-06T00:00:00Z",
       "updated_at": "2026-01-06T00:00:00Z"
@@ -20,12 +20,12 @@
     "pk": 2,
     "fields": {
       "artwork": 2,
-      "image": "artworks/obra-2.jpg",
-      "alt_es": "Vista principal de la obra Fragmento urbano",
-      "alt_en": "Main view of Urban Fragment",
+      "image": "artworks/estallido-calido.jpg",
+      "alt_es": "Detalle de pintura abstracta naranja y turquesa",
+      "alt_en": "Orange and turquoise abstract painting detail",
       "is_primary": true,
       "sort_order": 1,
-      "slug": "fragmento-urbano-obra-2",
+      "slug": "estallido-calido-obra-2",
       "is_active": true,
       "created_at": "2026-01-06T00:00:00Z",
       "updated_at": "2026-01-06T00:00:00Z"
@@ -36,12 +36,12 @@
     "pk": 3,
     "fields": {
       "artwork": 3,
-      "image": "artworks/obra-3.jpg",
-      "alt_es": "Vista principal de la obra Jardín imaginado",
-      "alt_en": "Main view of Imagined Garden",
+      "image": "artworks/marea-interior.jpg",
+      "alt_es": "Tinta azul y blanca en movimiento abstracto",
+      "alt_en": "Blue and white ink in abstract motion",
       "is_primary": true,
       "sort_order": 1,
-      "slug": "jardin-imaginado-obra-3",
+      "slug": "marea-interior-obra-3",
       "is_active": true,
       "created_at": "2026-01-06T00:00:00Z",
       "updated_at": "2026-01-06T00:00:00Z"
@@ -52,12 +52,12 @@
     "pk": 4,
     "fields": {
       "artwork": 4,
-      "image": "artworks/obra-4.jpg",
-      "alt_es": "Vista principal de la obra Horizonte de concreto",
-      "alt_en": "Main view of Concrete Horizon",
+      "image": "artworks/valle-azul.jpg",
+      "alt_es": "Valle azul y dorado a espátula",
+      "alt_en": "Blue and gold palette-knife valley",
       "is_primary": true,
       "sort_order": 1,
-      "slug": "horizonte-beton-obra-4",
+      "slug": "valle-azul-obra-4",
       "is_active": true,
       "created_at": "2026-01-06T00:00:00Z",
       "updated_at": "2026-01-06T00:00:00Z"
@@ -68,12 +68,12 @@
     "pk": 5,
     "fields": {
       "artwork": 5,
-      "image": "artworks/obra-5.jpg",
-      "alt_es": "Vista principal de la obra Postales de ayer",
-      "alt_en": "Main view of Postcards from Yesterday",
+      "image": "artworks/montanas-en-silencio.jpg",
+      "alt_es": "Montañas en acuarela gris y tierra",
+      "alt_en": "Mountains in gray and earth watercolor",
       "is_primary": true,
       "sort_order": 1,
-      "slug": "postales-de-ayer-obra-5",
+      "slug": "montanas-en-silencio-obra-5",
       "is_active": true,
       "created_at": "2026-01-06T00:00:00Z",
       "updated_at": "2026-01-06T00:00:00Z"
@@ -84,12 +84,396 @@
     "pk": 6,
     "fields": {
       "artwork": 6,
-      "image": "artworks/obra-6.jpg",
-      "alt_es": "Vista principal de la obra Flujo neón",
-      "alt_en": "Main view of Neon Flow",
+      "image": "artworks/fusion-calida.jpg",
+      "alt_es": "Empaste abstracto amarillo, violeta y turquesa",
+      "alt_en": "Yellow, violet and turquoise abstract impasto",
       "is_primary": true,
       "sort_order": 1,
-      "slug": "flujo-neon-obra-6",
+      "slug": "fusion-calida-obra-6",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 7,
+    "fields": {
+      "artwork": 7,
+      "image": "artworks/espiral-de-concreto.jpg",
+      "alt_es": "Rampa de concreto en espiral en blanco y negro",
+      "alt_en": "Black-and-white concrete spiral ramp",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "espiral-de-concreto-obra-7",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 8,
+    "fields": {
+      "artwork": 8,
+      "image": "artworks/relieve-gris.jpg",
+      "alt_es": "Paneles geométricos de madera en gris",
+      "alt_en": "Gray geometric wood panels",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "relieve-gris-obra-8",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 9,
+    "fields": {
+      "artwork": 9,
+      "image": "artworks/gran-via-al-atardecer.jpg",
+      "alt_es": "Gran Vía al atardecer con estelas de luz",
+      "alt_en": "Gran Vía at dusk with light trails",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "gran-via-al-atardecer-obra-9",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 10,
+    "fields": {
+      "artwork": 10,
+      "image": "artworks/puente-al-atardecer.jpg",
+      "alt_es": "Puente entre edificios al atardecer",
+      "alt_en": "Bridge between buildings at dusk",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "puente-al-atardecer-obra-10",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 11,
+    "fields": {
+      "artwork": 11,
+      "image": "artworks/faroles-en-la-niebla.jpg",
+      "alt_es": "Farolas encendidas en calle con niebla",
+      "alt_en": "Lit lampposts on a foggy street",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "faroles-en-la-niebla-obra-11",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 12,
+    "fields": {
+      "artwork": 12,
+      "image": "artworks/flujo-nocturno.jpg",
+      "alt_es": "Estelas de luz neón en avenida nocturna",
+      "alt_en": "Neon light trails on night avenue",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "flujo-nocturno-obra-12",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 13,
+    "fields": {
+      "artwork": 13,
+      "image": "artworks/cien-miradas.jpg",
+      "alt_es": "Collage de ojos en blanco y negro",
+      "alt_en": "Black-and-white collage of eyes",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "cien-miradas-obra-13",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 14,
+    "fields": {
+      "artwork": 14,
+      "image": "artworks/mirada-pop.jpg",
+      "alt_es": "Retrato pop con binoculares rosas",
+      "alt_en": "Pop portrait with pink binoculars",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "mirada-pop-obra-14",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 15,
+    "fields": {
+      "artwork": 15,
+      "image": "artworks/idea-luminosa.jpg",
+      "alt_es": "Collage de cerebro, foco y mano",
+      "alt_en": "Collage of brain, light bulb and hand",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "idea-luminosa-obra-15",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 16,
+    "fields": {
+      "artwork": 16,
+      "image": "artworks/pliegue-y-memoria.jpg",
+      "alt_es": "Fotografías plegadas que forman un rostro",
+      "alt_en": "Folded photographs forming a face",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "pliegue-y-memoria-obra-16",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 17,
+    "fields": {
+      "artwork": 17,
+      "image": "artworks/silencio-pop.jpg",
+      "alt_es": "Labios rojos con gesto de silencio en azul",
+      "alt_en": "Red lips with shushing gesture on blue",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "silencio-pop-obra-17",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 18,
+    "fields": {
+      "artwork": 18,
+      "image": "artworks/rostro-pintado.jpg",
+      "alt_es": "Rostro cubierto de pintura de colores",
+      "alt_en": "Face covered in colorful paint",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "rostro-pintado-obra-18",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 19,
+    "fields": {
+      "artwork": 19,
+      "image": "artworks/figura-en-rojo.jpg",
+      "alt_es": "Figura estilizada en rojo y turquesa",
+      "alt_en": "Stylized figure in red and teal",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "figura-en-rojo-obra-19",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 20,
+    "fields": {
+      "artwork": 20,
+      "image": "artworks/sombrero-infinito.jpg",
+      "alt_es": "Mujer con sombrero negro de ala ancha",
+      "alt_en": "Woman with wide-brim black hat",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "sombrero-infinito-obra-20",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 21,
+    "fields": {
+      "artwork": 21,
+      "image": "artworks/infinito-recursivo.jpg",
+      "alt_es": "Hombre con lienzos recursivos en el muelle",
+      "alt_en": "Man with recursive canvases on the pier",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "infinito-recursivo-obra-21",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 22,
+    "fields": {
+      "artwork": 22,
+      "image": "artworks/suspension.jpg",
+      "alt_es": "Hombre flotando con paraguas en arco",
+      "alt_en": "Man floating with umbrella in archway",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "suspension-obra-22",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 23,
+    "fields": {
+      "artwork": 23,
+      "image": "artworks/mural-del-caminante.jpg",
+      "alt_es": "Pintora trabajando mural naranja",
+      "alt_en": "Painter working on orange mural",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "mural-del-caminante-obra-23",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 24,
+    "fields": {
+      "artwork": 24,
+      "image": "artworks/muro-amarillo.jpg",
+      "alt_es": "Patinador junto a muro amarillo",
+      "alt_en": "Skater beside yellow wall",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "muro-amarillo-obra-24",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 25,
+    "fields": {
+      "artwork": 25,
+      "image": "artworks/el-gesto-creador.jpg",
+      "alt_es": "Mano con pincel rojo sobre lienzo",
+      "alt_en": "Hand with red brush on canvas",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "el-gesto-creador-obra-25",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 26,
+    "fields": {
+      "artwork": 26,
+      "image": "artworks/proceso-en-azul-y-rojo.jpg",
+      "alt_es": "Pintora de espaldas ante gran formato",
+      "alt_en": "Painter from behind before large format",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "proceso-en-azul-y-rojo-obra-26",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 27,
+    "fields": {
+      "artwork": 27,
+      "image": "artworks/la-mirada-del-visitante.jpg",
+      "alt_es": "Hombre mirando cuadros en galería",
+      "alt_en": "Man looking at paintings in gallery",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "la-mirada-del-visitante-obra-27",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 28,
+    "fields": {
+      "artwork": 28,
+      "image": "artworks/ciudad-sinapsis.jpg",
+      "alt_es": "Ciudad digital en tiras con cerebro",
+      "alt_en": "Digital city in strips with brain",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "ciudad-sinapsis-obra-28",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 29,
+    "fields": {
+      "artwork": 29,
+      "image": "artworks/mascara-y-mano.jpg",
+      "alt_es": "Rostro y mano en escultura mate",
+      "alt_en": "Face and hand in matte sculpture",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "mascara-y-mano-obra-29",
+      "is_active": true,
+      "created_at": "2026-01-06T00:00:00Z",
+      "updated_at": "2026-01-06T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artworkimage",
+    "pk": 30,
+    "fields": {
+      "artwork": 30,
+      "image": "artworks/neon-vertical.jpg",
+      "alt_es": "Muro con aerosol neón rosa y cian",
+      "alt_en": "Wall with pink and cyan neon spray",
+      "is_primary": true,
+      "sort_order": 1,
+      "slug": "neon-vertical-obra-30",
       "is_active": true,
       "created_at": "2026-01-06T00:00:00Z",
       "updated_at": "2026-01-06T00:00:00Z"

@@ -1,14 +1,602 @@
 [
-  { "model": "artworks.artworktranslation", "pk": 1, "fields": { "artwork": 1, "language": "es", "title": "Memoria silente", "description": "Pintura abstracta que evoca recuerdos de infancia." } },
-  { "model": "artworks.artworktranslation", "pk": 2, "fields": { "artwork": 1, "language": "en", "title": "Silent Memory", "description": "Abstract painting evoking childhood memories." } },
-  { "model": "artworks.artworktranslation", "pk": 3, "fields": { "artwork": 2, "language": "es", "title": "Fragmento urbano", "description": "Escultura con restos metálicos del espacio público." } },
-  { "model": "artworks.artworktranslation", "pk": 4, "fields": { "artwork": 2, "language": "en", "title": "Urban Fragment", "description": "Sculpture made of metal scraps from public space." } },
-  { "model": "artworks.artworktranslation", "pk": 5, "fields": { "artwork": 3, "language": "es", "title": "Jardín imaginado", "description": "Ilustración onírica de un jardín fantástico." } },
-  { "model": "artworks.artworktranslation", "pk": 6, "fields": { "artwork": 3, "language": "en", "title": "Imagined Garden", "description": "Dreamlike illustration of a fantastic garden." } },
-  { "model": "artworks.artworktranslation", "pk": 7, "fields": { "artwork": 4, "language": "es", "title": "Horizonte de concreto", "description": "Fotografía de paisaje urbano al amanecer." } },
-  { "model": "artworks.artworktranslation", "pk": 8, "fields": { "artwork": 4, "language": "en", "title": "Concrete Horizon", "description": "Urban landscape photograph at dawn." } },
-  { "model": "artworks.artworktranslation", "pk": 9, "fields": { "artwork": 5, "language": "es", "title": "Postales de ayer", "description": "Collage con recortes de cultura popular y nostalgia." } },
-  { "model": "artworks.artworktranslation", "pk": 10, "fields": { "artwork": 5, "language": "en", "title": "Postcards from Yesterday", "description": "Collage with pop culture clippings and nostalgia." } },
-  { "model": "artworks.artworktranslation", "pk": 11, "fields": { "artwork": 6, "language": "es", "title": "Flujo neón", "description": "Pintura mural en técnica mixta sobre soporte urbano." } },
-  { "model": "artworks.artworktranslation", "pk": 12, "fields": { "artwork": 6, "language": "en", "title": "Neon Flow", "description": "Mixed-media mural painting on an urban support." } }
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 1,
+    "fields": {
+      "artwork": 1,
+      "language": "es",
+      "title": "Ciudad reflejada",
+      "description": "Horizonte urbano en óleo donde los edificios se derriten en su reflejo sobre el agua. La ciudad se mira a sí misma y se reconoce distinta."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 2,
+    "fields": {
+      "artwork": 1,
+      "language": "en",
+      "title": "Reflected City",
+      "description": "Urban skyline in oils where buildings melt into their reflection on the water. The city looks at itself and finds itself changed."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 3,
+    "fields": {
+      "artwork": 2,
+      "language": "es",
+      "title": "Estallido cálido",
+      "description": "Abstracción acrílica de naranjas y turquesas que collide como un atardecer acelerado. Energía pura contenida en el bastidor."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 4,
+    "fields": {
+      "artwork": 2,
+      "language": "en",
+      "title": "Warm Burst",
+      "description": "Acrylic abstraction of oranges and teals colliding like a sped-up sunset. Pure energy held inside the stretcher."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 5,
+    "fields": {
+      "artwork": 3,
+      "language": "es",
+      "title": "Marea interior",
+      "description": "Tinta en movimiento: corrientes azules y blancas que suben y bajan como respiración. Una marea que nunca termina de llegar."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 6,
+    "fields": {
+      "artwork": 3,
+      "language": "en",
+      "title": "Inner Tide",
+      "description": "Ink in motion: blue and white currents rising and falling like breath. A tide that never quite arrives."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 7,
+    "fields": {
+      "artwork": 4,
+      "language": "es",
+      "title": "Valle azul",
+      "description": "Valle pintado a espátula en azules profundos y ocres cosechados. El paisaje como un lugar que se recuerda mejor de lo que fue."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 8,
+    "fields": {
+      "artwork": 4,
+      "language": "en",
+      "title": "Blue Valley",
+      "description": "Valley painted with palette knife in deep blues and harvested ochres. Landscape as a place remembered better than it was."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 9,
+    "fields": {
+      "artwork": 5,
+      "language": "es",
+      "title": "Montañas en silencio",
+      "description": "Montañas en acuarela apagada, grises y tierras que se disuelven en niebla. El silencio también tiene relieve."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 10,
+    "fields": {
+      "artwork": 5,
+      "language": "en",
+      "title": "Silent Mountains",
+      "description": "Mountains in muted watercolor, grays and earths dissolving into fog. Silence has texture too."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 11,
+    "fields": {
+      "artwork": 6,
+      "language": "es",
+      "title": "Fusión cálida",
+      "description": "Empaste grueso donde el amarillo devora al violeta y el turquesa responde. Pintura que se puede casi oír."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 12,
+    "fields": {
+      "artwork": 6,
+      "language": "en",
+      "title": "Warm Fusion",
+      "description": "Thick impasto where yellow devours violet and turquoise answers back. Painting you can almost hear."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 13,
+    "fields": {
+      "artwork": 7,
+      "language": "es",
+      "title": "Espiral de concreto",
+      "description": "Rampa de concreto fotografiada en blanco y negro hasta volverse geometría pura. La arquitectura sueña con ser dibujo."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 14,
+    "fields": {
+      "artwork": 7,
+      "language": "en",
+      "title": "Concrete Spiral",
+      "description": "Concrete ramp photographed in black and white until it becomes pure geometry. Architecture dreaming of being drawing."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 15,
+    "fields": {
+      "artwork": 8,
+      "language": "es",
+      "title": "Relieve gris",
+      "description": "Primer plano de paneles de madera que la luz convierte en relieve lunar. Lo mínimo, mirado de cerca, es inmenso."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 16,
+    "fields": {
+      "artwork": 8,
+      "language": "en",
+      "title": "Gray Relief",
+      "description": "Close-up of wood panels that light turns into lunar relief. The minimal, seen up close, is immense."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 17,
+    "fields": {
+      "artwork": 9,
+      "language": "es",
+      "title": "Gran Vía al atardecer",
+      "description": "La Gran Vía al atardecer con estelas de luz cruzando el encuadre. Madrid contiene su prisa en un solo disparo."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 18,
+    "fields": {
+      "artwork": 9,
+      "language": "en",
+      "title": "Gran Vía at Dusk",
+      "description": "Gran Vía at dusk with light trails crossing the frame. Madrid holds its hurry inside a single shot."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 19,
+    "fields": {
+      "artwork": 10,
+      "language": "es",
+      "title": "Puente al atardecer",
+      "description": "El puente al atardecer entre edificios de ladrillo, el sol colado por la estructura. Nostalgia con hora exacta."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 20,
+    "fields": {
+      "artwork": 10,
+      "language": "en",
+      "title": "Bridge at Dusk",
+      "description": "The bridge at dusk between brick buildings, sun slipping through the structure. Nostalgia with an exact time."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 21,
+    "fields": {
+      "artwork": 11,
+      "language": "es",
+      "title": "Faroles en la niebla",
+      "description": "Farolas encendidas en la niebla con una figura solitaria al fondo. La noche urbana como un teatro vacío."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 22,
+    "fields": {
+      "artwork": 11,
+      "language": "en",
+      "title": "Lamps in the Fog",
+      "description": "Lit lampposts in the fog with a lone figure behind. The urban night as an empty theater."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 23,
+    "fields": {
+      "artwork": 12,
+      "language": "es",
+      "title": "Flujo nocturno",
+      "description": "Larga exposición nocturna: ríos de luz neón sobre la avenida. La ciudad no duerme, fluye."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 24,
+    "fields": {
+      "artwork": 12,
+      "language": "en",
+      "title": "Nocturnal Flow",
+      "description": "Night long exposure: rivers of neon light over the avenue. The city does not sleep, it flows."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 25,
+    "fields": {
+      "artwork": 13,
+      "language": "es",
+      "title": "Cien miradas",
+      "description": "Collage de un centenar de ojos recortados que devuelven la mirada. Ser visto por todos es otra forma de invisibilidad."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 26,
+    "fields": {
+      "artwork": 13,
+      "language": "en",
+      "title": "A Hundred Gazes",
+      "description": "Collage of a hundred cut-out eyes returning the gaze. Being seen by everyone is another kind of invisibility."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 27,
+    "fields": {
+      "artwork": 14,
+      "language": "es",
+      "title": "Mirada pop",
+      "description": "Retrato pop con binoculares rosas sobre fondo crema. Mirar también es un gesto de color."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 28,
+    "fields": {
+      "artwork": 14,
+      "language": "en",
+      "title": "Pop Gaze",
+      "description": "Pop portrait with pink binoculars on cream background. Looking is a color gesture too."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 29,
+    "fields": {
+      "artwork": 15,
+      "language": "es",
+      "title": "Idea luminosa",
+      "description": "Collage de cerebro, foco y mano sobre papel: la idea como artefacto. Pensar deja recortes."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 30,
+    "fields": {
+      "artwork": 15,
+      "language": "en",
+      "title": "Bright Idea",
+      "description": "Collage of brain, bulb and hand on paper: the idea as artifact. Thinking leaves cut-outs."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 31,
+    "fields": {
+      "artwork": 16,
+      "language": "es",
+      "title": "Pliegue y memoria",
+      "description": "Fotografías plegadas en blanco y negro que arman un rostro imposible. La memoria se dobla pero no se rompe."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 32,
+    "fields": {
+      "artwork": 16,
+      "language": "en",
+      "title": "Fold and Memory",
+      "description": "Folded black-and-white photographs assembling an impossible face. Memory bends but does not break."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 33,
+    "fields": {
+      "artwork": 17,
+      "language": "es",
+      "title": "Silencio pop",
+      "description": "Labios rojos y dedo en silencio sobre azul eléctrico. El pop también sabe guardar secretos."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 34,
+    "fields": {
+      "artwork": 17,
+      "language": "en",
+      "title": "Pop Silence",
+      "description": "Red lips and hushing finger on electric blue. Pop knows how to keep secrets too."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 35,
+    "fields": {
+      "artwork": 18,
+      "language": "es",
+      "title": "Rostro pintado",
+      "description": "Rostro cubierto de pintura como máscara de color. La identidad, aplicada a brochazos."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 36,
+    "fields": {
+      "artwork": 18,
+      "language": "en",
+      "title": "Painted Face",
+      "description": "Face covered in paint like a color mask. Identity, applied by brushstrokes."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 37,
+    "fields": {
+      "artwork": 19,
+      "language": "es",
+      "title": "Figura en rojo",
+      "description": "Figura estilizada en rojo y turquesa sobre fondo pálido. El cuerpo como señal de tránsito del deseo."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 38,
+    "fields": {
+      "artwork": 19,
+      "language": "en",
+      "title": "Figure in Red",
+      "description": "Stylized figure in red and teal on pale ground. The body as a traffic sign of desire."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 39,
+    "fields": {
+      "artwork": 20,
+      "language": "es",
+      "title": "Sombrero infinito",
+      "description": "Retrato de moda en blanco y negro con sombrero infinito. Elegancia que oculta el rostro y muestra todo lo demás."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 40,
+    "fields": {
+      "artwork": 20,
+      "language": "en",
+      "title": "Endless Hat",
+      "description": "Black-and-white fashion portrait with an endless hat. Elegance hiding the face and showing everything else."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 41,
+    "fields": {
+      "artwork": 21,
+      "language": "es",
+      "title": "Infinito recursivo",
+      "description": "Hombre con lienzo recursivo en el muelle: cuadros dentro de cuadros hasta el horizonte. El arte mirándose mirar."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 42,
+    "fields": {
+      "artwork": 21,
+      "language": "en",
+      "title": "Recursive Infinity",
+      "description": "Man with recursive canvas on the pier: frames inside frames to the horizon. Art watching itself look."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 43,
+    "fields": {
+      "artwork": 22,
+      "language": "es",
+      "title": "Suspensión",
+      "description": "Hombre levitando con paraguas bajo un arco de piedra. La gravedad es una sugerencia."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 44,
+    "fields": {
+      "artwork": 22,
+      "language": "en",
+      "title": "Suspension",
+      "description": "Man levitating with umbrella under a stone arch. Gravity is a suggestion."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 45,
+    "fields": {
+      "artwork": 23,
+      "language": "es",
+      "title": "Mural del caminante",
+      "description": "Registro del mural en proceso: la pintora y su caminante azul a medio nacer. La calle como taller."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 46,
+    "fields": {
+      "artwork": 23,
+      "language": "en",
+      "title": "Walker's Mural",
+      "description": "Record of the mural in progress: the painter and her half-born blue walker. The street as studio."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 47,
+    "fields": {
+      "artwork": 24,
+      "language": "es",
+      "title": "Muro amarillo",
+      "description": "Patinador frente al muro amarillo, sombra duplicada al sol. La ciudad también juega."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 48,
+    "fields": {
+      "artwork": 24,
+      "language": "en",
+      "title": "Yellow Wall",
+      "description": "Skater before the yellow wall, doubled shadow in the sun. The city plays too."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 49,
+    "fields": {
+      "artwork": 25,
+      "language": "es",
+      "title": "El gesto creador",
+      "description": "Mano con pincel cargado de rojo sobre el lienzo. El instante exacto en que la obra decide existir."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 50,
+    "fields": {
+      "artwork": 25,
+      "language": "en",
+      "title": "The Creative Gesture",
+      "description": "Hand with brush loaded in red over the canvas. The exact instant the work decides to exist."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 51,
+    "fields": {
+      "artwork": 26,
+      "language": "es",
+      "title": "Proceso en azul y rojo",
+      "description": "Pintora de espaldas ante su gran formato azul y rojo. Crear es darle la espalda al mundo un rato."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 52,
+    "fields": {
+      "artwork": 26,
+      "language": "en",
+      "title": "Process in Blue and Red",
+      "description": "Painter from behind before her large blue-and-red format. Creating is turning your back on the world a while."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 53,
+    "fields": {
+      "artwork": 27,
+      "language": "es",
+      "title": "La mirada del visitante",
+      "description": "Visitante contemplando muros de obra azul y dorada. Mirar arte es el último acto de la obra."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 54,
+    "fields": {
+      "artwork": 27,
+      "language": "en",
+      "title": "The Visitor's Gaze",
+      "description": "Visitor contemplating walls of blue-and-gold work. Looking at art is the work's final act."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 55,
+    "fields": {
+      "artwork": 28,
+      "language": "es",
+      "title": "Ciudad sinapsis",
+      "description": "Ciudad rebanada en tiras verticales con cerebro y perfil fundidos. El futuro tiene capas."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 56,
+    "fields": {
+      "artwork": 28,
+      "language": "en",
+      "title": "Synapse City",
+      "description": "City sliced in vertical strips with brain and profile fused. The future has layers."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 57,
+    "fields": {
+      "artwork": 29,
+      "language": "es",
+      "title": "Máscara y mano",
+      "description": "Rostro y mano en render mate que flota sobre el vacío. Escultura sin peso ni pedestal."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 58,
+    "fields": {
+      "artwork": 29,
+      "language": "en",
+      "title": "Mask and Hand",
+      "description": "Matte-render face and hand floating over the void. Sculpture with no weight and no pedestal."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 59,
+    "fields": {
+      "artwork": 30,
+      "language": "es",
+      "title": "Neón vertical",
+      "description": "Aerosol neón rosa y cian en muro vertical. La noche escribe con luz."
+    }
+  },
+  {
+    "model": "artworks.artworktranslation",
+    "pk": 60,
+    "fields": {
+      "artwork": 30,
+      "language": "en",
+      "title": "Vertical Neon",
+      "description": "Neon pink-and-cyan spray on a vertical wall. Night writes with light."
+    }
+  }
 ]

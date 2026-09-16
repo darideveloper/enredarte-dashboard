@@ -1,12 +1,92 @@
 [
-  { "model": "artworks.artisttranslation", "pk": 1, "fields": { "artist": 1, "language": "es", "bio": "Pintora mexicana interesada en la identidad y la memoria." } },
-  { "model": "artworks.artisttranslation", "pk": 2, "fields": { "artist": 1, "language": "en", "bio": "Mexican painter interested in identity and memory." } },
-  { "model": "artworks.artisttranslation", "pk": 3, "fields": { "artist": 2, "language": "es", "bio": "Escultor y artista urbano que explora el espacio público." } },
-  { "model": "artworks.artisttranslation", "pk": 4, "fields": { "artist": 2, "language": "en", "bio": "Sculptor and street artist exploring public space." } },
-  { "model": "artworks.artisttranslation", "pk": 5, "fields": { "artist": 3, "language": "es", "bio": "Ilustradora contemporánea que mezcla fantasía y feminismo." } },
-  { "model": "artworks.artisttranslation", "pk": 6, "fields": { "artist": 3, "language": "en", "bio": "Contemporary illustrator blending fantasy and feminism." } },
-  { "model": "artworks.artisttranslation", "pk": 7, "fields": { "artist": 4, "language": "es", "bio": "Fotógrafo de paisajes y vida urbana." } },
-  { "model": "artworks.artisttranslation", "pk": 8, "fields": { "artist": 4, "language": "en", "bio": "Photographer of landscapes and urban life." } },
-  { "model": "artworks.artisttranslation", "pk": 9, "fields": { "artist": 5, "language": "es", "bio": "Artista multidisciplinaria enfocada en nostalgia y cultura popular." } },
-  { "model": "artworks.artisttranslation", "pk": 10, "fields": { "artist": 5, "language": "en", "bio": "Multidisciplinary artist focused on nostalgia and pop culture." } }
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 1,
+    "fields": {
+      "artist": 1,
+      "language": "es",
+      "bio": "Pintora que trabaja el paisaje y la abstracción con óleo, acrílico y acuarela. Sus formatos grandes exploran la memoria de los lugares a través del color."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 2,
+    "fields": {
+      "artist": 1,
+      "language": "en",
+      "bio": "Painter working landscape and abstraction in oil, acrylic, and watercolor. Her large formats explore the memory of places through color."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 3,
+    "fields": {
+      "artist": 2,
+      "language": "es",
+      "bio": "Fotógrafo de arquitectura y noche urbana. Su obra en blanco y negro y larga exposición convierte la ciudad en geometría y flujo."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 4,
+    "fields": {
+      "artist": 2,
+      "language": "en",
+      "bio": "Photographer of architecture and the urban night. His black-and-white and long-exposure work turns the city into geometry and flow."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 5,
+    "fields": {
+      "artist": 3,
+      "language": "es",
+      "bio": "Collagista pop que recorta retrato, archivo y color. Sus ediciones limitadas mezclan cultura popular, identidad y memoria con humor afilado."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 6,
+    "fields": {
+      "artist": 3,
+      "language": "en",
+      "bio": "Pop collagist cutting up portrait, archive, and color. Her limited editions mix popular culture, identity, and memory with sharp humor."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 7,
+    "fields": {
+      "artist": 4,
+      "language": "es",
+      "bio": "Artista de la imagen construida: fotografía escenificada, surrealismo y arte urbano. Sus piezas interrogan la mirada y el espacio público."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 8,
+    "fields": {
+      "artist": 4,
+      "language": "en",
+      "bio": "Artist of the constructed image: staged photography, surrealism, and street art. His pieces interrogate the gaze and public space."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 9,
+    "fields": {
+      "artist": 5,
+      "language": "es",
+      "bio": "Artista multidisciplinaria entre proceso, imagen digital y objeto. Documenta el acto de crear y lo convierte en obra: del taller a la pantalla al volumen."
+    }
+  },
+  {
+    "model": "artworks.artisttranslation",
+    "pk": 10,
+    "fields": {
+      "artist": 5,
+      "language": "en",
+      "bio": "Multidisciplinary artist between process, digital image, and object. She documents the act of creating and turns it into work: from studio to screen to volume."
+    }
+  }
 ]
