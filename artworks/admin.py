@@ -385,15 +385,11 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     list_display = [
         "display_name",
         "display_email",
-        "birth_year",
-        "death_year",
+        "display_active",
+        "subscription_status_badge",
         "display_artworks_count",
         "display_available_count",
-        "display_techniques_count",
-        "display_highlighted_count",
         "display_galleries_count",
-        "subscription_status_badge",
-        "display_active",
     ]
 
     def get_queryset(self, request):
@@ -982,13 +978,12 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
     list_display = [
         "display_image",
         "display_title",
+        "status",
+        "display_active",
         "artist",
         "display_taxonomies",
         "display_price",
-        "status",
         "is_highlighted",
-        "views_count",
-        "display_active",
     ]
 
     def get_queryset(self, request):
@@ -1036,7 +1031,10 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
                         names.append(t.name)
                 if names:
                     labels.append(", ".join(names))
-        return ", ".join(labels) or "-"
+        text = ", ".join(labels) or "-"
+        if text == "-" or len(text) <= 60:
+            return text
+        return format_html('<span title="{}">{}…</span>', text, text[:59])
 
     @admin.display(description="Precio")
     def display_price(self, obj):

@@ -10,7 +10,7 @@ The system SHALL register the `Artist` model in `artworks/admin.py` using `Model
 
 #### Scenario: Viewing artist list in admin
 - **WHEN** an administrator opens the Django Admin panel
-- **THEN** the sidebar SHALL display "Artistas" with a palette icon and list artists with columns for Name, Email, Birth Year, Death Year, Active state, and a "Suscripción" badge column showing the `ArtistSubscription.status` in Spanish (or "Sin suscripción" when the artist has no subscription row).
+- **THEN** the sidebar SHALL display "Artistas" with a palette icon and list artists with columns in this order: Name, Email, Active state, "Suscripción" badge (showing the `ArtistSubscription.status` in Spanish, or "Sin suscripción" when the artist has no subscription row), Obras count, Disponibles count, Galerías count.
 
 #### Scenario: Email is a required field for an active artist to obtain a payment link
 - **WHEN** an administrator creates a new `Artist` (or edits an existing one) through the Django Unfold admin form
@@ -49,11 +49,11 @@ The system SHALL include the `ArtistSocialLinkInline` (`TabularInline`) in the `
 - **THEN** they can add and remove the artist's social links in place.
 
 ### Requirement: Changelist summary columns on Artist admin
-The system SHALL add readonly count columns to the `ArtistAdmin` changelist for the derived blocks (artworks, available works, techniques, highlighted works, galleries), computed from the `Artist` derived properties (see `artist-derived-fields`).
+The system SHALL render exactly three readonly count columns on the `ArtistAdmin` changelist — artworks (`display_artworks_count`), available works (`display_available_count`), and galleries (`display_galleries_count`) — computed from the `Artist` derived properties (see `artist-derived-fields`). Techniques and highlighted-work counts SHALL remain available in the readonly "Resumen" fieldset on the change form, not as changelist columns. `birth_year` and `death_year` SHALL NOT appear as changelist columns (detail form only).
 
 #### Scenario: Viewing artist counts
 - **WHEN** an administrator opens the Artist changelist
-- **THEN** each row shows the computed counts for the derived blocks.
+- **THEN** each row shows the computed counts for artworks, available works, and galleries, positioned after the "Suscripción" badge column.
 
 ### Requirement: Readonly Resumen fieldset on Artist admin
 The system SHALL render the derived profile blocks on the `ArtistAdmin` change form as a readonly "Resumen" fieldset in full detail, computed from the `Artist` derived properties (see `artist-derived-fields`).

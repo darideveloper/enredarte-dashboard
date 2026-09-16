@@ -106,6 +106,21 @@ class ArtistAdminTestCase(TestCase):
         self.assertEqual(artist_admin.inlines[1], ArtistSocialLinkInline)
         self.assertEqual(artist_admin.inlines[2], ArtistSubscriptionInline)
 
+    def test_artist_admin_list_display_order(self):
+        artist_admin = admin.site._registry[Artist]
+        self.assertEqual(
+            list(artist_admin.list_display),
+            [
+                "display_name",
+                "display_email",
+                "display_active",
+                "subscription_status_badge",
+                "display_artworks_count",
+                "display_available_count",
+                "display_galleries_count",
+            ],
+        )
+
     def test_artist_admin_changelist_view(self):
         artist = Artist.objects.create(
             name="Frida Kahlo", slug="frida-kahlo", email="frida@example.com"
@@ -1190,8 +1205,47 @@ class ArtworkDiscoveryAdminTestCase(TestCase):
 
     def test_artwork_changelist_columns_and_filter(self):
         self.assertIn("is_highlighted", self.artwork_admin.list_display)
-        self.assertIn("views_count", self.artwork_admin.list_display)
+        self.assertNotIn("views_count", self.artwork_admin.list_display)
+        self.assertIn("views_count", self.artwork_admin.fieldsets[2][1]["fields"][2])
         self.assertIn("is_highlighted", self.artwork_admin.list_filter)
+
+    def test_artwork_admin_list_display_order(self):
+        self.assertEqual(
+            list(self.artwork_admin.list_display),
+            [
+                "display_image",
+                "display_title",
+                "status",
+                "display_active",
+                "artist",
+                "display_taxonomies",
+                "display_price",
+                "is_highlighted",
+            ],
+        )
+
+    def test_artwork_display_taxonomies_short_text_untouched(self):
+        artwork = Artwork.objects.get(slug="art-1")
+        technique = Technique.objects.create(slug="oleo-corto")
+        TechniqueTranslation.objects.create(
+            technique=technique, language="es", name="Óleo"
+        )
+        artwork.techniques.add(technique)
+        self.assertEqual(self.artwork_admin.display_taxonomies(artwork), "Óleo")
+
+    def test_artwork_display_taxonomies_truncated_with_full_title(self):
+        artwork = Artwork.objects.get(slug="art-1")
+        long_name = "Técnica con un nombre extremadamente largo para truncar"
+        for i, name in enumerate([long_name, "Otra técnica también muy larga"]):
+            technique = Technique.objects.create(slug=f"tec-larga-{i}")
+            TechniqueTranslation.objects.create(
+                technique=technique, language="es", name=name
+            )
+            artwork.techniques.add(technique)
+        rendered = self.artwork_admin.display_taxonomies(artwork)
+        self.assertIn("…", rendered)
+        self.assertIn('title="', rendered)
+        self.assertIn(long_name, rendered)
 
     def test_artwork_admin_filters(self):
         self.assertIn(("artist", RelatedOnlyFieldListFilter), self.artwork_admin.list_filter)
