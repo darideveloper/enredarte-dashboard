@@ -12,3 +12,13 @@ jobs:
         run: |
           chmod +x .opencode/commands/guard.sh
           ./.opencode/commands/guard.sh
+
+  worktree-scripts-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax check
+        run: bash -n worktree-new.sh && bash -n worktree-done.sh
+      - name: Scripts must be committed executable
+        run: |
+          ! git ls-files -s worktree-new.sh worktree-done.sh | grep -q 100644
