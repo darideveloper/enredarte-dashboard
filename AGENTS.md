@@ -22,6 +22,27 @@ For translated models whose display name lives in `*Translation` rows, use the
 
 Full reference: `docs/django-model-definitions.md`.
 
+## Git Worktrees
+
+One checkout per branch, all runnable at once (`main` → `https://enredarte-dashboard.localhost`,
+sibling `../enredarte-dashboard-<branch>` → `https://enredarte-dashboard-<branch>.localhost`).
+Full runbook: `docs/django-worktrees.md`.
+
+- Manual siblings only, same session. Never `worktree_create` / `worktree_delete`
+  plugin tools; never nest a worktree inside the main checkout.
+- Lifecycle: `git status` clean first, then `./worktree-new.sh ../enredarte-dashboard-<branch> [branch] [base]`,
+  `cd` in, `./dev.sh`. Stop the dev server before `git worktree remove`; `prune` after.
+- Finish: `./worktree-done.sh ../enredarte-dashboard-<branch> [into]` merges keeping both sides
+  (`--no-ff`), stops + asks on any conflict (never auto-resolve), then full cleanup
+  (stop server, remove, prune, `branch -d`). Sibling must be fully committed clean,
+  main tracked-clean first.
+- Bootstrap per sibling is fresh `venv` + `pip install` (never symlink), `.env` copy
+  (harmless — settings resolve `PORTLESS_URL → HOST`), `migrate`, openspec skills sync.
+- Gotchas: shared Postgres `enredarte` DB (migrate from one sibling at a time;
+  `DB_ENGINE=django.db.backends.sqlite3` escape hatch); openspec active proposals stay
+  isolated (only `archive/` shared back); Cloudflare tunnel runs from main only;
+  agents never autostart servers (verify with `portless list`).
+
 ## Testing — Django only
 
 Canonical runner: `venv/bin/python manage.py test [--verbosity=2]` (or `python manage.py test` when venv is active). Use Django test labels for targeted runs, e.g. `venv/bin/python manage.py test subscriptions.tests.AdminEndpointTest.test_sync_from_stripe_reconciles_state --verbosity=2` — do not use pytest nodeids (`-k`).

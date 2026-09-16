@@ -1,6 +1,8 @@
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
+
 from dotenv import load_dotenv
 from django.templatetags.static import static
 from django.urls import reverse_lazy
@@ -15,8 +17,11 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
-HOST = os.getenv("HOST", "")
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
+
+# Worktree dev loop: portless injects PORTLESS_URL per checkout, so a copied
+# .env.dev resolves each sibling's own domain without edits.
+HOST = (os.getenv("PORTLESS_URL", "") or os.getenv("HOST", "")).rstrip("/")
 
 # Stripe (artist subscriptions)
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
@@ -170,6 +175,19 @@ if csrf_trusted and csrf_trusted != "None":
     CSRF_TRUSTED_ORIGINS = [
         origin.strip().rstrip("/") for origin in csrf_trusted.split(",") if origin.strip()
     ]
+
+# Worktree dev loop: a copied .env.dev must work in any sibling, so in dev
+# accept this checkout's own portless domain (already resolved into HOST).
+if DEBUG and HOST:
+    _dev_host = urlparse(HOST).hostname or ""
+    if _dev_host and _dev_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_dev_host)
+    if _dev_host.endswith(".localhost") and ".localhost" not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(".localhost")
+    if "CORS_ALLOWED_ORIGINS" in globals() and HOST not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(HOST)
+    if "CSRF_TRUSTED_ORIGINS" in globals() and HOST not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(HOST)
 
 DATE_FORMAT = "d/b/Y"
 TIME_FORMAT = "H:i"
