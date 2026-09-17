@@ -262,6 +262,112 @@ class ArtworkStatus(models.TextChoices):
     NOT_AVAILABLE = "not_available", "No disponible"
 
 
+class ArtworkOrderStatus(models.TextChoices):
+    PENDING_PAYMENT = "pending_payment", "Pendiente de pago"
+    PAID_PENDING_DATA = "paid_pending_data", "Pagado (pendiente de datos)"
+    DATA_COMPLETE = "data_complete", "Datos completos"
+    SHIPPED = "shipped", "Enviada"
+    DELIVERED = "delivered", "Entregada"
+    CANCELLED = "cancelled", "Cancelada"
+    REFUNDED = "refunded", "Reembolsada"
+
+
+class ArtworkOrderCurrency(models.TextChoices):
+    MXN = "mxn", "MXN"
+    USD = "usd", "USD"
+
+
+class ArtworkOrder(BaseModel):
+    artwork = models.ForeignKey(
+        "Artwork", on_delete=models.PROTECT, related_name="orders",
+        verbose_name="Obra de arte",
+        help_text="Obra única vendida en esta orden (protegida contra borrado).",
+    )
+    status = models.CharField(
+        max_length=20, choices=ArtworkOrderStatus.choices,
+        default=ArtworkOrderStatus.PENDING_PAYMENT, verbose_name="Estado",
+    )
+    currency = models.CharField(
+        max_length=3, choices=ArtworkOrderCurrency.choices,
+        verbose_name="Moneda",
+        help_text="Moneda elegida por el comprador al iniciar la compra.",
+    )
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Monto",
+        help_text="Monto cobrado (foto del precio al momento de la compra).",
+    )
+    stripe_checkout_session_id = models.CharField(
+        max_length=200, blank=True, verbose_name="ID de sesión Stripe",
+        help_text="Identificador de la Checkout Session en Stripe.",
+    )
+    checkout_url = models.URLField(
+        max_length=500, blank=True, verbose_name="URL de pago",
+        help_text="URL de Checkout enviada al comprador.",
+    )
+    session_expires_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="Vence la sesión",
+        help_text="Expiración de la sesión de pago (reserva válida hasta entonces).",
+    )
+    stripe_payment_intent_id = models.CharField(
+        max_length=200, blank=True, verbose_name="ID de pago Stripe",
+        help_text="PaymentIntent confirmado por el webhook.",
+    )
+    buyer_email = models.EmailField(
+        verbose_name="Correo del comprador",
+        help_text="Dueño de la reserva; Checkout lo bloquea como customer_email.",
+    )
+    buyer_name = models.CharField(
+        max_length=200, blank=True, verbose_name="Nombre del comprador",
+        help_text="Nombre capturado por Stripe al pagar.",
+    )
+    paid_at = models.DateTimeField(null=True, blank=True, verbose_name="Pagado el")
+    cancelled_at = models.DateTimeField(null=True, blank=True, verbose_name="Cancelado el")
+    receiver_name = models.CharField(max_length=200, blank=True, verbose_name="Nombre del destinatario")
+    receiver_phone = models.CharField(max_length=50, blank=True, verbose_name="Teléfono del destinatario")
+    country = models.CharField(max_length=100, blank=True, default="México", verbose_name="País")
+    state = models.CharField(max_length=100, blank=True, verbose_name="Estado")
+    city = models.CharField(max_length=100, blank=True, verbose_name="Ciudad")
+    postal_code = models.CharField(max_length=20, blank=True, verbose_name="Código postal")
+    neighborhood = models.CharField(max_length=150, blank=True, verbose_name="Colonia")
+    street = models.CharField(max_length=200, blank=True, verbose_name="Calle")
+    exterior_number = models.CharField(max_length=30, blank=True, verbose_name="Número exterior")
+    interior_number = models.CharField(
+        max_length=30, blank=True, verbose_name="Número interior",
+        help_text="Opcional: departamento, lote o interior.",
+    )
+    between_street_1 = models.CharField(
+        max_length=200, blank=True, verbose_name="Entre calle 1",
+        help_text="Opcional: referencia de ubicación mexicana.",
+    )
+    between_street_2 = models.CharField(
+        max_length=200, blank=True, verbose_name="Entre calle 2",
+        help_text="Opcional: segunda referencia de ubicación.",
+    )
+    reference = models.TextField(
+        blank=True, verbose_name="Referencias",
+        help_text="Opcional: cómo llegar o señas del domicilio.",
+    )
+    delivery_notes = models.TextField(
+        blank=True, verbose_name="Notas de entrega",
+        help_text="Opcional: instrucciones adicionales para el envío.",
+    )
+
+    class Meta:
+        verbose_name = "Pedido de obra"
+        verbose_name_plural = "Pedidos de obras"
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(uuid4().hex[:12], ArtworkOrder.objects.all())
+        if self.buyer_email:
+            self.buyer_email = self.buyer_email.strip().lower()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.artwork} — {self.get_status_display()}"
+
+
 class Artwork(BaseModel):
     artist = models.ForeignKey(Artist, on_delete=models.PROTECT, related_name="artworks", verbose_name="Artista")
     year = models.IntegerField(verbose_name="Año")

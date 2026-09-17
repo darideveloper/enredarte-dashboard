@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework import routers
 
 from artworks.views import (
@@ -8,6 +9,8 @@ from artworks.views import (
     FormatViewSet,
     GalleryViewSet,
     LocationViewSet,
+    OrderDeliveryView,
+    OrderSummaryView,
     ScaleViewSet,
     TechniqueViewSet,
     ThemeViewSet,
@@ -25,4 +28,7 @@ router.register("formats", FormatViewSet, basename="format")
 router.register("scales", ScaleViewSet, basename="scale")
 router.register("artworks", ArtworkViewSet, basename="artwork")
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path("orders/<slug:slug>/", OrderSummaryView.as_view(), name="order-summary"),
+    path("orders/<slug:slug>/delivery/", OrderDeliveryView.as_view(), name="order-delivery"),
+]

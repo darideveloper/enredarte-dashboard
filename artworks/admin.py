@@ -28,6 +28,8 @@ from artworks.models import (
     Artwork,
     ArtworkGallery,
     ArtworkImage,
+    ArtworkOrder,
+    ArtworkOrderStatus,
     ArtworkStatus,
     ArtworkTranslation,
     Discipline,
@@ -1045,3 +1047,90 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Activo", ordering="is_active", boolean=True)
     def display_active(self, obj):
         return obj.is_active
+
+
+class ArtworkOrderInline(TabularInline):
+    model = ArtworkOrder
+    extra = 0
+    max_num = 0
+    can_delete = False
+    show_change_link = True
+    readonly_fields = ("slug", "status", "currency", "amount", "buyer_email", "paid_at", "created_at")
+    fields = ("slug", "status", "currency", "amount", "buyer_email", "paid_at", "created_at")
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(ArtworkOrder)
+class ArtworkOrderAdmin(ModelAdminUnfoldBase):
+    sidebar_icon = "shopping_bag"
+    list_display = ("slug", "artwork", "status", "currency", "amount", "buyer_email", "paid_at", "created_at")
+    list_filter = ("status", "currency", "created_at", "paid_at")
+    date_hierarchy = "created_at"
+    search_fields = ("slug", "buyer_email", "artwork__translations__title", "stripe_checkout_session_id")
+    readonly_fields = (
+        "slug", "artwork", "status", "currency", "amount",
+        "stripe_checkout_session_id", "checkout_url", "session_expires_at",
+        "stripe_payment_intent_id", "buyer_email", "buyer_name",
+        "paid_at", "cancelled_at", "created_at", "updated_at",
+    )
+    fieldsets = (
+        ("Pedido", {"fields": ("artwork", "status", "currency", "amount")}),
+        ("Stripe y comprador", {"fields": (
+            "stripe_checkout_session_id", "checkout_url", "session_expires_at",
+            "stripe_payment_intent_id", "buyer_email", "buyer_name",
+            "paid_at", "cancelled_at",
+        )}),
+        ("Datos de entrega", {"fields": (
+            "receiver_name", "receiver_phone", "country", "state", "city",
+            "postal_code", "neighborhood", "street", "exterior_number",
+            "interior_number", "between_street_1", "between_street_2",
+            "reference", "delivery_notes",
+        )}),
+        ("Sistema", {"fields": ("slug", "is_active", "created_at", "updated_at")}),
+    )
+    actions = ["marcar_enviada", "marcar_entregada", "liberar_reserva"]
+
+    @admin.action(description="Marcar enviada")
+    def marcar_enviada(self, request, queryset):
+        ok = queryset.filter(status=ArtworkOrderStatus.DATA_COMPLETE).update(status=ArtworkOrderStatus.SHIPPED)
+        bad = queryset.count() - ok
+        if bad:
+            self.message_user(request, f"{bad} pedido(s) no estaban en Datos completos.", messages.ERROR)
+        if ok:
+            self.message_user(request, f"{ok} pedido(s) marcados como enviados.", messages.SUCCESS)
+
+    @admin.action(description="Marcar entregada")
+    def marcar_entregada(self, request, queryset):
+        ok = queryset.filter(status=ArtworkOrderStatus.SHIPPED).update(status=ArtworkOrderStatus.DELIVERED)
+        bad = queryset.count() - ok
+        if bad:
+            self.message_user(request, f"{bad} pedido(s) no estaban Enviados.", messages.ERROR)
+        if ok:
+            self.message_user(request, f"{ok} pedido(s) marcados como entregados.", messages.SUCCESS)
+
+    @admin.action(description="Liberar reserva")
+    def liberar_reserva(self, request, queryset):
+        from artworks.models import ArtworkStatus as _AS
+
+        ok = 0
+        bad = 0
+        for order in queryset.select_related("artwork"):
+            if order.status != ArtworkOrderStatus.PENDING_PAYMENT:
+                bad += 1
+                continue
+            order.status = ArtworkOrderStatus.CANCELLED
+            order.cancelled_at = timezone.now()
+            order.save(update_fields=["status", "cancelled_at", "updated_at"])
+            if order.artwork.status == _AS.RESERVED:
+                order.artwork.status = _AS.AVAILABLE
+                order.artwork.save(update_fields=["status", "updated_at"])
+            ok += 1
+        if bad:
+            self.message_user(request, f"{bad} pedido(s) no estaban pendientes de pago.", messages.ERROR)
+        if ok:
+            self.message_user(request, f"{ok} reserva(s) liberada(s).", messages.SUCCESS)
+
+
+ArtworkAdmin.inlines = [*ArtworkAdmin.inlines, ArtworkOrderInline]

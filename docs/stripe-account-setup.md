@@ -46,7 +46,8 @@ is still pending, and the exact steps to go live.
 - `project/settings.py` — added Stripe env vars (`STRIPE_SECRET_KEY`,
   `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_API_VERSION`,
   `STRIPE_PRICE_ID` seed, derived `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` /
-  `STRIPE_PORTAL_RETURN_URL`).
+  `STRIPE_PORTAL_RETURN_URL`) plus `PUBLIC_SITE_URL` (artwork sales redirects)
+  and `DEFAULT_THROTTLE_RATES` (`artwork_buys 20/hour`, `artwork_orders 60/hour`).
 - `subscriptions/models.py` — `BillingPlan` is a django-solo singleton with
   admin-editable `amount` / `currency` / `interval`; `stripe_product_id` /
   `stripe_price_id` are auto-managed read-only fields.
@@ -78,14 +79,26 @@ is still pending, and the exact steps to go live.
    - Click **Generar link de suscripción**, complete checkout with the test
      card, and verify webhook events + `Artist.is_active` flips.
 2. If a permanent test webhook endpoint in the Dashboard is wanted (instead of
-   the CLI bridge), create it at `https://<host>/webhooks/stripe/` with
-   `STRIPE_API_VERSION` (`2026-07-29.dahlia`) and events:
-   `checkout.session.completed`, `customer.subscription.created/updated/deleted`,
-   `invoice.payment_succeeded`, `invoice.payment_failed`. Copy the `whsec_...`
-   into `STRIPE_WEBHOOK_SECRET`.
+  the CLI bridge), create it at `https://<host>/webhooks/stripe/` with
+  `STRIPE_API_VERSION` (`2026-07-29.dahlia`) and events:
+  `checkout.session.completed`, `checkout.session.expired`,
+  `checkout.session.async_payment_succeeded`,
+  `checkout.session.async_payment_failed`,
+  `customer.subscription.created/updated/deleted`,
+  `invoice.payment_succeeded`, `invoice.payment_failed`. Copy the `whsec_...`
+  into `STRIPE_WEBHOOK_SECRET`.
 3. Confirm the exact membership amount/currency is correct
-   (edited from the admin: **Suscripciones → Plan de suscripción** —
-   Monto/Moneda; the price is dynamic and may change).
+  (edited from the admin: **Suscripciones → Plan de suscripción** —
+  Monto/Moneda; the price is dynamic and may change).
+4. USD pre-flight spike (artwork sales) — ✅ VERIFIED 2026-09-17 via Stripe MCP:
+  account `acct_1U8pQ8PSaJ0P1Xli` (MX, default `mxn`, charges enabled,
+  `oxxo_payments: active`). A throwaway `mode=payment` session with inline
+  `price_data` in `usd` was created successfully (status `open`,
+  `currency: usd`, card+link methods). Conclusion: **USD Checkout works on
+  this account** — the buy endpoint can offer `usd` (funds settle per
+  Stripe's MX currency conversion). Note: the MCP key pointed at **live**
+  mode, so the spike session was created live (unpaid, auto-expires);
+  no test-mode re-verification needed since live is the stricter case.
 4. Apply pending migrations to the dev database
    (`python manage.py migrate`), which is reachable only with the dev DB
    credentials.

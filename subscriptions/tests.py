@@ -1528,3 +1528,139 @@ class WebhookEdgeTest(ArtistTestBase):
         self.assertEqual(sub.signup_url, "")
         self.assertIsNone(sub.signup_url_expires_at)
         self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+
+
+@override_settings(STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
+class ArtworkOrderWebhookTestCase(TestCase):
+    def setUp(self):
+        self.artist = Artist.objects.create(name="Webhook Frida", slug="wh-frida")
+        from artworks.models import Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self.Artwork = Artwork
+        self.ArtworkOrder = ArtworkOrder
+        self.ArtworkOrderStatus = ArtworkOrderStatus
+        self.ArtworkStatus = ArtworkStatus
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=5000, price_usd=250, status=ArtworkStatus.RESERVED,
+            slug="obra-wh-1",
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=5000,
+            buyer_email="a@b.com", stripe_checkout_session_id="cs_wh_1",
+        )
+
+    def _post(self, event_type, event_id, session):
+        event = make_event(event_type, event_id, session)
+        payload = json.dumps(event).encode()
+        return self.client.post(
+            "/webhooks/stripe/", data=payload, content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+        )
+
+    def _art_session(self, payment_status="paid", pi="pi_wh_1"):
+        return {
+            "id": "cs_wh_1", "payment_status": payment_status,
+            "payment_intent": pi,
+            "customer_details": {"name": "Buyer", "email": "a@b.com"},
+            "metadata": {"kind": "artwork_order", "order": self.order.slug},
+        }
+
+    def test_completed_paid_transitions(self):
+        response = self._post("checkout.session.completed", "evt_wh_1", self._art_session())
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.PAID_PENDING_DATA)
+        self.assertEqual(self.artwork.status, self.ArtworkStatus.SOLD)
+        self.assertEqual(self.order.stripe_payment_intent_id, "pi_wh_1")
+
+    def test_completed_unpaid_noop(self):
+        response = self._post("checkout.session.completed", "evt_wh_2", self._art_session(payment_status="unpaid"))
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.PENDING_PAYMENT)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.status, self.ArtworkStatus.RESERVED)
+
+    def test_expired_releases(self):
+        response = self._post("checkout.session.expired", "evt_wh_3", self._art_session())
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.CANCELLED)
+        self.assertIsNotNone(self.order.cancelled_at)
+        self.assertEqual(self.artwork.status, self.ArtworkStatus.AVAILABLE)
+
+    def test_expired_idempotent_after_paid(self):
+        self._post("checkout.session.completed", "evt_wh_4", self._art_session())
+        response = self._post("checkout.session.expired", "evt_wh_5", self._art_session())
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.PAID_PENDING_DATA)
+
+    def test_async_succeeded_paid_transition(self):
+        response = self._post("checkout.session.async_payment_succeeded", "evt_wh_6", self._art_session())
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.PAID_PENDING_DATA)
+
+    def test_async_failed_cancels(self):
+        response = self._post("checkout.session.async_payment_failed", "evt_wh_7", self._art_session())
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.CANCELLED)
+        self.assertEqual(self.artwork.status, self.ArtworkStatus.AVAILABLE)
+
+    def test_backstop_refund_sold_artwork(self):
+        from unittest.mock import patch
+
+        self.artwork.status = self.ArtworkStatus.SOLD
+        self.artwork.save()
+        with patch("subscriptions.services.stripe_client.create_refund") as mock_refund:
+            response = self._post("checkout.session.completed", "evt_wh_8", self._art_session(pi="pi_double"))
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.REFUNDED)
+        mock_refund.assert_called_once_with("pi_double")
+
+    def test_refund_failure_500_retry(self):
+        from unittest.mock import patch
+
+        self.artwork.status = self.ArtworkStatus.SOLD
+        self.artwork.save()
+        self.client.raise_request_exception = False
+        with patch(
+            "subscriptions.services.stripe_client.create_refund", side_effect=RuntimeError("stripe down")
+        ):
+            response = self._post("checkout.session.completed", "evt_wh_9", self._art_session(pi="pi_fail"))
+        self.assertEqual(response.status_code, 500)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_legacy_subscription_unchanged(self):
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist, status=ArtistSubscription.Status.PENDING,
+        )
+        session = {"id": "cs_leg", "customer": "cus_leg", "subscription": "sub_leg",
+                   "metadata": {"artist_id": str(self.artist.pk)}}
+        response = self._post("checkout.session.completed", "evt_wh_10", session)
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_unknown_kind_noop(self):
+        session = self._art_session()
+        session["metadata"] = {"kind": "weird"}
+        response = self._post("checkout.session.completed", "evt_wh_11", session)
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, self.ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_duplicate_delivery_noop(self):
+        first = self._post("checkout.session.completed", "evt_wh_12", self._art_session())
+        second = self._post("checkout.session.completed", "evt_wh_12", self._art_session())
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(self.ArtworkOrder.objects.filter(slug=self.order.slug).count(), 1)

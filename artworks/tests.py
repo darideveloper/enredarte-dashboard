@@ -1954,3 +1954,545 @@ class ArtworksAPITestCase(APITestCase):
         response = self._auth_get(f"/api/artworks/artworks/{self.artwork.id}/")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.json()["status"], "error")
+
+
+class ArtworkOrderModelTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        self.artist = Artist.objects.create(name="Frida", slug="frida-sales")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.AVAILABLE,
+            slug="obra-sale-1",
+        )
+
+    def test_conventions(self):
+        from artworks.models import ArtworkOrder
+
+        self.assertEqual(ArtworkOrder._meta.verbose_name, "Pedido de obra")
+        self.assertEqual(ArtworkOrder._meta.verbose_name_plural, "Pedidos de obras")
+        order = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=1000, buyer_email="A@B.COM",
+        )
+        self.assertEqual(order.buyer_email, "a@b.com")
+        self.assertRegex(order.slug, r"^[0-9a-f]+$")
+        self.assertIn("Pendiente", str(order))
+        self.assertEqual(order._meta.get_field("buyer_email").verbose_name, "Correo del comprador")
+
+    def test_status_choices(self):
+        from artworks.models import ArtworkOrderStatus
+
+        values = {c.value for c in ArtworkOrderStatus}
+        self.assertEqual(
+            values,
+            {"pending_payment", "paid_pending_data", "data_complete", "shipped", "delivered", "cancelled", "refunded"},
+        )
+
+
+class BuyArtworkApiTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        self.artist = Artist.objects.create(name="Frida", slug="frida-buy")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=2000, price_usd=100, status=ArtworkStatus.AVAILABLE,
+            slug="obra-buy-1",
+        )
+        self.url = f"/api/artworks/artworks/{self.artwork.slug}/buy/"
+
+    def _mock_session(self, checkout_url="https://checkout.stripe/abc", expires=None):
+        import time
+
+        class S:
+            id = "cs_test_123"
+            url = checkout_url
+            expires_at = expires or int(time.time()) + 1800
+
+        return S()
+
+    def test_buy_mxn_happy_path(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder, ArtworkStatus
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=self._mock_session(),
+        ) as mock_create:
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                response = self.client.post(
+                    self.url, {"currency": "mxn", "email": "Buyer@X.COM"}, content_type="application/json",
+                )
+        self.assertEqual(response.status_code, 201)
+        self.assertIn("checkout_url", response.json())
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.status, ArtworkStatus.RESERVED)
+        order = ArtworkOrder.objects.get(artwork=self.artwork)
+        self.assertEqual(order.currency, "mxn")
+        self.assertEqual(order.buyer_email, "buyer@x.com")
+        self.assertEqual(float(order.amount), 2000.0)
+        mock_create.assert_called_once()
+        kwargs = mock_create.call_args.kwargs
+        self.assertEqual(kwargs["customer_email"], "buyer@x.com")
+        self.assertIn("compra-exitosa", kwargs["success_url"])
+
+    def test_buy_usd_snapshot(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=self._mock_session(),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                response = self.client.post(
+                    self.url, {"currency": "usd", "email": "a@b.com"}, content_type="application/json",
+                )
+        self.assertEqual(response.status_code, 201)
+        order = ArtworkOrder.objects.get(artwork=self.artwork)
+        self.assertEqual(order.currency, "usd")
+        self.assertEqual(float(order.amount), 100.0)
+
+    def test_buy_unknown_slug_404(self):
+        with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            response = self.client.post(
+                "/api/artworks/artworks/no-existe/buy/",
+                {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 404)
+
+    def test_buy_invalid_currency_400(self):
+        with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            response = self.client.post(
+                self.url, {"currency": "eur", "email": "a@b.com"}, content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 400)
+
+    def test_buy_missing_email_400(self):
+        with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            response = self.client.post(self.url, {"currency": "mxn"}, content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_buy_sold_409(self):
+        from artworks.models import ArtworkStatus
+
+        self.artwork.status = ArtworkStatus.SOLD
+        self.artwork.save()
+        with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            response = self.client.post(
+                self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 409)
+
+    def test_same_buyer_reuse_returns_existing(self):
+        from datetime import timedelta
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        from artworks.models import ArtworkOrder
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=self._mock_session(checkout_url="https://checkout.stripe/first"),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                first = self.client.post(
+                    self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+                )
+        self.assertEqual(first.status_code, 201)
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session"
+        ) as mock_create:
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                second = self.client.post(
+                    self.url, {"currency": "mxn", "email": "A@B.COM"}, content_type="application/json",
+                )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["checkout_url"], "https://checkout.stripe/first")
+        mock_create.assert_not_called()
+        self.assertEqual(ArtworkOrder.objects.filter(artwork=self.artwork).count(), 1)
+
+    def test_different_email_409(self):
+        from unittest.mock import patch
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=self._mock_session(),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                self.client.post(self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json")
+                response = self.client.post(
+                    self.url, {"currency": "mxn", "email": "other@b.com"}, content_type="application/json",
+                )
+        self.assertEqual(response.status_code, 409)
+
+    def test_expired_session_same_email_409(self):
+        from datetime import timedelta
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        from artworks.models import ArtworkOrder
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=self._mock_session(),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                self.client.post(self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json")
+        order = ArtworkOrder.objects.get(artwork=self.artwork)
+        order.session_expires_at = timezone.now() - timedelta(minutes=1)
+        order.save(update_fields=["session_expires_at"])
+        with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            response = self.client.post(
+                self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 409)
+
+    def test_missing_public_site_url_503(self):
+        with self.settings(PUBLIC_SITE_URL=""):
+            response = self.client.post(
+                self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 503)
+        from artworks.models import ArtworkOrder, ArtworkStatus
+
+        self.assertEqual(ArtworkOrder.objects.count(), 0)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+    def test_stripe_failure_502_rollback(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder, ArtworkStatus
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            side_effect=Exception("stripe down"),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                response = self.client.post(
+                    self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+                )
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(ArtworkOrder.objects.count(), 0)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+
+class OrderSummaryDeliveryTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self.artist = Artist.objects.create(name="Frida", slug="frida-orders")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2021, dimensions="20x20",
+            price_mxn=3000, price_usd=150, status=ArtworkStatus.AVAILABLE,
+            slug="obra-order-1",
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=3000, buyer_email="a@b.com",
+            status=ArtworkOrderStatus.PAID_PENDING_DATA,
+            stripe_checkout_session_id="cs_123",
+        )
+        self.delivery_payload = {
+            "receiver_name": "Juan", "receiver_phone": "5551234567", "country": "México",
+            "state": "CDMX", "city": "CDMX", "postal_code": "06000",
+            "neighborhood": "Centro", "street": "Madero", "exterior_number": "1",
+        }
+
+    def test_summary_paid_200(self):
+        response = self.client.get(f"/api/artworks/orders/{self.order.slug}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "paid_pending_data")
+
+    def test_summary_cancelled_404(self):
+        from artworks.models import ArtworkOrderStatus
+
+        self.order.status = ArtworkOrderStatus.CANCELLED
+        self.order.save()
+        response = self.client.get(f"/api/artworks/orders/{self.order.slug}/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_summary_webhook_race_paid(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+
+        self.order.status = ArtworkOrderStatus.PENDING_PAYMENT
+        self.order.save()
+        self.artwork.status = ArtworkStatus.RESERVED
+        self.artwork.save()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"payment_status": "paid", "payment_intent": "pi_123",
+                          "customer_details": {"name": "Buyer", "email": "a@b.com"}},
+        ):
+            response = self.client.get(f"/api/artworks/orders/{self.order.slug}/")
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.PAID_PENDING_DATA)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.status, ArtworkStatus.SOLD)
+
+    def test_summary_webhook_race_unpaid_404(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus
+
+        self.order.status = ArtworkOrderStatus.PENDING_PAYMENT
+        self.order.save()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"payment_status": "unpaid"},
+        ):
+            response = self.client.get(f"/api/artworks/orders/{self.order.slug}/")
+        self.assertEqual(response.status_code, 404)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_delivery_happy_path(self):
+        from artworks.models import ArtworkOrderStatus
+
+        response = self.client.post(
+            f"/api/artworks/orders/{self.order.slug}/delivery/",
+            self.delivery_payload, content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.DATA_COMPLETE)
+        self.assertEqual(self.order.receiver_name, "Juan")
+
+    def test_delivery_wrong_state_409(self):
+        from artworks.models import ArtworkOrderStatus
+
+        self.order.status = ArtworkOrderStatus.PENDING_PAYMENT
+        self.order.save()
+        response = self.client.post(
+            f"/api/artworks/orders/{self.order.slug}/delivery/",
+            self.delivery_payload, content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 409)
+
+    def test_delivery_missing_fields_400(self):
+        from artworks.models import ArtworkOrderStatus
+
+        payload = dict(self.delivery_payload)
+        payload.pop("receiver_name")
+        response = self.client.post(
+            f"/api/artworks/orders/{self.order.slug}/delivery/",
+            payload, content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.PAID_PENDING_DATA)
+
+
+class ArtworkOrderAdminTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self.superuser = User.objects.create_superuser(
+            username="sales-admin", email="sales@example.com", password="password123"
+        )
+        self.client.login(username="sales-admin", password="password123")
+        artist = Artist.objects.create(name="Frida", slug="frida-admin")
+        self.artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.AVAILABLE,
+            slug="obra-admin-1",
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=1000, buyer_email="a@b.com",
+            status=ArtworkOrderStatus.DATA_COMPLETE,
+        )
+
+    def test_registered_with_spanish(self):
+        from artworks.admin import ArtworkOrderAdmin
+        from artworks.models import ArtworkOrder
+
+        self.assertIn(ArtworkOrder, admin.site._registry)
+        self.assertIsInstance(admin.site._registry[ArtworkOrder], ArtworkOrderAdmin)
+        self.assertIn("status", admin.site._registry[ArtworkOrder].list_filter)
+
+    def test_marcar_enviada_valid(self):
+        url = reverse("admin:artworks_artworkorder_changelist")
+        response = self.client.post(url, {"action": "marcar_enviada", "_selected_action": [self.order.pk]})
+        self.assertEqual(response.status_code, 302)
+        self.order.refresh_from_db()
+        from artworks.models import ArtworkOrderStatus
+
+        self.assertEqual(self.order.status, ArtworkOrderStatus.SHIPPED)
+
+    def test_marcar_enviada_invalid(self):
+        from artworks.models import ArtworkOrderStatus
+
+        self.order.status = ArtworkOrderStatus.PENDING_PAYMENT
+        self.order.save()
+        url = reverse("admin:artworks_artworkorder_changelist")
+        self.client.post(url, {"action": "marcar_enviada", "_selected_action": [self.order.pk]})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_marcar_entregada_and_liberar(self):
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+
+        self.order.status = ArtworkOrderStatus.SHIPPED
+        self.order.save()
+        url = reverse("admin:artworks_artworkorder_changelist")
+        self.client.post(url, {"action": "marcar_entregada", "_selected_action": [self.order.pk]})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.DELIVERED)
+
+        self.order.status = ArtworkOrderStatus.PENDING_PAYMENT
+        self.order.save()
+        self.artwork.status = ArtworkStatus.RESERVED
+        self.artwork.save()
+        self.client.post(url, {"action": "liberar_reserva", "_selected_action": [self.order.pk]})
+        self.order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.CANCELLED)
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+    def test_artwork_inline_lists_orders(self):
+        url = reverse("admin:artworks_artwork_change", args=[self.artwork.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.order.slug)
+
+
+class ArtworkOrderCommandsTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        artist = Artist.objects.create(name="Frida", slug="frida-cmd")
+        self.artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.RESERVED,
+            slug="obra-cmd-1",
+        )
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        self.expired = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=1000, buyer_email="a@b.com",
+            status=ArtworkOrderStatus.PENDING_PAYMENT,
+            session_expires_at=timezone.now() - timedelta(hours=1),
+        )
+
+    def test_reaper_releases_expired(self):
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+
+        call_command("release_expired_orders")
+        self.expired.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.expired.status, ArtworkOrderStatus.CANCELLED)
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+    def test_reaper_skips_live(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from artworks.models import ArtworkOrderStatus
+
+        self.expired.session_expires_at = timezone.now() + timedelta(hours=1)
+        self.expired.save(update_fields=["session_expires_at"])
+        call_command("release_expired_orders")
+        self.expired.refresh_from_db()
+        self.assertEqual(self.expired.status, ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_sync_paid_transition(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"payment_status": "paid", "payment_intent": "pi_9",
+                          "customer_details": {"name": "Buyer"}},
+        ):
+            call_command("sync_orders_from_stripe")
+        self.expired.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.expired.status, ArtworkOrderStatus.PAID_PENDING_DATA)
+        self.assertEqual(self.artwork.status, ArtworkStatus.SOLD)
+
+    def test_sync_dry_run_noop(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus
+
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"payment_status": "paid", "payment_intent": "pi_9",
+                          "customer_details": {}},
+        ):
+            call_command("sync_orders_from_stripe", "--dry-run")
+        self.expired.refresh_from_db()
+        self.assertEqual(self.expired.status, ArtworkOrderStatus.PENDING_PAYMENT)
+
+
+class SalesThrottleWiringTestCase(TestCase):
+    def test_buy_action_uses_scoped_throttle(self):
+        from rest_framework.throttling import ScopedRateThrottle
+
+        from artworks.views import ArtworkViewSet
+
+        action = ArtworkViewSet.buy
+        self.assertIn(ScopedRateThrottle, action.kwargs["throttle_classes"])
+
+    def test_order_views_use_scoped_throttle(self):
+        from rest_framework.throttling import ScopedRateThrottle
+
+        from artworks.views import OrderDeliveryView, OrderSummaryView
+
+        self.assertIn(ScopedRateThrottle, OrderSummaryView.throttle_classes)
+        self.assertIn(ScopedRateThrottle, OrderDeliveryView.throttle_classes)
+        self.assertEqual(OrderSummaryView.throttle_scope, "artwork_orders")
+        self.assertEqual(OrderDeliveryView.throttle_scope, "artwork_orders")
+
+    def test_throttle_rates_configured(self):
+        from django.conf import settings
+
+        rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        self.assertEqual(rates["artwork_buys"], "20/hour")
+        self.assertEqual(rates["artwork_orders"], "60/hour")
+
+    def test_catalog_still_requires_auth(self):
+        response = self.client.get("/api/artworks/artworks/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_order_summary_throttle_429(self):
+        from django.conf import settings as dj_settings
+        from django.core.cache import cache
+
+        from artworks.models import Artist, Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        artist = Artist.objects.create(name="Throttle", slug="throttle-artist")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.AVAILABLE,
+            slug="obra-throttle-1",
+        )
+        order = ArtworkOrder.objects.create(
+            artwork=artwork, currency="mxn", amount=1000, buyer_email="a@b.com",
+            status=ArtworkOrderStatus.PAID_PENDING_DATA,
+        )
+        # NOTE: DRF binds THROTTLE_RATES at import, so replacing the whole
+        # REST_FRAMEWORK dict is invisible to throttles — mutate in place.
+        rates = dj_settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        original = dict(rates)
+        rates["artwork_orders"] = "1/min"
+        self.addCleanup(rates.update, original)
+        cache.clear()
+        self.addCleanup(cache.clear)
+        first = self.client.get(f"/api/artworks/orders/{order.slug}/")
+        second = self.client.get(f"/api/artworks/orders/{order.slug}/")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)

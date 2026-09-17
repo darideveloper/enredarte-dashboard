@@ -33,6 +33,9 @@ STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL", f"{HOST}/subscriptions/cancel
 STRIPE_PORTAL_RETURN_URL = f"{HOST}/subscriptions/portal-return/"
 STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
 
+# Public site (artwork sales redirects)
+PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "").rstrip("/")
+
 # Coolify deploy webhook (publish changes button) — single URL incl. uuid/token params
 DEPLOY_WEBHOOK_URL = os.getenv("DEPLOY_WEBHOOK_URL", "")
 # Coolify API token with `deploy` permission, sent as Bearer auth header
@@ -248,6 +251,10 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ),
     "EXCEPTION_HANDLER": "project.handlers.custom_exception_handler",
+    "DEFAULT_THROTTLE_RATES": {
+        "artwork_buys": "20/hour",
+        "artwork_orders": "60/hour",
+    },
 }
 
 # Unfold

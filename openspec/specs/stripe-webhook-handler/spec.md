@@ -45,7 +45,7 @@ The system SHALL dispatch each handled event inside a single Django `transaction
 - **THEN** the second delivery SHALL be treated as a fresh run (the previous transaction was rolled back).
 
 ### Requirement: Event-type dispatch table
-The system SHALL dispatch events to one handler per Stripe event type. The handled types SHALL include at least: `checkout.session.completed`, `checkout.session.expired`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`. `checkout.session.completed` SHALL correlate via `metadata.artist_id`; `checkout.session.expired` SHALL clear the expired `signup_url`/`signup_url_expires_at` (if the session matches the stored URL) and SHALL NOT change `status` away from `pending` except to log.
+The system SHALL dispatch events to one handler per Stripe event type. The handled types SHALL include at least: `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`. Checkout handlers SHALL route on `metadata.kind`: sessions without `kind` (or `kind="artist_subscription"`) keep the legacy subscription behavior — `checkout.session.completed` correlates via `metadata.artist_id`, `checkout.session.expired` clears the expired `signup_url`/`signup_url_expires_at` (if the session matches the stored URL) and SHALL NOT change `status` away from `pending` except to log. Sessions with `kind="artwork_order"` SHALL dispatch to the artwork-order handlers defined by the artwork-sales specification (correlating via `metadata.order`). Async payment events without `kind="artwork_order"` SHALL be recorded with HTTP `200` and SHALL NOT mutate any subscription.
 
 #### Scenario: Subscription created event
 - **WHEN** Stripe delivers `customer.subscription.created` for a customer linked to a known `ArtistSubscription`
@@ -64,8 +64,24 @@ The system SHALL dispatch events to one handler per Stripe event type. The handl
 - **THEN** the handler SHALL set `status="active"` and SHALL refresh `current_period_end` **only if** the invoice's `lines.data[0].period.end` is non-null (guard `if period_end is not None: set`, otherwise keep existing `current_period_end`).
 
 #### Scenario: Checkout session expired clears link
-- **WHEN** Stripe delivers `checkout.session.expired` for a session whose URL matches the stored `ArtistSubscription.signup_url` (or whose `metadata.artist_id` matches the artist)
+- **WHEN** Stripe delivers `checkout.session.expired` for a subscription-mode session whose URL matches the stored `ArtistSubscription.signup_url` (or whose `metadata.artist_id` matches the artist)
 - **THEN** the handler SHALL clear `signup_url`/`signup_url_expires_at` (or leave empty) and SHALL log `INFO` with the `artist_id`; `status` SHALL remain `pending` and no new `stripe_customer_id` SHALL be created.
+
+#### Scenario: Artwork order checkout completed routes to order handler
+- **WHEN** Stripe delivers `checkout.session.completed` for a session with `metadata.kind="artwork_order"` and `metadata.order=<order_slug>`
+- **THEN** the handler SHALL process the artwork order (order → `paid_pending_data`, artwork → `sold`, store payment intent + buyer identity) per the artwork-sales specification, and the subscription handler path SHALL NOT run for this event.
+
+#### Scenario: Artwork order checkout expired routes to release handler
+- **WHEN** Stripe delivers `checkout.session.expired` for a session with `metadata.kind="artwork_order"`
+- **THEN** the handler SHALL release the reservation per the artwork-sales specification (order → `cancelled`, artwork → `available`, only from `pending_payment`), and the subscription handler path SHALL NOT run for this event.
+
+#### Scenario: Artwork async payment succeeded routes to paid handler
+- **WHEN** Stripe delivers `checkout.session.async_payment_succeeded` for a session with `metadata.kind="artwork_order"` and `metadata.order=<order_slug>`
+- **THEN** the handler SHALL apply the paid-transition per the artwork-sales specification (order → `paid_pending_data`, artwork → `sold`), and the subscription handler path SHALL NOT run for this event.
+
+#### Scenario: Artwork async payment failed routes to cancel handler
+- **WHEN** Stripe delivers `checkout.session.async_payment_failed` for a session with `metadata.kind="artwork_order"` and `metadata.order=<order_slug>`
+- **THEN** the handler SHALL cancel the pending order per the artwork-sales specification (order → `cancelled`, artwork → `available`, only from `pending_payment`), and the subscription handler path SHALL NOT run for this event.
 
 ### Requirement: Correlation by stripe_customer_id and metadata
 The system SHALL correlate Stripe events to local `ArtistSubscription` rows via `stripe_customer_id` first, and via `metadata.artist_id` (set on Checkout Session creation) for `checkout.session.completed` events that arrive before the customer id is known locally. The `customer` expanded-object form `{"id":...}` SHALL be unwrapped via `sget` where used.
