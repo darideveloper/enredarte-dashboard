@@ -1,0 +1,87 @@
+meta {
+  name: POST order-delivery
+  type: http
+  seq: 25
+}
+
+post {
+  url: {{base_url}}/api/artworks/orders/0123456789ab/delivery/
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "receiver_name": "María López",
+    "receiver_phone": "+52 55 1234 5678",
+    "country": "México",
+    "state": "Ciudad de México",
+    "city": "Ciudad de México",
+    "postal_code": "06600",
+    "neighborhood": "Juárez",
+    "street": "Insurgentes Sur",
+    "exterior_number": "123",
+    "interior_number": "",
+    "between_street_1": "Chapultepec",
+    "between_street_2": "Reforma",
+    "reference": "Portón verde",
+    "delivery_notes": "Llamar antes de entregar"
+  }
+}
+
+docs {
+  # POST /api/artworks/orders/:slug/delivery/ — Submit delivery info
+
+  Posts the delivery form for a paid order (`paid_pending_data →
+  data_complete`). Public endpoint, no `Authorization` header. Throttled:
+  `artwork_orders` 60/hour (`429` when exceeded — wait and retry).
+
+  Replace `0123456789ab` with the real order slug (same handoff as
+  order-summary: copy `?order=` from the Stripe success redirect after
+  paying — the fake-hex placeholder never returns 200).
+
+  9 required fields: `receiver_name` (≤200), `receiver_phone` (≤50),
+  `country` (≤100), `state` (≤100), `city` (≤100), `postal_code` (≤20),
+  `neighborhood` (≤150, colonia), `street` (≤200),
+  `exterior_number` (≤30). 5 optional: `interior_number` (≤30),
+  `between_street_1`/`between_street_2` (≤200), `reference`,
+  `delivery_notes` (all blank-allowed, default `""`).
+
+  ## Status codes
+
+  - `200 OK` — delivery saved (order is now `data_complete`), returns the summary
+  - `400 Bad Request` — missing/invalid fields (`data` has field errors)
+  - `404 Not Found` — unknown order slug
+  - `409 Conflict` — order is not awaiting delivery data (e.g. form
+    re-submitted — treat as success and show confirmation)
+  - `429 Too Many Requests` — throttled (60 orders/hour)
+
+  ## Response (200)
+
+  ```json
+  {
+    "slug": "0123456789ab",
+    "status": "data_complete",
+    "currency": "mxn",
+    "amount": 15000.0,
+    "paid_at": "2026-09-17T12:00:00Z",
+    "artwork_title": "La columna rota",
+    "artwork_image": "https://enredarte-dashboard.localhost/media/artworks/columna.webp",
+    "artist_name": "Frida Kahlo"
+  }
+  ```
+
+  ## Error (400/404/409)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Invalid data",
+    "data": {}
+  }
+  ```
+
+  - `400` → `message: "Invalid data"`, `data` carries per-field errors
+  - `404` → `message: "Not found."`
+  - `409` → `message: "La orden no espera datos de entrega."` (treat as success)
+}

@@ -23,6 +23,105 @@ from subscriptions.services.subscription_state import compute_is_active
 logger = logging.getLogger(__name__)
 
 
+def _artwork_session_meta(session):
+    meta = sget(session, "metadata") or {}
+    if not isinstance(meta, dict):
+        return {}
+    return meta
+
+
+def _find_artwork_order(session):
+    from artworks.models import ArtworkOrder
+
+    meta = _artwork_session_meta(session)
+    if meta.get("kind") != "artwork_order":
+        return None, meta
+    slug = meta.get("order")
+    if not slug:
+        return None, meta
+    order = (
+        ArtworkOrder.objects.select_related("artwork").filter(slug=slug).first()
+    )
+    return order, meta
+
+
+def _session_buyer(session):
+    pi = sget(session, "payment_intent") or ""
+    if isinstance(pi, dict):
+        pi = pi.get("id", "")
+    details = sget(session, "customer_details") or {}
+    if not isinstance(details, dict):
+        details = {}
+    email = details.get("email", "") if isinstance(details, dict) else ""
+    name = details.get("name", "") if isinstance(details, dict) else ""
+    if not email:
+        email = sget(session, "customer_email") or ""
+    return str(pi or ""), str(email or ""), str(name or "")
+
+
+def _apply_artwork_paid(order, session):
+    """Paid-transition with double-sale refund backstop."""
+    from artworks.models import ArtworkOrderStatus
+    from artworks.services import apply_paid_transition, artwork_reserved_by
+    from subscriptions.services import stripe_client
+
+    if order.status != ArtworkOrderStatus.PENDING_PAYMENT:
+        return
+    pi, email, name = _session_buyer(session)
+    if not artwork_reserved_by(order):
+        from django.utils import timezone
+
+        order.status = ArtworkOrderStatus.REFUNDED
+        order.stripe_payment_intent_id = pi or order.stripe_payment_intent_id
+        order.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
+        logger.warning("artwork double-sale order=%s refunding pi=%s", order.slug, pi)
+        stripe_client.create_refund(pi)
+        return
+    apply_paid_transition(order, pi, email or order.buyer_email, name)
+
+
+def _handle_artwork_checkout_completed(event):
+    session = event["data"]["object"]
+    order, _ = _find_artwork_order(session)
+    if order is None:
+        return False
+    if (sget(session, "payment_status") or "") != "paid":
+        return True
+    _apply_artwork_paid(order, session)
+    return True
+
+
+def _handle_artwork_checkout_expired(event):
+    from artworks.services import cancel_order
+
+    session = event["data"]["object"]
+    order, _ = _find_artwork_order(session)
+    if order is None:
+        return False
+    cancel_order(order)
+    return True
+
+
+def _handle_artwork_async_succeeded(event):
+    session = event["data"]["object"]
+    order, _ = _find_artwork_order(session)
+    if order is None:
+        return False
+    _apply_artwork_paid(order, session)
+    return True
+
+
+def _handle_artwork_async_failed(event):
+    from artworks.services import cancel_order
+
+    session = event["data"]["object"]
+    order, _ = _find_artwork_order(session)
+    if order is None:
+        return False
+    cancel_order(order)
+    return True
+
+
 def _sync_artist(subscription):
     """Persist `compute_is_active(subscription)` onto the subscription's artist."""
     subscription.artist.is_active = compute_is_active(subscription)
@@ -51,6 +150,8 @@ def _invoice_period_end(invoice):
 
 def _handle_checkout_completed(event):
     session = event["data"]["object"]
+    if _handle_artwork_checkout_completed(event):
+        return
     artist_id = (session.get("metadata") or {}).get("artist_id")
     if not artist_id:
         return
@@ -149,6 +250,8 @@ def _handle_invoice_payment_failed(event):
 
 
 def _handle_checkout_expired(event):
+    if _handle_artwork_checkout_expired(event):
+        return
     session = event["data"]["object"]
     meta = sget(session, "metadata") or {}
     artist_id = sget(meta, "artist_id") if isinstance(meta, dict) else None
@@ -170,9 +273,19 @@ def _handle_checkout_expired(event):
     # Status stays as-is (typically pending), no change
 
 
+def _handle_async_payment_succeeded(event):
+    _handle_artwork_async_succeeded(event)
+
+
+def _handle_async_payment_failed(event):
+    _handle_artwork_async_failed(event)
+
+
 HANDLERS = {
     "checkout.session.completed": _handle_checkout_completed,
     "checkout.session.expired": _handle_checkout_expired,
+    "checkout.session.async_payment_succeeded": _handle_async_payment_succeeded,
+    "checkout.session.async_payment_failed": _handle_async_payment_failed,
     "customer.subscription.created": _handle_subscription_created,
     "customer.subscription.updated": _handle_subscription_updated,
     "customer.subscription.deleted": _handle_subscription_deleted,

@@ -82,6 +82,57 @@ The Blog API exposes public, read-only endpoints under `/api/blog/posts/` requir
 - `GET list.bru`: Paginated summary listing of active posts.
 - `GET detail.bru`: Full post detail lookup by `slug` with bilingual Markdown content.
 
+### Sales API (Public)
+
+The Sales API exposes the artwork purchase flow under `/api/artworks/`
+(first public, first write endpoints in this collection) — no
+authentication, no `Authorization` header, no token needed. Run the
+requests top-to-bottom in the `Sales/` folder order:
+
+| # | Request | URL |
+| --- | --- | --- |
+| 23 | `POST buy` | `POST {{base_url}}/api/artworks/artworks/obra-ejemplo/buy/` |
+| 24 | `GET order-summary` | `GET {{base_url}}/api/artworks/orders/0123456789ab/` |
+| 25 | `POST order-delivery` | `POST {{base_url}}/api/artworks/orders/0123456789ab/delivery/` |
+
+- `POST buy`: reserve + start Checkout. Body `{currency: mxn|usd, email}`.
+  Replace `obra-ejemplo` with a real artwork slug. Returns `{checkout_url}`
+  (`201` new reservation, `200` same buyer re-click). Each `docs` block
+  lists the full status matrix (201/200/400/404/409/502/503/429).
+- Slug handoff: buy returns only `{checkout_url}` — the order slug is NOT
+  in the response. Pay (or copy `?order=` from the Stripe success redirect
+  `{PUBLIC_SITE_URL}/compra-exitosa/?order={slug}`), then paste the real
+  slug into the next two requests. The fake-hex placeholders never return
+  `200` — replace the slug, then Send.
+- `GET order-summary`: 8-field summary for the success page (`200` for paid
+  orders; `404` while unpaid → poll every 3s, up to ~60s).
+- `POST order-delivery`: delivery form (9 required + 5 optional fields).
+  `200` saves, `409` means already submitted (treat as success).
+- Throttles: `artwork_buys` 20/hour (buy), `artwork_orders` 60/hour
+  (summary + delivery). Full flow details: `docs/artwork-sales.md`.
+
+## Smoke test (headless, no credentials)
+
+Sales endpoints are public, so the flow doubles as a credential-free smoke
+test (documented here only — no script file, no CI wiring). Needs the dev
+server running (`./dev.sh`). Run from the collection folder (the CLI only
+runs at a collection root); `--insecure` is required because the portless
+proxy serves a self-signed certificate:
+
+```sh
+cd collections/enredarte-dashboard-api
+npx @usebruno/cli run Sales/ --env dev --insecure
+```
+
+Accepted outcomes (any dev DB state stays green):
+
+- `POST buy` → `201` (fresh reservation) or `409` (already reserved/sold)
+  with a real artwork slug; `404` with the committed example slug
+  (`obra-ejemplo` unknown in that DB — benign, proves routing + envelope)
+- `GET order-summary` → `200` (paid order) or `404` (fake-hex placeholder)
+- `POST order-delivery` is excluded by design (needs a real paid order —
+  exercise it manually after a test purchase)
+
 ## Add a new endpoint
 
 Create a `.bru` file under a new or existing folder in this collection, using

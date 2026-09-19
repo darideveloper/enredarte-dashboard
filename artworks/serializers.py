@@ -7,6 +7,8 @@ from artworks.models import (
     Artwork,
     ArtworkGallery,
     ArtworkImage,
+    ArtworkOrder,
+    ArtworkOrderCurrency,
     Discipline,
     Format,
     Gallery,
@@ -210,3 +212,47 @@ class ArtworkSerializer(serializers.ModelSerializer):
 
     def get_translations(self, obj):
         return _build_translation_dict(obj.translations.all(), ["title", "description"])
+
+
+class BuyArtworkSerializer(serializers.Serializer):
+    currency = serializers.ChoiceField(choices=ArtworkOrderCurrency.choices)
+    email = serializers.EmailField()
+
+
+class DeliveryInfoSerializer(serializers.Serializer):
+    receiver_name = serializers.CharField(max_length=200)
+    receiver_phone = serializers.CharField(max_length=50)
+    country = serializers.CharField(max_length=100)
+    state = serializers.CharField(max_length=100)
+    city = serializers.CharField(max_length=100)
+    postal_code = serializers.CharField(max_length=20)
+    neighborhood = serializers.CharField(max_length=150)
+    street = serializers.CharField(max_length=200)
+    exterior_number = serializers.CharField(max_length=30)
+    interior_number = serializers.CharField(max_length=30, required=False, allow_blank=True, default="")
+    between_street_1 = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    between_street_2 = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    reference = serializers.CharField(required=False, allow_blank=True, default="")
+    delivery_notes = serializers.CharField(required=False, allow_blank=True, default="")
+
+
+class OrderSummarySerializer(serializers.ModelSerializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, coerce_to_string=False)
+    artwork_title = serializers.SerializerMethodField()
+    artwork_image = serializers.SerializerMethodField()
+    artist_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArtworkOrder
+        fields = ["slug", "status", "currency", "amount", "paid_at", "artwork_title", "artwork_image", "artist_name"]
+
+    def get_artwork_title(self, obj):
+        return obj.artwork.translated_title()
+
+    def get_artwork_image(self, obj):
+        images = list(obj.artwork.images.all())
+        img = next((i for i in images if i.is_primary), None) or (images[0] if images else None)
+        return _absolute_url(img.image) if img and img.image else None
+
+    def get_artist_name(self, obj):
+        return obj.artwork.artist.name if obj.artwork.artist else None

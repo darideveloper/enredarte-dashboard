@@ -1,0 +1,66 @@
+meta {
+  name: GET order-summary
+  type: http
+  seq: 24
+}
+
+get {
+  url: {{base_url}}/api/artworks/orders/0123456789ab/
+  body: none
+  auth: none
+}
+
+docs {
+  # GET /api/artworks/orders/:slug/ — Order summary for the success page
+
+  Returns the order summary shown on `/compra-exitosa/?order={slug}`.
+  Public endpoint, no `Authorization` header. Throttled: `artwork_orders`
+  60/hour (`429` when exceeded — wait and retry).
+
+  Slug handoff: `POST buy` returns only `{checkout_url}` — the order slug
+  is NOT in the buy response. Copy it from the Stripe success redirect
+  (`{PUBLIC_SITE_URL}/compra-exitosa/?order={slug}`), then replace
+  `0123456789ab` below with the real slug and Send. First line of action:
+  replace the slug, then Send (the fake-hex placeholder never returns 200).
+
+  `200` for orders in `paid_pending_data`, `data_complete`, `shipped`,
+  `delivered`. `404` for unknown slugs, `cancelled`/`refunded` orders, or
+  still-unpaid `pending_payment` (webhook not arrived yet → poll: every 3s,
+  up to ~60s; stop on `200` or on repeated non-404 errors). If the redirect
+  beats the webhook, the endpoint verifies via `retrieve_checkout_session`
+  and applies the paid-transition itself.
+
+  ## Status codes
+
+  - `200 OK` — order summary
+  - `404 Not Found` — unknown slug, `cancelled`/`refunded`, or unpaid `pending_payment` (poll/retry)
+  - `429 Too Many Requests` — throttled (60 orders/hour)
+
+  ## Response (200)
+
+  ```json
+  {
+    "slug": "0123456789ab",
+    "status": "paid_pending_data",
+    "currency": "mxn",
+    "amount": 15000.0,
+    "paid_at": "2026-09-17T12:00:00Z",
+    "artwork_title": "La columna rota",
+    "artwork_image": "https://enredarte-dashboard.localhost/media/artworks/columna.webp",
+    "artist_name": "Frida Kahlo"
+  }
+  ```
+
+  8 fields: `slug`, `status`, `currency`, `amount` (number),
+  `paid_at`, `artwork_title`, `artwork_image` (url|null), `artist_name`.
+
+  ## Error (404)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Not found.",
+    "data": {}
+  }
+  ```
+}

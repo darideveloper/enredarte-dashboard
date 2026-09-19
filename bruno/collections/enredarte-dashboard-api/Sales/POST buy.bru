@@ -1,0 +1,83 @@
+meta {
+  name: POST buy
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{base_url}}/api/artworks/artworks/obra-ejemplo/buy/
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "currency": "mxn",
+    "email": "comprador@example.com"
+  }
+}
+
+docs {
+  # POST /api/artworks/artworks/:slug/buy/ — Reserve an artwork + start Stripe Checkout
+
+  Reserves an artwork (`available → reserved`), creates an `ArtworkOrder`
+  (`pending_payment`) and a `mode=payment` Checkout Session (30-min expiry).
+  Returns `{checkout_url}` — redirect the buyer there (full page).
+  Public endpoint, no `Authorization` header. Throttled: `artwork_buys`
+  20/hour per client (`429` when exceeded — wait and retry).
+
+  Replace `obra-ejemplo` with a real artwork slug (slugs are human-readable,
+  e.g. `la-columna-rota`). Only `available` artworks can be bought — check
+  the catalog `status` first (`reserved` → "sale in progress",
+  `sold` → "sold", no button).
+
+  Same email + live session → same URL (`200`, follow it either way).
+  Different email while reserved → `409`.
+
+  ## Status codes
+
+  - `201 Created` — new reservation, `{checkout_url}` ready
+  - `200 OK` — same buyer re-clicked while their session is live, same `{checkout_url}`
+  - `400 Bad Request` — bad currency/email (`data` has field errors)
+  - `404 Not Found` — unknown slug or inactive artwork
+  - `409 Conflict` — reserved by another buyer, or artwork not `available`
+  - `502 Bad Gateway` — Stripe did not respond (nothing reserved, retry later)
+  - `503 Service Unavailable` — backend misconfigured (`PUBLIC_SITE_URL`)
+  - `429 Too Many Requests` — throttled (20 buys/hour)
+
+  ## Request
+
+  ```json
+  {
+    "currency": "mxn",
+    "email": "comprador@example.com"
+  }
+  ```
+
+  `currency` is `mxn` or `usd`. `email` is the buyer email (backend
+  lowercases it; it is locked as Stripe `customer_email`).
+
+  ## Response (201/200)
+
+  ```json
+  {
+    "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_123"
+  }
+  ```
+
+  ## Error (400/404/409/502/503/429)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Reserva en curso para esta obra.",
+    "data": {}
+  }
+  ```
+
+  - `400` → `message: "Invalid data"`, `data` carries per-field errors
+  - `409` → `message: "Reserva en curso para esta obra."` (another buyer)
+    or `"Obra no disponible."` (not `available`)
+  - `502` → `message: "Stripe no respondió."`
+  - `503` → `message: "Ventas no configuradas (PUBLIC_SITE_URL)."`
+}
