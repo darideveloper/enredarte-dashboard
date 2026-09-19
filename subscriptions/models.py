@@ -213,6 +213,12 @@ class ArtistSubscription(TimeStampedModel):
         verbose_name=_("Método de pago"),
         help_text=_("En línea: la suscripción se gestiona en Stripe. En efectivo: el control es manual desde el admin, sin Stripe."),
     )
+    cash_last_paid_at = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_("Último pago en efectivo"),
+        help_text=_("Fecha del último pago en efectivo confirmado. Vacío si nunca se confirmó un pago."),
+    )
     stripe_customer_id = models.CharField(
         max_length=100,
         unique=True,

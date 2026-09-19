@@ -6,11 +6,38 @@ call this helper (never derive the boolean inline) so manual and webhook-driven
 changes cannot disagree.
 """
 
+from datetime import date as date_class
+from datetime import datetime as datetime_class
+from datetime import time as time_class
 from datetime import timedelta
+import calendar
 
 from django.utils import timezone
 
 from subscriptions.models import ArtistSubscription, BillingPlan
+
+
+def add_calendar_month(base):
+    """Same-day-next-month with month-end clamp (stdlib only).
+
+    Jan 31 -> Feb 28 (Feb 29 in leap years); Dec 15 -> Jan 15 next year.
+    """
+    year = base.year + (1 if base.month == 12 else 0)
+    month = 1 if base.month == 12 else base.month + 1
+    last_day = calendar.monthrange(year, month)[1]
+    return date_class(year, month, min(base.day, last_day))
+
+
+def cash_renew_datetime(base):
+    """End-of-day (23:59, project timezone) aware datetime one month after `base`.
+
+    Cash renew dates are stored end-of-day so the cron's strict
+    `today > renew + grace` cancel boundary aligns with the evening
+    `compute_is_active` already produces.
+    """
+    return timezone.make_aware(
+        datetime_class.combine(add_calendar_month(base), time_class(23, 59))
+    )
 
 
 def compute_is_active(subscription, artist=None):

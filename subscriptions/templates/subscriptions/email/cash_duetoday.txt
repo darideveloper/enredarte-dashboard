@@ -1,0 +1,7 @@
+Hola, {{ artist_name }}:
+
+Tu {{ plan.name }} en efectivo vence hoy ({{ renew_date }}).
+
+Realiza tu pago hoy para no interrumpir tu visibilidad en el sitio público. En cuanto lo recibamos, confirmaremos tu suscripción por un mes más.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

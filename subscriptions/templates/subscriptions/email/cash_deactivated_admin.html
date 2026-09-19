@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>[Enredarte] Artista desactivado por no renovar</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #faf7f2; margin: 0; padding: 24px; }
+        .card { background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 32px; max-width: 520px; margin: 0 auto; }
+        h1 { color: #1d3a2f; font-size: 22px; margin: 0 0 12px; }
+        p { color: #444; line-height: 1.6; margin: 0 0 12px; }
+        .muted { color: #777; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Artista desactivado por no renovar</h1>
+        <p><strong>Artista:</strong> {{ artist_name }} ({{ artist.email }})</p>
+        <p><strong>Estado:</strong> cancelada por falta de pago — vencía el {{ renew_date }}, ya no es visible.</p>
+        <p><strong>Plan:</strong> {{ plan.name }}</p>
+        <p><strong>Desactivado por:</strong> {{ actor_name }}</p>
+        <p class="muted">Revisar en el admin: <a href="{{ host }}/admin/artworks/artist/{{ artist.pk }}/change/">{{ host }}/admin/artworks/artist/{{ artist.pk }}/change/</a></p>
+    </div>
+</body>
+</html>

@@ -96,6 +96,24 @@ From the Artist change page, the header buttons depend on the payment path (`pay
 
 Each cash transition sends a Spanish receipt to the artist plus an admin notice to `EMAILS_NOTIFICATIONS` (templates in `subscriptions/templates/subscriptions/email/`). A mail failure never rolls back the state change (warning message + log).
 
+### 6b. Cash renewals
+
+Each **Confirmar pago** stamps **Último pago en efectivo** (`cash_last_paid_at`) and pushes **Vence** (`current_period_end`) one calendar month from the later of today and the current renew date — re-confirming an active row counts as a new monthly payment and re-sends the receipt. Both dates show read-only in the `Suscripción` inline.
+
+A daily `check_cash_renewals` management command (external cron entrypoint, same pattern as `release_expired_orders`) walks cash rows with a renew date:
+
+- renews in 3 days → reminder emails; renews today → "vence hoy" emails (no state change);
+- expired + `active` → `past_due` + overdue emails (still visible through the plan's 3-day grace);
+- past grace + `past_due` → `canceled`, artist hidden + deactivation emails.
+
+Rows with no renew date are skipped; per-artist failures log and continue. Cron entry (daily):
+
+```bash
+venv/bin/python manage.py check_cash_renewals
+```
+
+Without the cron entry, renew dates pass silently — overdue rows stay visible in the admin `Vence` column for manual follow-up.
+
 ### 7. Public API
 `/api/artworks/artists/` filters on `Artist.is_active` - unchanged API, only the driver of `is_active` changes.
 

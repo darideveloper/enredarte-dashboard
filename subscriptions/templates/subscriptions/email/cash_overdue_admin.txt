@@ -1,0 +1,7 @@
+[Enredarte] Pago vencido
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Estado: pago vencido desde el {{ renew_date }} — en período de gracia ({{ plan.grace_period_days }} días), aún visible.
+Plan: {{ plan.name }}
+Aviso enviado por: {{ actor_name }}
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/

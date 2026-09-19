@@ -52,7 +52,7 @@ from subscriptions.admin_helpers import subscription_badge, subscription_badge_f
 from subscriptions.models import ArtistSubscription, BillingPlan, epoch_to_datetime
 from subscriptions.services import notifications, stripe_client
 from subscriptions.services.stripe_compat import sget
-from subscriptions.services.subscription_state import compute_is_active
+from subscriptions.services.subscription_state import cash_renew_datetime, compute_is_active
 from unfold.admin import StackedInline, TabularInline
 from unfold.decorators import action
 
@@ -133,6 +133,7 @@ class ArtistSubscriptionInline(StackedInline):
         "stripe_customer_id",
         "stripe_subscription_id",
         "customer_email",
+        "cash_last_paid_at",
         "current_period_end",
         "cancel_at_period_end",
         "display_signup_url",
@@ -496,7 +497,11 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     def has_confirmar_pago_permission(self, request, object_id):
         artist = self._resolve_artist(object_id)
         sub = getattr(artist, "subscription", None)
-        return self._is_cash_sub(sub) and sub.status == ArtistSubscription.Status.PENDING
+        return self._is_cash_sub(sub) and sub.status in (
+            ArtistSubscription.Status.PENDING,
+            ArtistSubscription.Status.ACTIVE,
+            ArtistSubscription.Status.PAST_DUE,
+        )
 
     def has_cancelar_efectivo_permission(self, request, object_id):
         artist = self._resolve_artist(object_id)
@@ -504,6 +509,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         return self._is_cash_sub(sub) and sub.status in (
             ArtistSubscription.Status.PENDING,
             ArtistSubscription.Status.ACTIVE,
+            ArtistSubscription.Status.PAST_DUE,
         )
 
     # -- Actions_detail methods --
@@ -540,6 +546,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             # webhooks track this row again (never a hybrid cash+Stripe row).
             sub.payment_method = ArtistSubscription.PaymentMethod.ONLINE
             sub.status = ArtistSubscription.Status.PENDING
+            sub.cash_last_paid_at = None
             sub.raw_state = {}
 
         try:
@@ -564,6 +571,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
                 "signup_url",
                 "signup_url_expires_at",
                 "status",
+                "cash_last_paid_at",
                 "raw_state",
                 "last_synced_at",
                 "stripe_customer_id",
@@ -718,7 +726,10 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             return redirect(redirect_url)
 
         sub = ArtistSubscription.objects.filter(artist=artist).first()
-        if sub is not None and (self._is_cash_sub(sub) or self._is_online_started(sub)):
+        if sub is not None and (
+            self._is_online_started(sub)
+            or (self._is_cash_sub(sub) and sub.status != ArtistSubscription.Status.CANCELED)
+        ):
             messages.error(request, gettext("Este artista tiene una suscripción en línea activa. Cancélala en Stripe antes de marcarlo como efectivo."))
             return redirect(redirect_url)
 
@@ -733,6 +744,9 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         sub.status = ArtistSubscription.Status.PENDING
         sub.signup_url = ""
         sub.signup_url_expires_at = None
+        # Fresh cycle: drop any dates from a previous canceled period.
+        sub.cash_last_paid_at = None
+        sub.current_period_end = None
         sub.raw_state = {"cash": True, "marked_by": request.user.get_username()}
         sub.last_synced_at = timezone.now()
         sub.save(
@@ -741,6 +755,8 @@ class ArtistAdmin(ModelAdminUnfoldBase):
                 "status",
                 "signup_url",
                 "signup_url_expires_at",
+                "cash_last_paid_at",
+                "current_period_end",
                 "raw_state",
                 "last_synced_at",
                 "updated_at",
@@ -761,17 +777,41 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         redirect_url = _artist_redirect_url(artist)
 
         sub = ArtistSubscription.objects.filter(artist=artist).first()
-        if sub is not None and self._is_cash_sub(sub) and sub.status == ArtistSubscription.Status.ACTIVE:
-            messages.info(request, gettext("El pago en efectivo ya estaba confirmado."))
-            return redirect(redirect_url)
-        if sub is None or not self._is_cash_sub(sub) or sub.status != ArtistSubscription.Status.PENDING:
+        if (
+            sub is None
+            or not self._is_cash_sub(sub)
+            or sub.status
+            not in (
+                ArtistSubscription.Status.PENDING,
+                ArtistSubscription.Status.ACTIVE,
+                ArtistSubscription.Status.PAST_DUE,
+            )
+        ):
             messages.error(request, gettext("Este artista no tiene un pago en efectivo pendiente de confirmación."))
             return redirect(redirect_url)
 
+        # Each execution counts as one monthly payment: stamp the paid date
+        # and push the renew date one calendar month from the later of today
+        # and the current renew date (early payers keep their full period).
+        today = timezone.localdate()
+        current = sub.current_period_end
+        current_renew = timezone.localdate(current) if current is not None else None
+        base = max(today, current_renew) if current_renew is not None else today
         sub.status = ArtistSubscription.Status.ACTIVE
+        sub.cash_last_paid_at = today
+        sub.current_period_end = cash_renew_datetime(base)
         sub.raw_state = {"cash": True, "confirmed_by": request.user.get_username()}
         sub.last_synced_at = timezone.now()
-        sub.save(update_fields=["status", "raw_state", "last_synced_at", "updated_at"])
+        sub.save(
+            update_fields=[
+                "status",
+                "cash_last_paid_at",
+                "current_period_end",
+                "raw_state",
+                "last_synced_at",
+                "updated_at",
+            ]
+        )
 
         artist.is_active = compute_is_active(sub)
         artist.save(update_fields=["is_active", "updated_at"])
@@ -790,7 +830,12 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         if (
             sub is None
             or not self._is_cash_sub(sub)
-            or sub.status not in (ArtistSubscription.Status.PENDING, ArtistSubscription.Status.ACTIVE)
+            or sub.status
+            not in (
+                ArtistSubscription.Status.PENDING,
+                ArtistSubscription.Status.ACTIVE,
+                ArtistSubscription.Status.PAST_DUE,
+            )
         ):
             messages.error(request, gettext("Este artista no tiene una suscripción en efectivo vigente."))
             return redirect(redirect_url)

@@ -1,0 +1,7 @@
+Hola, {{ artist_name }}:
+
+Tu pago en efectivo para tu {{ plan.name }} venció el {{ renew_date }} y aún no lo hemos recibido.
+
+Tu perfil sigue visible durante el período de gracia ({{ plan.grace_period_days }} días). Realiza tu pago cuanto antes para no perder tu visibilidad.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

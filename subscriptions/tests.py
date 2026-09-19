@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import time
+from datetime import date as date_class
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -19,7 +20,11 @@ from django.utils import timezone
 from artworks.models import Artist
 from subscriptions.admin import BillingPlanForm
 from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory, StripeEvent
-from subscriptions.services.subscription_state import compute_is_active
+from subscriptions.services.subscription_state import (
+    add_calendar_month,
+    cash_renew_datetime,
+    compute_is_active,
+)
 from subscriptions.webhooks import _handle_subscription_created
 
 User = get_user_model()
@@ -1532,6 +1537,34 @@ class WebhookEdgeTest(ArtistTestBase):
         self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
 
 
+class CashRenewMathTest(TestCase):
+    def test_mid_month(self):
+        self.assertEqual(
+            add_calendar_month(date_class(2026, 3, 15)), date_class(2026, 4, 15)
+        )
+
+    def test_december_rolls_year(self):
+        self.assertEqual(
+            add_calendar_month(date_class(2026, 12, 15)), date_class(2027, 1, 15)
+        )
+
+    def test_month_end_clamps(self):
+        self.assertEqual(
+            add_calendar_month(date_class(2026, 1, 31)), date_class(2026, 2, 28)
+        )
+
+    def test_month_end_clamps_leap_year(self):
+        self.assertEqual(
+            add_calendar_month(date_class(2024, 1, 31)), date_class(2024, 2, 29)
+        )
+
+    def test_renew_datetime_is_end_of_day_aware(self):
+        renew = cash_renew_datetime(date_class(2026, 1, 10))
+        self.assertEqual((renew.year, renew.month, renew.day), (2026, 2, 10))
+        self.assertEqual((renew.hour, renew.minute), (23, 59))
+        self.assertIsNotNone(renew.tzinfo)
+
+
 class CashUpsertGuardTest(ArtistTestBase):
     def test_upsert_ignores_cash_row(self):
         sub = ArtistSubscription.objects.create(
@@ -1729,14 +1762,81 @@ class CashAdminActionsTest(ArtistTestBase):
         )
         self.assertEqual(len(mail.outbox), 2)
 
-    def test_double_confirm_is_noop_without_email(self):
-        # Button hidden for cash-active: Unfold refuses the direct URL (403).
-        self._make_cash(ArtistSubscription.Status.ACTIVE)
+    def test_reconfirm_extends_and_resends_receipt(self):
+        # Re-confirming an active row counts as a new monthly payment.
+        from subscriptions.services.subscription_state import add_calendar_month
+
+        sub = self._make_cash(ArtistSubscription.Status.ACTIVE)
+        sub.current_period_end = timezone.now() + timedelta(days=10)
+        sub.save(update_fields=["current_period_end"])
+        previous_renew = timezone.localdate(sub.current_period_end)
         response = self.client.get(self._action_url(self.artist, "confirmar-pago-efectivo"))
-        self.assertEqual(response.status_code, 403)
-        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
         self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(sub.cash_last_paid_at, timezone.localdate())
+        self.assertEqual(
+            timezone.localdate(sub.current_period_end),
+            add_calendar_month(previous_renew),
+        )
+        self.assertIn(
+            "Pago en efectivo confirmado. El artista ya es visible.",
+            self._messages(response),
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_confirm_recovers_from_past_due(self):
+        sub = self._make_cash(ArtistSubscription.Status.PAST_DUE)
+        sub.current_period_end = timezone.now() - timedelta(days=1)
+        sub.save(update_fields=["current_period_end"])
+        response = self.client.get(self._action_url(self.artist, "confirmar-pago-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.artist.refresh_from_db()
+        self.assertTrue(self.artist.is_active)
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_cancel_during_grace_hides_at_once(self):
+        self._make_cash(ArtistSubscription.Status.PAST_DUE)
+        response = self.client.get(self._action_url(self.artist, "cancelar-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.assertIn(
+            "Suscripción en efectivo cancelada. El artista ya no es visible.",
+            self._messages(response),
+        )
+
+    def test_confirm_sets_dates_on_first_payment(self):
+        from subscriptions.services.subscription_state import add_calendar_month
+
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+        )
+        response = self.client.get(self._action_url(self.artist, "confirmar-pago-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        today = timezone.localdate()
+        self.assertEqual(sub.cash_last_paid_at, today)
+        self.assertEqual(
+            timezone.localdate(sub.current_period_end), add_calendar_month(today)
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_remark_clears_stale_dates(self):
+        sub = self._make_cash(ArtistSubscription.Status.CANCELED)
+        sub.cash_last_paid_at = timezone.localdate() - timedelta(days=40)
+        sub.current_period_end = timezone.now() - timedelta(days=10)
+        sub.save(update_fields=["cash_last_paid_at", "current_period_end"])
+        response = self.client.get(self._action_url(self.artist, "marcar-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+        self.assertIsNone(sub.cash_last_paid_at)
+        self.assertIsNone(sub.current_period_end)
 
     def test_cancelar_efectivo_hides_and_notifies(self):
         self._make_cash(ArtistSubscription.Status.ACTIVE)
@@ -1755,7 +1855,9 @@ class CashAdminActionsTest(ArtistTestBase):
         self.assertEqual(len(mail.outbox), 2)
 
     def test_cash_canceled_can_return_to_online_flow(self):
-        self._make_cash(ArtistSubscription.Status.CANCELED)
+        sub = self._make_cash(ArtistSubscription.Status.CANCELED)
+        sub.cash_last_paid_at = timezone.localdate() - timedelta(days=40)
+        sub.save(update_fields=["cash_last_paid_at"])
         BillingPlan.get_solo().save()
         BillingPlan.objects.update(stripe_price_id="price_test")
         session = type("S", (), {"url": "https://checkout.stripe.com/c/pay", "expires_at": time.time() + 3600})
@@ -1771,6 +1873,7 @@ class CashAdminActionsTest(ArtistTestBase):
         sub = ArtistSubscription.objects.get(artist=self.artist)
         self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.ONLINE)
         self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+        self.assertIsNone(sub.cash_last_paid_at)
         self.assertEqual(sub.stripe_customer_id, "cus_new")
         self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/pay")
 
@@ -1833,7 +1936,16 @@ class CashAdminActionsTest(ArtistTestBase):
         self._make_cash(ArtistSubscription.Status.ACTIVE)
         pk = str(self.artist.pk)
         self.assertFalse(self.admin.has_marcar_efectivo_permission(self.request, pk))
-        self.assertFalse(self.admin.has_confirmar_pago_permission(self.request, pk))
+        self.assertTrue(self.admin.has_confirmar_pago_permission(self.request, pk))
+        self.assertTrue(self.admin.has_cancelar_efectivo_permission(self.request, pk))
+        self.assertFalse(self.admin.has_generate_link_permission(self.request, pk))
+        self.assertFalse(self.admin.has_sync_from_stripe_permission(self.request, pk))
+
+    def test_button_visibility_cash_past_due(self):
+        self._make_cash(ArtistSubscription.Status.PAST_DUE)
+        pk = str(self.artist.pk)
+        self.assertFalse(self.admin.has_marcar_efectivo_permission(self.request, pk))
+        self.assertTrue(self.admin.has_confirmar_pago_permission(self.request, pk))
         self.assertTrue(self.admin.has_cancelar_efectivo_permission(self.request, pk))
         self.assertFalse(self.admin.has_generate_link_permission(self.request, pk))
         self.assertFalse(self.admin.has_sync_from_stripe_permission(self.request, pk))
@@ -1849,6 +1961,155 @@ class CashAdminActionsTest(ArtistTestBase):
         opk = str(other.pk)
         self.assertTrue(self.admin.has_marcar_efectivo_permission(self.request, opk))
         self.assertTrue(self.admin.has_generate_link_permission(self.request, opk))
+
+
+@override_settings(EMAILS_NOTIFICATIONS=["admin1@x.com"])
+class CheckCashRenewalsTest(ArtistTestBase):
+    def _make_dated_cash(self, name, email, status, days_from_today):
+        artist = self.make_artist(name, email=email)
+        sub = ArtistSubscription.objects.create(
+            artist=artist,
+            status=status,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+            cash_last_paid_at=timezone.localdate() - timedelta(days=30),
+            current_period_end=timezone.now() + timedelta(days=days_from_today),
+        )
+        if status == ArtistSubscription.Status.ACTIVE:
+            artist.is_active = True
+            artist.save(update_fields=["is_active"])
+        return artist, sub
+
+    def _run(self):
+        from django.core.management import call_command
+
+        call_command("check_cash_renewals")
+
+    def test_reminder_three_days_out(self):
+        artist, sub = self._make_dated_cash("Rem", "rem@x.com", ArtistSubscription.Status.ACTIVE, 3)
+        self._run()
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[0].subject, "Tu suscripción vence en 3 días")
+
+    def test_duetoday(self):
+        artist, sub = self._make_dated_cash("Hoy", "hoy@x.com", ArtistSubscription.Status.ACTIVE, 0)
+        self._run()
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[0].subject, "Tu suscripción vence hoy")
+
+    def test_expiry_flips_to_past_due(self):
+        artist, sub = self._make_dated_cash("Ven", "ven@x.com", ArtistSubscription.Status.ACTIVE, -1)
+        self._run()
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.PAST_DUE)
+        artist.refresh_from_db()
+        self.assertTrue(artist.is_active)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[0].subject, "Tu pago está vencido")
+
+    def test_past_grace_deactivates(self):
+        BillingPlan.get_solo().save()  # grace_period_days=3
+        artist, sub = self._make_dated_cash("Falle", "falle@x.com", ArtistSubscription.Status.PAST_DUE, -4)
+        self._run()
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        artist.refresh_from_db()
+        self.assertFalse(artist.is_active)
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[0].subject, "Tu suscripción fue desactivada por falta de pago")
+
+    def test_within_grace_past_due_untouched(self):
+        BillingPlan.get_solo().save()
+        artist, sub = self._make_dated_cash("Gra", "gra@x.com", ArtistSubscription.Status.PAST_DUE, -1)
+        self._run()
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.PAST_DUE)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_null_renew_skipped(self):
+        artist = self.make_artist("Nulo", email="nulo@x.com")
+        ArtistSubscription.objects.create(
+            artist=artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+            current_period_end=None,
+        )
+        self._run()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_failure_continues_batch(self):
+        self._make_dated_cash("Uno", "uno@x.com", ArtistSubscription.Status.ACTIVE, 3)
+        self._make_dated_cash("Dos", "dos@x.com", ArtistSubscription.Status.ACTIVE, 3)
+        with patch(
+            "subscriptions.management.commands.check_cash_renewals.notifications.send_cash_reminder",
+            side_effect=[Exception("smtp down"), None],
+        ) as mock_send:
+            self._run()
+        # First raised (logged, batch continued), second delivered through the mock.
+        self.assertEqual(mock_send.call_count, 2)
+        self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(EMAILS_NOTIFICATIONS=["admin1@x.com", "admin2@x.com"])
+class CashRenewalNotificationsTest(ArtistTestBase):
+    SUBJECTS = {
+        "reminder": (
+            "Tu suscripción vence en 3 días",
+            "[Enredarte] Suscripción por vencer",
+        ),
+        "duetoday": (
+            "Tu suscripción vence hoy",
+            "[Enredarte] Suscripción vence hoy",
+        ),
+        "overdue": (
+            "Tu pago está vencido",
+            "[Enredarte] Pago vencido",
+        ),
+        "deactivated": (
+            "Tu suscripción fue desactivada por falta de pago",
+            "[Enredarte] Artista desactivado por no renovar",
+        ),
+    }
+
+    def test_each_renewal_event_sends_two_spanish_messages(self):
+        from subscriptions.services import notifications
+
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+            current_period_end=timezone.now() + timedelta(days=3),
+        )
+        for kind, (artist_subject, admin_prefix) in self.SUBJECTS.items():
+            with self.subTest(kind=kind):
+                mail.outbox = []
+                getattr(notifications, f"send_cash_{kind}")(self.artist, "proceso automático")
+                self.assertEqual(len(mail.outbox), 2)
+                artist_msg, admin_msg = mail.outbox
+                self.assertEqual(artist_msg.to, ["artista@x.com"])
+                self.assertEqual(artist_msg.subject, artist_subject)
+                self.assertTrue(admin_msg.subject.startswith(admin_prefix))
+                self.assertIn(self.artist.name, admin_msg.subject)
+                for msg in mail.outbox:
+                    self.assertTrue(msg.body)
+                    html = dict((m, c) for c, m in msg.alternatives).get("text/html", "")
+                    self.assertTrue(html)
+                # Renew date present; admin names the automatic process + change link.
+                renew = timezone.localdate(sub.current_period_end)
+                from django.utils.formats import date_format
+
+                expected = date_format(sub.current_period_end, "DATE_FORMAT")
+                if kind in ("reminder", "duetoday", "overdue"):
+                    self.assertIn(expected, artist_msg.body)
+                if kind == "deactivated":
+                    self.assertIn("falta de pago", artist_msg.body)
+                    self.assertIn("reactivarlo", artist_msg.body)
+                admin_html = dict((m, c) for c, m in admin_msg.alternatives)["text/html"]
+                for body in (admin_msg.body, admin_html):
+                    self.assertIn("proceso automático", body)
+                    self.assertIn("/admin/artworks/artist/", body)
+                    self.assertNotIn("Hola,", body)
 
 
 @override_settings(STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)

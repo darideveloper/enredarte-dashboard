@@ -1,0 +1,7 @@
+[Enredarte] Artista desactivado por no renovar
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Estado: cancelada por falta de pago — vencía el {{ renew_date }}, ya no es visible.
+Plan: {{ plan.name }}
+Desactivado por: {{ actor_name }}
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/

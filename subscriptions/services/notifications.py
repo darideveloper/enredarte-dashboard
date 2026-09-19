@@ -32,6 +32,22 @@ _SUBJECTS = {
         "Tu suscripción en efectivo fue cancelada",
         "[Enredarte] Suscripción en efectivo cancelada — {artista}",
     ),
+    "reminder": (
+        "Tu suscripción vence en 3 días",
+        "[Enredarte] Suscripción por vencer — {artista}",
+    ),
+    "duetoday": (
+        "Tu suscripción vence hoy",
+        "[Enredarte] Suscripción vence hoy — {artista}",
+    ),
+    "overdue": (
+        "Tu pago está vencido",
+        "[Enredarte] Pago vencido — {artista}",
+    ),
+    "deactivated": (
+        "Tu suscripción fue desactivada por falta de pago",
+        "[Enredarte] Artista desactivado por no renovar — {artista}",
+    ),
 }
 
 
@@ -40,7 +56,7 @@ def _context(artist, actor):
         actor_name = "Operador"
     else:
         actor_name = getattr(actor, "username", None) or str(actor)
-    return {
+    ctx = {
         "artist": artist,
         "artist_name": artist.name,
         "plan": BillingPlan.get_solo(),
@@ -48,6 +64,13 @@ def _context(artist, actor):
         "actor_name": actor_name,
         "host": settings.HOST,
     }
+    sub = getattr(artist, "subscription", None)
+    renew = getattr(sub, "current_period_end", None)
+    if renew is not None:
+        from django.utils.formats import date_format
+
+        ctx["renew_date"] = date_format(renew, "DATE_FORMAT")
+    return ctx
 
 
 def _send_cash(kind, artist, actor):
@@ -93,3 +116,23 @@ def send_cash_active(artist, actor=None):
 def send_cash_canceled(artist, actor=None):
     """Notify artist + admins that a cash subscription was canceled."""
     _send_cash("canceled", artist, actor)
+
+
+def send_cash_reminder(artist, actor=None):
+    """Remind artist + admins that a cash renew date is 3 days out."""
+    _send_cash("reminder", artist, actor)
+
+
+def send_cash_duetoday(artist, actor=None):
+    """Remind artist + admins that a cash renew date is today."""
+    _send_cash("duetoday", artist, actor)
+
+
+def send_cash_overdue(artist, actor=None):
+    """Notify artist + admins that a cash payment is overdue (past_due)."""
+    _send_cash("overdue", artist, actor)
+
+
+def send_cash_deactivated(artist, actor=None):
+    """Notify artist + admins of deactivation for non-renewal."""
+    _send_cash("deactivated", artist, actor)

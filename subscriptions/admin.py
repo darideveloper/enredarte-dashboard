@@ -201,9 +201,11 @@ class ArtistSubscriptionAdmin(ModelAdminUnfoldBase):
     readonly_fields = [
         "artist",
         "status",
+        "payment_method",
         "stripe_customer_id",
         "stripe_subscription_id",
         "customer_email",
+        "cash_last_paid_at",
         "current_period_end",
         "cancel_at_period_end",
         "signup_url",

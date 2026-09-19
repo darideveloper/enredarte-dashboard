@@ -30,22 +30,30 @@ The system SHALL provide a "Marcar como efectivo" changeform action on the Artis
 - **THEN** the system SHALL show "Este artista no tiene un correo electrónico. Captura uno antes de marcarlo como efectivo." and redirect without creating a subscription (same pattern as link generation without email).
 
 ### Requirement: Confirm cash payment (active, indefinite)
-The system SHALL provide a "Confirmar pago" changeform action, visible only for cash rows with `status="pending"`. On execution it SHALL set `status="active"`, persist `is_active=True` via `compute_is_active`, stamp `last_synced_at`, record `{"cash": true, "confirmed_by": <username>}` provenance in `raw_state`, fire the active cash emails, and show `messages.success("Pago en efectivo confirmado. El artista ya es visible.")`. Re-confirming an already-`active` cash row is structurally impossible via the UI (button hidden) and direct URL execution is refused at the permission boundary (403) with no mutation and no duplicate email; the method additionally keeps a defensive informational guard ("El pago en efectivo ya estaba confirmado."). Cash `active` has no expiry: no `current_period_end` is required and no background job ever flips it — only "Cancelar efectivo" ends it. All operator-visible messages SHALL be Spanish.
+The system SHALL provide a "Confirmar pago" changeform action, visible for cash rows with `status="pending"`, `"active"`, or `"past_due"`. On execution it SHALL set `status="active"`, stamp `cash_last_paid_at = today`, set `current_period_end` to end-of-day (23:59 project timezone) on `max(today, current renew date-part) + 1 calendar month` (same-day-next-month, month-end clamped; initializing both dates when renew is null), persist `is_active=True` via `compute_is_active`, stamp `last_synced_at`, record `{"cash": true, "confirmed_by": <username>}` provenance in `raw_state`, fire the active cash emails, and show `messages.success("Pago en efectivo confirmado. El artista ya es visible.")`. Each execution counts as one monthly payment: re-confirming an `active` row extends the renew date and re-sends the receipt (no duplicate suppression). Direct URL execution for non-eligible rows is refused at the permission boundary (403). All operator-visible messages SHALL be Spanish.
 
 #### Scenario: Confirm cash payment makes artist visible indefinitely
 - **WHEN** an operator clicks "Confirmar pago" for a cash-`pending` artist
-- **THEN** `status` SHALL become `"active"`, `Artist.is_active` SHALL become `True`, the artist SHALL appear in `GET /api/artworks/artists/`, the message SHALL be "Pago en efectivo confirmado. El artista ya es visible.", and the active emails SHALL be sent.
+- **THEN** `status` SHALL become `"active"`, `Artist.is_active` SHALL become `True`, the artist SHALL appear in `GET /api/artworks/artists/`, `cash_last_paid_at` SHALL be today, `current_period_end` SHALL be end-of-day one calendar month out, the message SHALL be "Pago en efectivo confirmado. El artista ya es visible.", and the active emails SHALL be sent.
 
-#### Scenario: Double confirm sends no duplicate email
-- **WHEN** an operator executes the "Confirmar pago" URL directly for an already cash-`active` artist (button hidden)
-- **THEN** the system SHALL refuse with 403, SHALL NOT change the row, and SHALL NOT send any email.
+#### Scenario: Re-confirm during grace recovers to active
+- **WHEN** an operator clicks "Confirmar pago" for a cash-`past_due` artist inside the grace window
+- **THEN** `status` SHALL return to `"active"`, the renew date SHALL extend one month, and the receipt SHALL be sent again.
+
+#### Scenario: Double confirm extends instead of no-op
+- **WHEN** an operator clicks "Confirmar pago" for an already cash-`active` artist
+- **THEN** the renew date SHALL extend one further month and the receipt SHALL be sent (each click = one payment). The old no-op behavior is removed.
 
 ### Requirement: Cancel cash subscription
-The system SHALL provide a "Cancelar efectivo" changeform action, visible only for cash rows with `status="pending"` or `"active"`. On execution it SHALL set `status="canceled"`, persist `is_active=False` via `compute_is_active`, stamp `last_synced_at`, fire the canceled cash emails, and show `messages.success("Suscripción en efectivo cancelada. El artista ya no es visible.")`. After cancellation the artist MAY return to the online flow ("Generar link" reappears); re-entering the online flow SHALL reset the row to `payment_method="online"` / `status="pending"` (clearing the cash audit) so Stripe webhooks track it again — hybrid cash+Stripe rows SHALL NOT persist. The artist MAY also be re-marked as cash. All operator-visible messages SHALL be Spanish.
+The system SHALL provide a "Cancelar efectivo" changeform action, visible for cash rows with `status="pending"`, `"active"`, or `"past_due"`. On execution it SHALL set `status="canceled"`, persist `is_active=False` via `compute_is_active`, stamp `last_synced_at`, fire the canceled cash emails, and show `messages.success("Suscripción en efectivo cancelada. El artista ya no es visible.")`. After cancellation the artist MAY return to the online flow ("Generar link" reappears); re-entering the online flow SHALL reset the row to `payment_method="online"` / `status="pending"` (clearing the cash audit and `cash_last_paid_at`) so Stripe webhooks track it again — hybrid cash+Stripe rows SHALL NOT persist. The artist MAY also be re-marked as cash (which clears both dates for a fresh cycle). All operator-visible messages SHALL be Spanish.
 
 #### Scenario: Cancel active cash hides artist
 - **WHEN** an operator clicks "Cancelar efectivo" for a cash-`active` artist
 - **THEN** `status` SHALL become `"canceled"`, `Artist.is_active` SHALL become `False`, the artist SHALL disappear from the public API, the message SHALL be "Suscripción en efectivo cancelada. El artista ya no es visible.", and the canceled emails SHALL be sent.
+
+#### Scenario: Cancel during grace hides immediately
+- **WHEN** an operator clicks "Cancelar efectivo" for a cash-`past_due` artist
+- **THEN** `status` SHALL become `"canceled"` at once (no waiting for grace end) with the same message and emails.
 
 #### Scenario: Cash actions hidden for online rows
 - **WHEN** an administrator opens an Artist change form whose subscription is `payment_method="online"` with any link or Stripe identifiers

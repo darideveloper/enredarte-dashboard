@@ -1,0 +1,7 @@
+Hola, {{ artist_name }}:
+
+Te recordamos que tu {{ plan.name }} en efectivo vence el {{ renew_date }}.
+
+Para seguir visible en el sitio público, realiza tu pago antes de esa fecha. En cuanto lo recibamos, confirmaremos tu suscripción por un mes más.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

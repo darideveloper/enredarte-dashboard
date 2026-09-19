@@ -1,0 +1,7 @@
+[Enredarte] Suscripción por vencer
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Vence: {{ renew_date }} — quedan 3 días para renovar el pago en efectivo.
+Plan: {{ plan.name }}
+Aviso enviado por: {{ actor_name }}
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/

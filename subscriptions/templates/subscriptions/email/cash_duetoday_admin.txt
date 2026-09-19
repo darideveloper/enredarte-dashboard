@@ -1,0 +1,7 @@
+[Enredarte] Suscripción vence hoy
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Vence: hoy ({{ renew_date }}). Si no se renueva, pasará a pago vencido mañana.
+Plan: {{ plan.name }}
+Aviso enviado por: {{ actor_name }}
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/
