@@ -1,0 +1,52 @@
+meta {
+  name: POST visit
+  type: http
+  seq: 26
+}
+
+post {
+  url: {{base_url}}/api/artworks/artworks/ciudad-reflejada/visit/
+  body: none
+  auth: none
+}
+
+docs {
+  # POST /api/artworks/artworks/:slug/visit/ — Record an artwork view
+  
+  Atomically increments the artwork's `views_count` (+1) and returns the
+  new count. Feeds the artist profile "Más visitados" block (works ordered
+  by `-views_count`).
+  Public endpoint, no `Authorization` header. Throttled: `artwork_views`
+  20/hour per client (`429` when exceeded — wait and retry).
+  
+  Takes no request body — any body is ignored.
+  
+  Replace `ciudad-reflejada` below with any active artwork slug (seed slugs
+  work; unknown or inactive slugs return `404` and increment nothing).
+  Call once per artwork detail-page mount, fire-and-forget: never block
+  render, never retry on failure.
+  
+  ## Status codes
+  
+  - `200 OK` — view counted, returns the new total
+  - `404 Not Found` — unknown slug, inactive artwork, or inactive artist
+  - `429 Too Many Requests` — throttled (20 views/hour per client)
+  
+  ## Response (200)
+  
+  ```json
+  {
+    "views_count": 42
+  }
+  ```
+  
+  ## Error (404/429)
+  
+  ```json
+  {
+    "status": "error",
+    "message": "Not found.",
+    "data": {}
+  }
+  ```
+}

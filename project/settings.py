@@ -254,6 +254,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "artwork_buys": "20/hour",
         "artwork_orders": "60/hour",
+        "artwork_views": "20/hour",
     },
 }
 

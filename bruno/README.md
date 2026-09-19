@@ -71,6 +71,12 @@ All artworks requests send `Authorization: Token {{token}}`. The router root
 `GET {{base_url}}/api/artworks/` lists the registered endpoints. Every list
 response is paginated (`page_size` query param, max 100).
 
+> **Exception — public view counter:** the `Artworks/` folder also holds
+> `POST visit.bru` (`POST {{base_url}}/api/artworks/artworks/:slug/visit/`),
+> which records an artwork view (`views_count` +1, returns the new count).
+> Like `Sales/`, it is public (no `Authorization` header) and throttled
+> (`artwork_views` 20/hour per client).
+
 ### Blog API (Public)
 
 The Blog API exposes public, read-only endpoints under `/api/blog/posts/` requiring no authentication:
