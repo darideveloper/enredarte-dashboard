@@ -1,6 +1,6 @@
 ---
 created: 2026-08-20
-updated: 2026-08-29
+updated: 2026-09-19
 tags:
   - stripe
   - subscriptions
@@ -75,18 +75,26 @@ Webhook endpoint `POST /webhooks/stripe/` processes events:
 | `canceled` | `False` | Artist disappears from public site |
 
 ### 6. Admin Controls
-From the Artist change page, the header buttons depend on the subscription state:
+From the Artist change page, the header buttons depend on the payment path (`payment_method`) and subscription state. Stripe buttons never show for cash rows and vice versa; hidden-button URLs are refused at the permission boundary (403).
 
 | State                        | Buttons shown |
 |------------------------------|---------------|
-| No link (no subscription / empty `signup_url`) | **Generar link**, Sincronizar desde Stripe |
-| Expired link                 | **Regenerar link**, Abrir Customer Portal, Sincronizar desde Stripe |
-| Valid (non-expired) link     | **Copiar link**, Regenerar link, Abrir Customer Portal, Sincronizar desde Stripe |
+| Online, no link (no subscription / empty `signup_url`) | **Generar link**, Sincronizar desde Stripe |
+| Online, expired link         | **Regenerar link**, Abrir Customer Portal, Sincronizar desde Stripe |
+| Online, valid (non-expired) link | **Copiar link**, Regenerar link, Abrir Customer Portal, Sincronizar desde Stripe |
+| No subscription / cash canceled | **Marcar como efectivo** (+ **Generar link** for the online path) |
+| Cash pending                 | **Confirmar pago**, **Cancelar efectivo** |
+| Cash active                  | **Cancelar efectivo** |
 
 - **Generar / Regenerar link** - Create new Checkout Session
 - **Copiar link** - Client-side button that copies the preloaded `signup_url` to the clipboard on click
 - **Abrir Customer Portal** - Stripe-hosted self-service (cancel, update card, invoices)
 - **Sincronizar desde Stripe** - Manual state re-sync escape hatch
+- **Marcar como efectivo** - Register a cash subscription (`pending`, hidden, no Stripe involved)
+- **Confirmar pago** - Confirm cash payment (`active`, visible indefinitely)
+- **Cancelar efectivo** - Cancel cash (`canceled`, hidden)
+
+Each cash transition sends a Spanish receipt to the artist plus an admin notice to `EMAILS_NOTIFICATIONS` (templates in `subscriptions/templates/subscriptions/email/`). A mail failure never rolls back the state change (warning message + log).
 
 ### 7. Public API
 `/api/artworks/artists/` filters on `Artist.is_active` - unchanged API, only the driver of `is_active` changes.

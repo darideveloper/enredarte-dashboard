@@ -1,0 +1,7 @@
+Hola, {{ artist_name }}:
+
+Confirmamos la recepción de tu pago en efectivo para tu {{ plan.name }}. ¡Gracias!
+
+Tu perfil ya es visible en el sitio público y seguirá visible mientras tu suscripción esté vigente.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

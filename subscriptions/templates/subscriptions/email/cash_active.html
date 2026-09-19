@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tu pago en efectivo fue confirmado</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; background: #faf7f2; margin: 0; padding: 24px; }
+        .card { background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 32px; max-width: 520px; margin: 0 auto; }
+        h1 { color: #1d3a2f; font-size: 22px; margin: 0 0 12px; }
+        p { color: #444; line-height: 1.6; margin: 0 0 12px; }
+        .muted { color: #777; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Hola, {{ artist_name }}</h1>
+        <p>Confirmamos la recepción de tu pago en <strong>efectivo</strong> para tu {{ plan.name }}. ¡Gracias!</p>
+        <p>Tu perfil <strong>ya es visible</strong> en el sitio público y seguirá visible mientras tu suscripción esté vigente.</p>
+        <p class="muted">Si tienes alguna duda, responde a este correo y con gusto te ayudamos.</p>
+    </div>
+</body>
+</html>

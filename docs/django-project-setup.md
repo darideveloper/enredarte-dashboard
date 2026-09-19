@@ -383,17 +383,18 @@ DATETIME_FORMAT = f"{DATE_FORMAT} {TIME_FORMAT}"
 ```
 
 **Email SMTP Configuration:**
-> **Note:** This project currently sends no email — no `EMAIL_*` settings exist in `settings.py`. Skip this subsection unless the project gains email functionality. If emails are required, add the block below and the corresponding variables per environment.
+
+> **Note:** Email is used for cash-payment notifications (`subscriptions/services/notifications.py`, templates under `subscriptions/templates/subscriptions/email/`). Dev/test default to the console backend (no credentials needed); set the SMTP variables below in production.
 
 ```python
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_PORT = os.getenv("EMAIL_PORT")
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL") == "True"
-EMAIL_FROM = EMAIL_HOST_USER
-EMAILS_NOTIFICATIONS = os.getenv("EMAILS_NOTIFICATIONS", "").split(",")
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_FROM = os.getenv("EMAIL_FROM", "") or EMAIL_HOST_USER or "no-reply@localhost"
+EMAILS_NOTIFICATIONS = [e.strip() for e in os.getenv("EMAILS_NOTIFICATIONS", "").split(",") if e.strip()]
 ```
 
 ### 9. Validation

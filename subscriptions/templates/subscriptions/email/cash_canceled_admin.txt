@@ -1,0 +1,7 @@
+[Enredarte] Suscripción en efectivo cancelada
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Estado: cancelada — su perfil ya no es visible en el sitio público.
+Plan: {{ plan.name }}
+Cancelada por: {{ actor_name }}
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/

@@ -1,8 +1,5 @@
-# artist-subscription-actions Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fix-stripe-prod-polish. Update Purpose after archive.
-## Requirements
 ### Requirement: Generate subscription link action
 The system SHALL provide a "Generar link de suscripción" changeform action on the Artist admin change page that creates a Stripe customer and checkout session when no subscription link has been generated yet. The action SHALL be visible only when the artist has no `signup_url` at all (no subscription or empty `signup_url`) AND the artist is not on the cash path (no cash `pending`/`active` row). Direct execution for a cash `pending`/`active` artist (via URL) is refused at the Unfold permission boundary (403) without mutation or email; the method additionally keeps a defensive `messages.error("Este artista paga en efectivo. Esta acción de Stripe no aplica.")` guard. When the Stripe API raises `stripe.error.StripeError` (network, auth, rate-limit), the system SHALL NOT return `500`; it SHALL `logger.warning` with the `artist_id` and error, show `messages.error` with prefix `Stripe no respondió` (e.g. `f"Stripe no respondió: {e}"`), and redirect `302` to the change form without persisting a partial link.
 
@@ -30,22 +27,6 @@ The system SHALL provide a "Generar link de suscripción" changeform action on t
 - **WHEN** `stripe.Customer.create` or `stripe.checkout.Session.create` raises `stripe.error.StripeError`
 - **THEN** the system SHALL show `messages.error` with prefix `Stripe no respondió` (e.g. `f"Stripe no respondió: {e}"`), log `warning` with `artist_id`, and return `302` to the change form without creating a half-persisted `ArtistSubscription` link (message assertion shall check prefix, not exact ellipsis).
 
-
-### Requirement: Copy subscription link button
-The system SHALL provide a "Copiar link" button on the Artist admin change page when a valid (non-expired) `signup_url` exists. The button SHALL render the URL in a `data-copy-url` attribute and copy it to the clipboard when clicked (a user gesture), without any server round-trip.
-
-#### Scenario: Copy button shown with preloaded link
-- **WHEN** an administrator opens an Artist change form and a valid (non-expired) `signup_url` exists
-- **THEN** a "Copiar link" button SHALL be shown with the `signup_url` preloaded in its `data-copy-url` attribute, and the "Generar link de suscripción" button SHALL NOT be shown
-
-#### Scenario: Copy button hidden without a valid link
-- **WHEN** an administrator opens an Artist change form with no subscription, no `signup_url`, or an expired `signup_url`
-- **THEN** the "Copiar link" button SHALL NOT be shown
-
-#### Scenario: Clicking copy writes to clipboard
-- **WHEN** an administrator clicks the "Copiar link" button
-- **THEN** the `data-copy-url` value SHALL be written to the clipboard and the button label SHALL briefly display "¡Copiado!" without removing the button icon
-
 ### Requirement: Regenerate subscription link action
 The system SHALL provide a "Regenerar link" changeform action on the Artist admin change page that reuses a valid existing checkout URL or creates a new one when expired. The action SHALL be visible whenever a subscription link exists (`signup_url` present, valid or expired) AND the row is `payment_method="online"` (never for cash rows). When Stripe raises `stripe.error.StripeError`, the system SHALL NOT return `500`; it SHALL `logger.warning`, show `messages.error` with prefix `Stripe no respondió`, and redirect `302`.
 
@@ -65,7 +46,6 @@ The system SHALL provide a "Regenerar link" changeform action on the Artist admi
 - **WHEN** `stripe.Customer.create` or `stripe.checkout.Session.create` raises `stripe.error.StripeError` during regeneration
 - **THEN** the system SHALL show `messages.error` with prefix `Stripe no respondió` and return `302` without persisting a partial URL.
 
-
 ### Requirement: Open customer portal action
 The system SHALL provide an "Abrir Customer Portal" changeform action on the Artist admin change page that creates a Stripe billing portal session. The action SHALL be visible whenever a subscription link exists (`signup_url` present) AND the row is `payment_method="online"`. Direct execution for a cash row (via URL) is refused at the permission boundary (403); the method additionally keeps a defensive `messages.warning("Este artista paga en efectivo. Esta acción de Stripe no aplica.")` guard. When Stripe raises `stripe.error.StripeError` (e.g., deleted `cus_xxx`, auth fail), the system SHALL NOT return `500`; it SHALL `logger.warning`, show `messages.error` with prefix `Stripe no respondió`, and redirect `302`.
 
@@ -84,7 +64,6 @@ The system SHALL provide an "Abrir Customer Portal" changeform action on the Art
 #### Scenario: Stripe error during portal creation shows message not 500
 - **WHEN** `stripe.billing_portal.Session.create` raises `stripe.error.StripeError`
 - **THEN** the system SHALL show `messages.error` with prefix `Stripe no respondió` and return `302`.
-
 
 ### Requirement: Sync from Stripe action
 The system SHALL provide a "Sincronizar desde Stripe" changeform action on the Artist admin change page that re-fetches the customer and subscription state from the Stripe API and updates the local `ArtistSubscription` and `Artist.is_active` accordingly. The action SHALL be visible whenever the artist is NOT on the cash path (previously always visible); for cash rows it SHALL be hidden, and direct execution (via URL) is refused at the permission boundary (403) without mutation; the method additionally keeps a defensive `messages.warning("Este artista paga en efectivo. Esta acción de Stripe no aplica.")` guard. The implementation MUST handle the Stripe SDK `ListObject` shape (`Subscription.list` returns `ListObject` with `.data`, not a plain `list`) via `subs.data if hasattr(subs,"data") else subs`, and MUST handle Stripe v15 `StripeObject` without `dict.get` via `sget`/`to_plain_dict`. Stripe API failures SHALL NOT return `500`; they SHALL `logger.warning`, show `messages.error` with prefix `Stripe no respondió`, and return `302`. The action SHALL perform a single DB save for `customer_email`+subscription fields (set `customer_email` via `sget(customer,"email")` before calling `apply_stripe_payload`, removing the double-save at `artworks/admin.py:513-514`), SHALL unwrap an expanded `customer` object (`{"id":...}`) to `cus_xxx` if present, and SHALL persist `customer_email` via `sget`.
@@ -106,7 +85,6 @@ The system SHALL provide a "Sincronizar desde Stripe" changeform action on the A
 - **THEN** the system SHALL show `messages.error` with prefix `Stripe no respondió`, log `warning` with `artist_id`, and return `302` without mutating `ArtistSubscription`/`Artist.is_active`.
 
 #### Scenario: Sync handles expanded customer object
-
 - **WHEN** Stripe returns the subscription's `customer` field as an expanded object `{"id":"cus_123", ...}` instead of string `cus_123`
 - **THEN** `sget(stripe_sub,"customer")` SHALL be unwrapped: if the value is a dict-like with `id`, store `sget(value,"id")` as `stripe_customer_id`, not the dict string.
 

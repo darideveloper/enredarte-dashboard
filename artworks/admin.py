@@ -50,7 +50,7 @@ from artworks.models import (
 from project.admin_base import ModelAdminUnfoldBase, TranslatableNameAdminMixin
 from subscriptions.admin_helpers import subscription_badge, subscription_badge_from_artist
 from subscriptions.models import ArtistSubscription, BillingPlan, epoch_to_datetime
-from subscriptions.services import stripe_client
+from subscriptions.services import notifications, stripe_client
 from subscriptions.services.stripe_compat import sget
 from subscriptions.services.subscription_state import compute_is_active
 from unfold.admin import StackedInline, TabularInline
@@ -320,6 +320,9 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         "regenerate_link",
         "open_portal",
         "sync_from_stripe",
+        "marcar_efectivo",
+        "confirmar_pago",
+        "cancelar_efectivo",
     ]
 
     def _resolve_artist(self, object_id):
@@ -449,27 +452,78 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     def has_generate_link_permission(self, request, object_id):
         artist = self._resolve_artist(object_id)
         sub = getattr(artist, "subscription", None)
+        if self._is_cash_sub(sub) and sub.status != ArtistSubscription.Status.CANCELED:
+            return False
         return not self._link_exists(sub)
 
     def has_regenerate_link_permission(self, request, object_id):
         artist = self._resolve_artist(object_id)
         sub = getattr(artist, "subscription", None)
-        return self._link_exists(sub)
+        return self._link_exists(sub) and not self._is_cash_sub(sub)
 
     def has_open_portal_permission(self, request, object_id):
         artist = self._resolve_artist(object_id)
         sub = getattr(artist, "subscription", None)
-        return self._link_exists(sub)
+        return self._link_exists(sub) and not self._is_cash_sub(sub)
 
     def has_sync_from_stripe_permission(self, request, object_id):
-        return True
+        artist = self._resolve_artist(object_id)
+        sub = getattr(artist, "subscription", None)
+        return not self._is_cash_sub(sub)
+
+    def _is_cash_sub(self, sub):
+        """True when the subscription row is on the manual cash path."""
+        return bool(sub and sub.payment_method == ArtistSubscription.PaymentMethod.CASH)
+
+    def _is_online_started(self, sub):
+        """True when an online row already went through Stripe (link or ids)."""
+        return bool(
+            sub
+            and sub.payment_method == ArtistSubscription.PaymentMethod.ONLINE
+            and (sub.signup_url or sub.stripe_customer_id or sub.stripe_subscription_id)
+        )
+
+    def has_marcar_efectivo_permission(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        sub = getattr(artist, "subscription", None)
+        if sub is None:
+            return True
+        if self._is_cash_sub(sub):
+            return sub.status == ArtistSubscription.Status.CANCELED
+        # Online row that never started (failed link generation): allow cash.
+        return not self._is_online_started(sub)
+
+    def has_confirmar_pago_permission(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        sub = getattr(artist, "subscription", None)
+        return self._is_cash_sub(sub) and sub.status == ArtistSubscription.Status.PENDING
+
+    def has_cancelar_efectivo_permission(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        sub = getattr(artist, "subscription", None)
+        return self._is_cash_sub(sub) and sub.status in (
+            ArtistSubscription.Status.PENDING,
+            ArtistSubscription.Status.ACTIVE,
+        )
 
     # -- Actions_detail methods --
+
+    def _refuse_cash_on_stripe_path(self, request, redirect_url, artist):
+        """Refuse a Stripe action for cash pending/active rows (direct-URL guard)."""
+        sub = getattr(artist, "subscription", None)
+        if self._is_cash_sub(sub) and sub.status != ArtistSubscription.Status.CANCELED:
+            messages.error(request, gettext("Este artista paga en efectivo. Esta acción de Stripe no aplica."))
+            return redirect(redirect_url)
+        return None
 
     @action(description="Generar link de suscripción", url_path="generate-link", permissions=["generate_link"])
     def generate_link(self, request, object_id):
         artist = self._resolve_artist(object_id)
         redirect_url = _artist_redirect_url(artist)
+
+        refused = self._refuse_cash_on_stripe_path(request, redirect_url, artist)
+        if refused is not None:
+            return refused
 
         blocked = _billing_blocked(artist)
         if blocked:
@@ -481,6 +535,12 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             artist=artist,
             defaults={"status": ArtistSubscription.Status.PENDING},
         )
+        if self._is_cash_sub(sub):
+            # Re-entering the online flow: drop the cash path so Stripe
+            # webhooks track this row again (never a hybrid cash+Stripe row).
+            sub.payment_method = ArtistSubscription.PaymentMethod.ONLINE
+            sub.status = ArtistSubscription.Status.PENDING
+            sub.raw_state = {}
 
         try:
             if not sub.stripe_customer_id:
@@ -500,9 +560,11 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         sub.last_synced_at = timezone.now()
         sub.save(
             update_fields=[
+                "payment_method",
                 "signup_url",
                 "signup_url_expires_at",
                 "status",
+                "raw_state",
                 "last_synced_at",
                 "stripe_customer_id",
                 "updated_at",
@@ -519,6 +581,10 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     def regenerate_link(self, request, object_id):
         artist = self._resolve_artist(object_id)
         redirect_url = _artist_redirect_url(artist)
+
+        refused = self._refuse_cash_on_stripe_path(request, redirect_url, artist)
+        if refused is not None:
+            return refused
 
         blocked = _billing_blocked(artist)
         if blocked:
@@ -571,6 +637,9 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         redirect_url = _artist_redirect_url(artist)
 
         sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if self._is_cash_sub(sub) and sub.status != ArtistSubscription.Status.CANCELED:
+            messages.warning(request, gettext("Este artista paga en efectivo. Esta acción de Stripe no aplica."))
+            return redirect(redirect_url)
         if sub is None or not sub.stripe_customer_id:
             messages.warning(request, gettext("Aún no se generó un link de pago para este artista."))
             return redirect(redirect_url)
@@ -589,6 +658,9 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         redirect_url = _artist_redirect_url(artist)
 
         sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if self._is_cash_sub(sub):
+            messages.warning(request, gettext("Este artista paga en efectivo. Esta acción de Stripe no aplica."))
+            return redirect(redirect_url)
         if sub is None or not sub.stripe_customer_id:
             messages.warning(request, gettext("Este artista aún no tiene un customer en Stripe."))
             return redirect(redirect_url)
@@ -624,6 +696,117 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             ),
         )
         return redirect(redirect_url)
+
+    def _notify_cash(self, request, redirect_url, kind, artist, success_message):
+        """Send cash emails; on failure keep state and warn (never rollback)."""
+        try:
+            getattr(notifications, f"send_cash_{kind}")(artist, request.user)
+        except Exception:
+            logger.exception("cash email %s failed artist=%s", kind, artist.pk)
+            messages.warning(request, gettext("Estado guardado, pero el correo falló. Reintenta el envío manualmente."))
+            return redirect(redirect_url)
+        messages.success(request, success_message)
+        return redirect(redirect_url)
+
+    @action(description="Marcar como efectivo", url_path="marcar-efectivo", permissions=["marcar_efectivo"])
+    def marcar_efectivo(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        redirect_url = _artist_redirect_url(artist)
+
+        if not artist.email:
+            messages.error(request, gettext("Este artista no tiene un correo electrónico. Captura uno antes de marcarlo como efectivo."))
+            return redirect(redirect_url)
+
+        sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if sub is not None and (self._is_cash_sub(sub) or self._is_online_started(sub)):
+            messages.error(request, gettext("Este artista tiene una suscripción en línea activa. Cancélala en Stripe antes de marcarlo como efectivo."))
+            return redirect(redirect_url)
+
+        sub, _created = ArtistSubscription.objects.get_or_create(
+            artist=artist,
+            defaults={
+                "status": ArtistSubscription.Status.PENDING,
+                "payment_method": ArtistSubscription.PaymentMethod.CASH,
+            },
+        )
+        sub.payment_method = ArtistSubscription.PaymentMethod.CASH
+        sub.status = ArtistSubscription.Status.PENDING
+        sub.signup_url = ""
+        sub.signup_url_expires_at = None
+        sub.raw_state = {"cash": True, "marked_by": request.user.get_username()}
+        sub.last_synced_at = timezone.now()
+        sub.save(
+            update_fields=[
+                "payment_method",
+                "status",
+                "signup_url",
+                "signup_url_expires_at",
+                "raw_state",
+                "last_synced_at",
+                "updated_at",
+            ]
+        )
+
+        artist.is_active = compute_is_active(sub)
+        artist.save(update_fields=["is_active", "updated_at"])
+
+        return self._notify_cash(
+            request, redirect_url, "pending", artist,
+            gettext("Artista registrado para pago en efectivo. Pendiente de confirmación."),
+        )
+
+    @action(description="Confirmar pago", url_path="confirmar-pago-efectivo", permissions=["confirmar_pago"])
+    def confirmar_pago(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        redirect_url = _artist_redirect_url(artist)
+
+        sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if sub is not None and self._is_cash_sub(sub) and sub.status == ArtistSubscription.Status.ACTIVE:
+            messages.info(request, gettext("El pago en efectivo ya estaba confirmado."))
+            return redirect(redirect_url)
+        if sub is None or not self._is_cash_sub(sub) or sub.status != ArtistSubscription.Status.PENDING:
+            messages.error(request, gettext("Este artista no tiene un pago en efectivo pendiente de confirmación."))
+            return redirect(redirect_url)
+
+        sub.status = ArtistSubscription.Status.ACTIVE
+        sub.raw_state = {"cash": True, "confirmed_by": request.user.get_username()}
+        sub.last_synced_at = timezone.now()
+        sub.save(update_fields=["status", "raw_state", "last_synced_at", "updated_at"])
+
+        artist.is_active = compute_is_active(sub)
+        artist.save(update_fields=["is_active", "updated_at"])
+
+        return self._notify_cash(
+            request, redirect_url, "active", artist,
+            gettext("Pago en efectivo confirmado. El artista ya es visible."),
+        )
+
+    @action(description="Cancelar efectivo", url_path="cancelar-efectivo", permissions=["cancelar_efectivo"])
+    def cancelar_efectivo(self, request, object_id):
+        artist = self._resolve_artist(object_id)
+        redirect_url = _artist_redirect_url(artist)
+
+        sub = ArtistSubscription.objects.filter(artist=artist).first()
+        if (
+            sub is None
+            or not self._is_cash_sub(sub)
+            or sub.status not in (ArtistSubscription.Status.PENDING, ArtistSubscription.Status.ACTIVE)
+        ):
+            messages.error(request, gettext("Este artista no tiene una suscripción en efectivo vigente."))
+            return redirect(redirect_url)
+
+        sub.status = ArtistSubscription.Status.CANCELED
+        sub.raw_state = {"cash": True, "canceled_by": request.user.get_username()}
+        sub.last_synced_at = timezone.now()
+        sub.save(update_fields=["status", "raw_state", "last_synced_at", "updated_at"])
+
+        artist.is_active = compute_is_active(sub)
+        artist.save(update_fields=["is_active", "updated_at"])
+
+        return self._notify_cash(
+            request, redirect_url, "canceled", artist,
+            gettext("Suscripción en efectivo cancelada. El artista ya no es visible."),
+        )
 
     class Media:
         js = ["js/copy_clipboard.js"]

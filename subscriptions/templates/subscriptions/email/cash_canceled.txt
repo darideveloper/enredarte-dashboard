@@ -1,0 +1,7 @@
+Hola, {{ artist_name }}:
+
+Tu suscripción en efectivo a {{ plan.name }} fue cancelada.
+
+Por lo tanto, tu perfil ya no es visible en el sitio público. Si deseas reactivarlo, contáctanos para registrar un nuevo pago.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone as dt_timezone
+import logging
 
 from django.conf import settings
 from django.db import models
@@ -9,6 +10,8 @@ from core.models import TimeStampedModel
 from solo.models import SingletonModel
 
 from subscriptions.services.stripe_compat import sget, to_plain_dict
+
+logger = logging.getLogger(__name__)
 
 
 def epoch_to_datetime(ts):
@@ -199,6 +202,17 @@ class ArtistSubscription(TimeStampedModel):
         default=Status.PENDING,
         verbose_name=_("Estado"),
     )
+    class PaymentMethod(models.TextChoices):
+        ONLINE = "online", _("En línea")
+        CASH = "cash", _("Efectivo")
+
+    payment_method = models.CharField(
+        max_length=10,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.ONLINE,
+        verbose_name=_("Método de pago"),
+        help_text=_("En línea: la suscripción se gestiona en Stripe. En efectivo: el control es manual desde el admin, sin Stripe."),
+    )
     stripe_customer_id = models.CharField(
         max_length=100,
         unique=True,
@@ -311,6 +325,12 @@ class ArtistSubscription(TimeStampedModel):
             or cls.objects.filter(stripe_customer_id=cus_id).first()
         )
         if obj is None:
+            return None
+        if obj.payment_method == cls.PaymentMethod.CASH:
+            logger.info(
+                "upsert_from_stripe ignored cash row artist=%s sub=%s",
+                obj.artist_id, sub_id,
+            )
             return None
         obj.apply_stripe_payload(stripe_sub)
         return obj

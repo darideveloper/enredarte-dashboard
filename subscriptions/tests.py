@@ -8,9 +8,11 @@ from unittest.mock import patch
 from decimal import Decimal
 
 import stripe as stripe_lib
+from django.contrib import admin as django_admin
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
-from django.test import TestCase, override_settings
+from django.core import mail
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1528,6 +1530,325 @@ class WebhookEdgeTest(ArtistTestBase):
         self.assertEqual(sub.signup_url, "")
         self.assertIsNone(sub.signup_url_expires_at)
         self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+
+
+class CashUpsertGuardTest(ArtistTestBase):
+    def test_upsert_ignores_cash_row(self):
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_123",
+        )
+        result = ArtistSubscription.upsert_from_stripe(make_subscription())
+        self.assertIsNone(result)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.CASH)
+
+    def test_upsert_still_applies_to_online_row(self):
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_123",
+        )
+        result = ArtistSubscription.upsert_from_stripe(make_subscription())
+        self.assertIsNotNone(result)
+        self.assertEqual(result.status, ArtistSubscription.Status.ACTIVE)
+
+    def test_payment_method_defaults_online_with_spanish_labels(self):
+        field = ArtistSubscription._meta.get_field("payment_method")
+        self.assertEqual(field.default, ArtistSubscription.PaymentMethod.ONLINE)
+        self.assertEqual(str(field.verbose_name), "Método de pago")
+        self.assertIn("Stripe", str(field.help_text))
+        labels = dict(field.choices)
+        self.assertEqual(str(labels["online"]), "En línea")
+        self.assertEqual(str(labels["cash"]), "Efectivo")
+
+    @override_settings(STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
+    def test_webhook_events_ignore_cash_row(self):
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_123",
+        )
+        self.artist.is_active = True
+        self.artist.save(update_fields=["is_active"])
+        events = [
+            ("customer.subscription.updated", "evt_cash_upd", make_subscription(status="canceled")),
+            ("invoice.payment_failed", "evt_cash_inv", make_invoice("cus_123", "sub_123")),
+        ]
+        for event_type, event_id, obj in events:
+            payload = json.dumps(make_event(event_type, event_id, obj)).encode()
+            response = self.client.post(
+                "/webhooks/stripe/",
+                data=payload,
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+            )
+            self.assertEqual(response.status_code, 200)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.artist.refresh_from_db()
+        self.assertTrue(self.artist.is_active)
+
+
+@override_settings(EMAILS_NOTIFICATIONS=["admin1@x.com", "admin2@x.com"])
+class CashNotificationsTest(ArtistTestBase):
+    SUBJECTS = {
+        "pending": (
+            "Tu registro de pago en efectivo está pendiente",
+            "[Enredarte] Artista marcado como efectivo",
+        ),
+        "active": (
+            "Tu pago en efectivo fue confirmado",
+            "[Enredarte] Pago en efectivo confirmado",
+        ),
+        "canceled": (
+            "Tu suscripción en efectivo fue cancelada",
+            "[Enredarte] Suscripción en efectivo cancelada",
+        ),
+    }
+
+    def _send(self, kind):
+        from subscriptions.services import notifications
+
+        getattr(notifications, f"send_cash_{kind}")(self.artist, self.user)
+
+    def test_each_transition_sends_two_spanish_messages(self):
+        for kind, (artist_subject, admin_prefix) in self.SUBJECTS.items():
+            with self.subTest(kind=kind):
+                mail.outbox = []
+                self._send(kind)
+                self.assertEqual(len(mail.outbox), 2)
+                artist_msg, admin_msg = mail.outbox
+                self.assertEqual(artist_msg.to, ["artista@x.com"])
+                self.assertEqual(artist_msg.subject, artist_subject)
+                self.assertEqual(admin_msg.to, ["admin1@x.com", "admin2@x.com"])
+                self.assertTrue(admin_msg.subject.startswith(admin_prefix))
+                self.assertIn(self.artist.name, admin_msg.subject)
+                for msg in mail.outbox:
+                    self.assertTrue(msg.body)  # text part
+                    html = dict((m, c) for c, m in msg.alternatives).get("text/html", "")
+                    self.assertTrue(html)
+                # Artist receipt: greeting + contact line, both alternatives
+                artist_html = dict((m, c) for c, m in artist_msg.alternatives)["text/html"]
+                for body in (artist_msg.body, artist_html):
+                    self.assertIn(f"Hola, {self.artist.name}", body)
+                    self.assertIn("responde a este correo", body)
+                # Admin notice: operational tone with operator + admin link, no greeting
+                admin_html = dict((m, c) for c, m in admin_msg.alternatives)["text/html"]
+                for body in (admin_msg.body, admin_html):
+                    self.assertIn(self.artist.name, body)
+                    self.assertIn("artista@x.com", body)
+                    self.assertIn("admin", body)  # actor username
+                    self.assertIn("/admin/artworks/artist/", body)
+                    self.assertNotIn("Hola,", body)
+
+    def test_active_body_states_visibility(self):
+        mail.outbox = []
+        self._send("active")
+        html = dict((m, c) for c, m in mail.outbox[0].alternatives)["text/html"]
+        self.assertIn("ya es visible", mail.outbox[0].body)
+        self.assertIn("ya es visible", html)
+
+    @override_settings(EMAILS_NOTIFICATIONS=[])
+    def test_empty_admin_list_skips_admin_send_with_warning(self):
+        from subscriptions.services import notifications
+
+        mail.outbox = []
+        with self.assertLogs("subscriptions.services.notifications", level="WARNING"):
+            notifications.send_cash_pending(self.artist, self.user)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["artista@x.com"])
+
+
+@override_settings(EMAILS_NOTIFICATIONS=["admin1@x.com"])
+class CashAdminActionsTest(ArtistTestBase):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.user)
+        from artworks.admin import ArtistAdmin
+
+        self.admin = ArtistAdmin(Artist, django_admin.site)
+        factory = RequestFactory()
+        self.request = factory.get("/admin/")
+        self.request.user = self.user
+
+    def _messages(self, response):
+        return [str(m) for m in get_messages(response.wsgi_request)]
+
+    def _make_cash(self, status):
+        return ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=status,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+        )
+
+    def test_marcar_efectivo_creates_pending_and_notifies(self):
+        response = self.client.get(self._action_url(self.artist, "marcar-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.CASH)
+        self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+        self.assertEqual(sub.signup_url, "")
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+        self.assertIn(
+            "Artista registrado para pago en efectivo. Pendiente de confirmación.",
+            self._messages(response),
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_marcar_efectivo_refused_without_email(self):
+        artist = self.make_artist("Sin correo", email="")
+        response = self.client.get(self._action_url(artist, "marcar-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ArtistSubscription.objects.filter(artist=artist).exists())
+        self.assertIn(
+            "Este artista no tiene un correo electrónico. Captura uno antes de marcarlo como efectivo.",
+            self._messages(response),
+        )
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_confirmar_pago_activates_and_notifies(self):
+        self._make_cash(ArtistSubscription.Status.PENDING)
+        response = self.client.get(self._action_url(self.artist, "confirmar-pago-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.artist.refresh_from_db()
+        self.assertTrue(self.artist.is_active)
+        self.assertIn(
+            "Pago en efectivo confirmado. El artista ya es visible.",
+            self._messages(response),
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_double_confirm_is_noop_without_email(self):
+        # Button hidden for cash-active: Unfold refuses the direct URL (403).
+        self._make_cash(ArtistSubscription.Status.ACTIVE)
+        response = self.client.get(self._action_url(self.artist, "confirmar-pago-efectivo"))
+        self.assertEqual(response.status_code, 403)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_cancelar_efectivo_hides_and_notifies(self):
+        self._make_cash(ArtistSubscription.Status.ACTIVE)
+        self.artist.is_active = True
+        self.artist.save(update_fields=["is_active"])
+        response = self.client.get(self._action_url(self.artist, "cancelar-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.artist.refresh_from_db()
+        self.assertFalse(self.artist.is_active)
+        self.assertIn(
+            "Suscripción en efectivo cancelada. El artista ya no es visible.",
+            self._messages(response),
+        )
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_cash_canceled_can_return_to_online_flow(self):
+        self._make_cash(ArtistSubscription.Status.CANCELED)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        session = type("S", (), {"url": "https://checkout.stripe.com/c/pay", "expires_at": time.time() + 3600})
+        with patch(
+            "artworks.admin.stripe_client.create_customer",
+            return_value=type("C", (), {"id": "cus_new"}),
+        ), patch(
+            "artworks.admin.stripe_client.create_checkout_session",
+            return_value=session,
+        ):
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.ONLINE)
+        self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+        self.assertEqual(sub.stripe_customer_id, "cus_new")
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/pay")
+
+    def test_generate_link_refused_on_cash_row(self):
+        # Button hidden for cash rows: Unfold refuses the direct URL (403).
+        self._make_cash(ArtistSubscription.Status.PENDING)
+        with patch("artworks.admin.stripe_client.create_customer") as create_customer:
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 403)
+        create_customer.assert_not_called()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_sync_refused_on_cash_row_without_api_call(self):
+        # Button hidden for cash rows: Unfold refuses the direct URL (403).
+        self._make_cash(ArtistSubscription.Status.ACTIVE)
+        with patch("artworks.admin.stripe_client.fetch_customer") as fetch_customer:
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 403)
+        fetch_customer.assert_not_called()
+
+    def test_portal_and_regenerate_refused_on_cash_row(self):
+        # Same permission-boundary mechanism as generate/sync: 403, no side effects.
+        self._make_cash(ArtistSubscription.Status.PENDING)
+        for action in ("open-portal", "regenerate-link"):
+            with self.subTest(action=action):
+                response = self.client.get(self._action_url(self.artist, action))
+                self.assertEqual(response.status_code, 403)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_mail_failure_keeps_state_with_warning(self):
+        self._make_cash(ArtistSubscription.Status.PENDING)
+        with patch(
+            "subscriptions.services.notifications.send_cash_active",
+            side_effect=Exception("smtp down"),
+        ):
+            response = self.client.get(self._action_url(self.artist, "confirmar-pago-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.status, ArtistSubscription.Status.ACTIVE)
+        self.artist.refresh_from_db()
+        self.assertTrue(self.artist.is_active)
+        texts = self._messages(response)
+        self.assertTrue(
+            any(t.startswith("Estado guardado, pero el correo falló") for t in texts),
+            texts,
+        )
+
+    def test_button_visibility_cash_pending(self):
+        self._make_cash(ArtistSubscription.Status.PENDING)
+        pk = str(self.artist.pk)
+        self.assertFalse(self.admin.has_marcar_efectivo_permission(self.request, pk))
+        self.assertTrue(self.admin.has_confirmar_pago_permission(self.request, pk))
+        self.assertTrue(self.admin.has_cancelar_efectivo_permission(self.request, pk))
+        self.assertFalse(self.admin.has_generate_link_permission(self.request, pk))
+        self.assertFalse(self.admin.has_regenerate_link_permission(self.request, pk))
+        self.assertFalse(self.admin.has_open_portal_permission(self.request, pk))
+        self.assertFalse(self.admin.has_sync_from_stripe_permission(self.request, pk))
+
+    def test_button_visibility_cash_active(self):
+        self._make_cash(ArtistSubscription.Status.ACTIVE)
+        pk = str(self.artist.pk)
+        self.assertFalse(self.admin.has_marcar_efectivo_permission(self.request, pk))
+        self.assertFalse(self.admin.has_confirmar_pago_permission(self.request, pk))
+        self.assertTrue(self.admin.has_cancelar_efectivo_permission(self.request, pk))
+        self.assertFalse(self.admin.has_generate_link_permission(self.request, pk))
+        self.assertFalse(self.admin.has_sync_from_stripe_permission(self.request, pk))
+
+    def test_button_visibility_cash_canceled_and_no_subscription(self):
+        self._make_cash(ArtistSubscription.Status.CANCELED)
+        pk = str(self.artist.pk)
+        self.assertTrue(self.admin.has_marcar_efectivo_permission(self.request, pk))
+        self.assertFalse(self.admin.has_confirmar_pago_permission(self.request, pk))
+        self.assertFalse(self.admin.has_cancelar_efectivo_permission(self.request, pk))
+        self.assertTrue(self.admin.has_generate_link_permission(self.request, pk))
+        other = self.make_artist("Sin sub", email="sinsub@x.com")
+        opk = str(other.pk)
+        self.assertTrue(self.admin.has_marcar_efectivo_permission(self.request, opk))
+        self.assertTrue(self.admin.has_generate_link_permission(self.request, opk))
 
 
 @override_settings(STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)

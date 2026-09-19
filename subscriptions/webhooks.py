@@ -139,6 +139,22 @@ def _find_subscription(customer_id, subscription_id):
     return None
 
 
+def _is_cash_row(subscription):
+    """True when the row is operator-managed cash (Stripe must never touch it)."""
+    return bool(subscription) and subscription.payment_method == ArtistSubscription.PaymentMethod.CASH
+
+
+def _ignore_cash_row(subscription, event_type):
+    """Log + report whether a cash row matched; True means the handler must stop."""
+    if _is_cash_row(subscription):
+        logger.info(
+            "webhook %s ignored cash row artist=%s",
+            event_type, subscription.artist_id,
+        )
+        return True
+    return False
+
+
 def _invoice_period_end(invoice):
     """New period end carried by the first line of an invoice."""
     lines = (invoice.get("lines") or {}).get("data") or []
@@ -157,6 +173,8 @@ def _handle_checkout_completed(event):
         return
     sub = ArtistSubscription.objects.filter(artist_id=artist_id).first()
     if sub is None:
+        return
+    if _ignore_cash_row(sub, "checkout.session.completed"):
         return
     changed = False
     if session.get("customer") and not sub.stripe_customer_id:
@@ -210,6 +228,8 @@ def _handle_invoice_payment_succeeded(event):
     sub = _find_subscription(invoice.get("customer"), invoice.get("subscription"))
     if sub is None:
         return
+    if _ignore_cash_row(sub, "invoice.payment_succeeded"):
+        return
     sub.status = ArtistSubscription.Status.ACTIVE
     sub.cancel_at_period_end = False
     period_end = _invoice_period_end(invoice)
@@ -239,6 +259,8 @@ def _handle_invoice_payment_failed(event):
     invoice = event["data"]["object"]
     sub = _find_subscription(invoice.get("customer"), invoice.get("subscription"))
     if sub is None:
+        return
+    if _ignore_cash_row(sub, "invoice.payment_failed"):
         return
     sub.status = ArtistSubscription.Status.PAST_DUE
     sub.raw_state = to_plain_dict(invoice)

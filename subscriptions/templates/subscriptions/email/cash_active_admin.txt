@@ -1,0 +1,7 @@
+[Enredarte] Pago en efectivo confirmado
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Estado: activo — su perfil ya es visible en el sitio público.
+Plan: {{ plan.name }}
+Confirmado por: {{ actor_name }}
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/

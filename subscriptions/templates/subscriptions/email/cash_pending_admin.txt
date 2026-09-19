@@ -1,0 +1,7 @@
+[Enredarte] Nuevo registro de pago en efectivo
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Estado: pendiente de confirmación — su perfil no es visible en el sitio público.
+Plan: {{ plan.name }}
+Registrado por: {{ actor_name }}
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/
