@@ -224,16 +224,16 @@ stateDiagram-v2
 
 ## Follow-ups (remaining validations & tasks)
 
-1. **Bruno `Sales/` collection — not implemented yet.** Planned and
-   agreed (frontend owner flow): `bruno/collections/enredarte-dashboard-api/Sales/`
-   with `POST buy.bru` (seq 23), `GET order-summary.bru` (seq 24),
+1. **Bruno `Sales/` collection — done.** `bruno/collections/enredarte-dashboard-api/Sales/`
+   holds `POST buy.bru` (seq 23), `GET order-summary.bru` (seq 24),
    `POST order-delivery.bru` (seq 25), each with a mandatory `docs`
    block per `openspec/specs/bruno-request-docs/spec.md` (public
-   endpoints: no `Authorization` header, document throttles instead),
-   fake-hex order slugs with a "copy the slug from the Stripe redirect"
-   note (buy returns only `{checkout_url}`, so slug chaining is
-   impossible), plus a one-line `Sales/` mention in `bruno/README.md`
-   and a `bru run Sales/` smoke-test setup (feasible — no token needed).
+   endpoints: no `Authorization` header, throttles documented instead),
+   example artwork slug for buy (`obra-ejemplo`) and fake-hex order slugs
+   with a "copy the slug from the Stripe redirect" note (buy returns only
+   `{checkout_url}`, so slug chaining is impossible). `bruno/README.md`
+   carries the `Sales/` section plus the credential-free smoke command
+   (`bru run Sales/`, delivery manual-only).
 2. **Staging concurrent-buy race — accepted as-is.** The
    `select_for_update` guard is proven by sequential tests only; a true
    concurrent run on Postgres was waived by the operator (see design D4

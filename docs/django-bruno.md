@@ -113,7 +113,7 @@ Each request is a single `.bru` file. Every request begins with a `meta` block (
 
 ### 6.1 Authenticated GET — DRF Token header (per-model list)
 
-Every endpoint under `/api/artworks/` requires authentication (`IsAuthenticated`). The blog collection (`Posts/` → `/api/blog/posts/`) is public and needs no `Authorization` header. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset. The collection ships one folder per model, each with `GET list.bru` and `GET detail.bru` (e.g. the artworks list):
+Every endpoint under `/api/artworks/` requires authentication (`IsAuthenticated`), except the public sales endpoints (see note below). The blog collection (`Posts/` → `/api/blog/posts/`) is public and needs no `Authorization` header. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset. The collection ships one folder per model, each with `GET list.bru` and `GET detail.bru` (e.g. the artworks list):
 
 ```bru
 meta {
@@ -180,13 +180,15 @@ body:json {
 
 Other request types follow the same shape (`put`, `patch`, `delete`) with their own block names.
 
+> **Exception — public sales endpoints:** the `Sales/` folder (`POST .../artworks/:slug/buy/`, `GET .../orders/:slug/`, `POST .../orders/:slug/delivery/`) targets `AllowAny` endpoints: no `Authorization` header (omit the `headers` block entirely, like `Posts/`), and the `docs` block states "public, throttled" with the `artwork_buys` (20/hour) / `artwork_orders` (60/hour) rates instead of the Token requirement. Run order and the slug-handoff note are in `bruno/README.md`.
+
 ### 6.4 Mandatory `docs` block for expected responses
 
 Every request file in the collection SHALL carry a `docs { ... }` block documenting the expected API response, so a developer can see the status codes and response shape without running the request. The convention is a requirement of the `bruno-request-docs` spec (see the change `openspec/changes/bruno-api-response-docs/`); any future endpoint added to the collection must follow it too.
 
 The block is raw Markdown, placed after the `headers` block, and documents at minimum:
 
-- The endpoint purpose and the `Authorization: Token` requirement.
+- The endpoint purpose and the `Authorization: Token` requirement (or, for public endpoints, the "public, throttled" statement with the applicable rates).
 - The expected status codes: `200`, `401`, and (for detail requests) `404`.
 - A short JSON example of the response derived from `artworks/serializers.py` — the paginated envelope (`count`, `next`, `previous`, `page`, `page_size`, `total_pages`, `results`) for lists, the resource object for detail.
 - The project-wide error envelope `{status: "error", message, data}` for each error status code.
