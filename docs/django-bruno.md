@@ -113,7 +113,7 @@ Each request is a single `.bru` file. Every request begins with a `meta` block (
 
 ### 6.1 Authenticated GET — DRF Token header (per-model list)
 
-Every endpoint under `/api/artworks/` requires authentication (`IsAuthenticated`), except the public sales endpoints (see note below). The blog collection (`Posts/` → `/api/blog/posts/`) is public and needs no `Authorization` header. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset. The collection ships one folder per model, each with `GET list.bru` and `GET detail.bru` (e.g. the artworks list):
+Every endpoint under `/api/artworks/` requires authentication (`IsAuthenticated`), except the public sales endpoints and the public view counter (see note below). The blog collection (`Posts/` → `/api/blog/posts/`) is public and needs no `Authorization` header. DRF uses `Authorization: Token <key>`; the scheme is a bare word, so the header is set explicitly rather than via a bearer-blanket auth preset. The collection ships one folder per model, each with `GET list.bru` and `GET detail.bru` (e.g. the artworks list):
 
 ```bru
 meta {
@@ -181,6 +181,8 @@ body:json {
 Other request types follow the same shape (`put`, `patch`, `delete`) with their own block names.
 
 > **Exception — public sales endpoints:** the `Sales/` folder (`POST .../artworks/:slug/buy/`, `GET .../orders/:slug/`, `POST .../orders/:slug/delivery/`) targets `AllowAny` endpoints: no `Authorization` header (omit the `headers` block entirely, like `Posts/`), and the `docs` block states "public, throttled" with the `artwork_buys` (20/hour) / `artwork_orders` (60/hour) rates instead of the Token requirement. Run order and the slug-handoff note are in `bruno/README.md`.
+>
+> **Exception — public view counter:** `Artworks/POST visit.bru` (`POST .../artworks/:slug/visit/`) is likewise public with no `Authorization` header; its `docs` block states "public, throttled" with the `artwork_views` (20/hour) rate.
 
 ### 6.4 Mandatory `docs` block for expected responses
 

@@ -2551,3 +2551,105 @@ class SalesThrottleWiringTestCase(TestCase):
         second = self.client.get(f"/api/artworks/orders/{order.slug}/")
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 429)
+
+
+class VisitArtworkApiTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        self.artist = Artist.objects.create(name="Frida", slug="frida-visit")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=2000, price_usd=100, status=ArtworkStatus.AVAILABLE,
+            slug="obra-visit-1",
+        )
+        self.url = f"/api/artworks/artworks/{self.artwork.slug}/visit/"
+
+    def test_visit_increments_zero_to_one(self):
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"views_count": 1})
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.views_count, 1)
+
+    def test_visit_accumulates_raw_and_ignores_body(self):
+        self.client.post(self.url)
+        response = self.client.post(
+            self.url, {"anything": "ignored"}, content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"views_count": 2})
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.views_count, 2)
+
+    def test_visit_unknown_slug_404(self):
+        response = self.client.post("/api/artworks/artworks/no-existe/visit/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_visit_inactive_artwork_404_no_increment(self):
+        self.artwork.is_active = False
+        self.artwork.save(update_fields=["is_active", "updated_at"])
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 404)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.views_count, 0)
+
+    def test_visit_inactive_artist_404_no_increment(self):
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active", "updated_at"])
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 404)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.views_count, 0)
+
+
+class VisitThrottleWiringTestCase(TestCase):
+    def test_visit_action_uses_scoped_throttle(self):
+        from rest_framework.throttling import ScopedRateThrottle
+
+        from artworks.views import ArtworkViewSet
+
+        action = ArtworkViewSet.visit
+        self.assertIn(ScopedRateThrottle, action.kwargs["throttle_classes"])
+        view = ArtworkViewSet()
+        view.action = "visit"
+        view.get_throttles()
+        self.assertEqual(view.throttle_scope, "artwork_views")
+
+    def test_visit_throttle_rate_configured(self):
+        from django.conf import settings
+
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["artwork_views"], "20/hour"
+        )
+
+    def test_catalog_still_requires_auth(self):
+        response = self.client.get("/api/artworks/artworks/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_visit_throttle_429(self):
+        from django.conf import settings as dj_settings
+        from django.core.cache import cache
+
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        artist = Artist.objects.create(name="Throttle", slug="throttle-visit-artist")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.AVAILABLE,
+            slug="obra-visit-throttle-1",
+        )
+        # NOTE: DRF binds THROTTLE_RATES at import, so replacing the whole
+        # REST_FRAMEWORK dict is invisible to throttles — mutate in place.
+        rates = dj_settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        original = dict(rates)
+        rates["artwork_views"] = "1/min"
+        self.addCleanup(rates.update, original)
+        cache.clear()
+        self.addCleanup(cache.clear)
+        first = self.client.post(f"/api/artworks/artworks/{artwork.slug}/visit/")
+        second = self.client.post(f"/api/artworks/artworks/{artwork.slug}/visit/")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        artwork.refresh_from_db()
+        self.assertEqual(artwork.views_count, 1)

@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import F, Prefetch
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -124,6 +124,8 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
             # ScopedRateThrottle reads the scope from the view (it is not a
             # valid @action kwarg, so it is set here before the check runs).
             self.throttle_scope = "artwork_buys"
+        elif getattr(self, "action", None) == "visit":
+            self.throttle_scope = "artwork_views"
         return super().get_throttles()
 
     def get_queryset(self):
@@ -238,6 +240,23 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         return Response({"checkout_url": order.checkout_url}, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True, methods=["post"], url_path="visit",
+        permission_classes=[AllowAny], authentication_classes=[],
+        throttle_classes=[ScopedRateThrottle],
+    )
+    def visit(self, request, pk=None):
+        updated = Artwork.objects.filter(
+            slug=pk, is_active=True, artist__is_active=True
+        ).update(views_count=F("views_count") + 1)
+        if not updated:
+            return Response(
+                {"status": "error", "message": "Not found.", "data": {}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        artwork = Artwork.objects.filter(slug=pk).only("views_count").get()
+        return Response({"views_count": artwork.views_count}, status=status.HTTP_200_OK)
 
 
 def _public_order_queryset():
