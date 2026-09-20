@@ -9,7 +9,7 @@ All endpoints follow REST conventions: list returns a paginated envelope, detail
 ## Requirements
 
 ### Requirement: All model endpoints require authentication
-Every endpoint under `/api/artworks/` SHALL require authentication via the project's default DRF authentication classes (`TokenAuthentication` and `SessionAuthentication`). Unauthenticated requests SHALL receive `401 Unauthorized`. The artwork-sales endpoints (`POST artworks/{slug}/buy/`, `GET orders/{slug}/`, `POST orders/{slug}/delivery/`) and the artwork view-tracking endpoint (`POST artworks/{slug}/visit/`) are the ONLY exceptions: they are intentionally public, protected by a scoped `ScopedRateThrottle` instead of authentication (order endpoints additionally by unguessable order slug tokens).
+Every endpoint under `/api/artworks/` SHALL require authentication via the project's default DRF authentication classes (`TokenAuthentication` and `SessionAuthentication`). Unauthenticated requests SHALL receive `401 Unauthorized`. The artwork-sales endpoints (`POST artworks/{slug}/buy/`, `GET orders/{slug}/`, `POST orders/{slug}/delivery/`), the artwork view-tracking endpoint (`POST artworks/{slug}/visit/`), and the artwork-status endpoint (`GET artworks/{slug}/status/`) are the ONLY exceptions: they are intentionally public, protected by a scoped `ScopedRateThrottle` instead of authentication (order endpoints additionally by unguessable order slug tokens).
 
 #### Scenario: Anonymous request rejected
 - **WHEN** a request with no authentication credentials hits any `/api/artworks/` endpoint
@@ -27,9 +27,13 @@ Every endpoint under `/api/artworks/` SHALL require authentication via the proje
 - **WHEN** an anonymous request hits `POST artworks/{slug}/visit/`
 - **THEN** the request SHALL NOT receive `401`; it SHALL be processed by the artwork-view-tracking behavior (atomic increment, throttling, `404` for unknown/inactive slugs).
 
+#### Scenario: Public status endpoint exempted
+- **WHEN** an anonymous request hits `GET artworks/{slug}/status/`
+- **THEN** the request SHALL NOT receive `401`; it SHALL be processed by the artwork-status behavior (side-effect-free read, throttling, `404` for unknown/inactive slugs or inactive artists).
+
 #### Scenario: Read-only catalog endpoints stay authenticated
 - **WHEN** an anonymous request hits a catalog endpoint such as `GET /api/artworks/artworks/`
-- **THEN** the response SHALL remain `401 Unauthorized` (sales and view-tracking endpoints do not weaken catalog auth).
+- **THEN** the response SHALL remain `401 Unauthorized` (sales, view-tracking, and status endpoints do not weaken catalog auth).
 
 ### Requirement: Artist endpoint
 The system SHALL expose `GET /api/artworks/artists/` (list) and `GET /api/artworks/artists/{id}/` (detail). The queryset SHALL filter `is_active=True` and order by `-created_at`. The list response SHALL be paginated. Each artist entry SHALL include all person fields (`id`, `slug`, `is_active`, `created_at`, `updated_at`, `name`, `email`, `website`, `photo`, `birth_year`, `death_year`), a `location` reference as `{id, slug}` (or `null`), translations as `{es: {bio}, en: {bio}}`, and `social_links` as an array of `{id, platform, url}`. Artist entries SHALL NOT include a `sort_order` field.

@@ -126,6 +126,8 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
             self.throttle_scope = "artwork_buys"
         elif getattr(self, "action", None) == "visit":
             self.throttle_scope = "artwork_views"
+        elif getattr(self, "action", None) == "artwork_status":
+            self.throttle_scope = "artwork_status"
         return super().get_throttles()
 
     def get_queryset(self):
@@ -257,6 +259,34 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
             )
         artwork = Artwork.objects.filter(slug=pk).only("views_count").get()
         return Response({"views_count": artwork.views_count}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True, methods=["get"], url_path="status",
+        permission_classes=[AllowAny], authentication_classes=[],
+        throttle_classes=[ScopedRateThrottle],
+    )
+    def artwork_status(self, request, pk=None):
+        artwork = Artwork.objects.filter(
+            slug=pk, is_active=True, artist__is_active=True
+        ).only("slug", "status", "price_mxn", "price_usd", "updated_at").first()
+        if artwork is None:
+            return Response(
+                {"status": "error", "message": "Not found.", "data": {}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        response = Response(
+            {
+                "slug": artwork.slug,
+                "status": artwork.status,
+                "status_display": artwork.get_status_display(),
+                "price_mxn": str(artwork.price_mxn),
+                "price_usd": str(artwork.price_usd),
+                "updated_at": artwork.updated_at.isoformat().replace("+00:00", "Z"),
+            },
+            status=status.HTTP_200_OK,
+        )
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 def _public_order_queryset():

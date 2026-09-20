@@ -265,6 +265,7 @@ REST_FRAMEWORK = {
         "artwork_buys": "20/hour",
         "artwork_orders": "60/hour",
         "artwork_views": "20/hour",
+        "artwork_status": "120/hour",
     },
 }
 

@@ -1,0 +1,62 @@
+meta {
+  name: GET status
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{base_url}}/api/artworks/artworks/ciudad-reflejada/status/
+  body: none
+  auth: none
+}
+
+docs {
+  # GET /api/artworks/artworks/:slug/status/ — Live artwork sale status
+
+  Returns the live sale `status` and prices of a single artwork with no
+  side effects. Feeds the landing BuyWidget island: baked static HTML
+  paints fast, then this call swaps the buy form for a Vendida/Reservada
+  badge when the live status differs.
+  Public endpoint, no `Authorization` header. Throttled: `artwork_status`
+  120/hour per client (`429` when exceeded — wait and retry).
+
+  Takes no request body and no query params.
+
+  Replace `ciudad-reflejada` below with any active artwork slug (seed slugs
+  work; unknown slugs, inactive artworks, or inactive artists return `404`).
+  Call once per artwork detail-page mount, fire-and-forget: never block
+  render, never retry on failure — on any error keep the baked HTML.
+
+  ## Status codes
+
+  - `200 OK` — live status, returns slug, status, prices, and timestamp
+  - `404 Not Found` — unknown slug, inactive artwork, or inactive artist
+  - `429 Too Many Requests` — throttled (120 status checks/hour per client)
+
+  ## Response (200)
+
+  ```json
+  {
+    "slug": "ciudad-reflejada",
+    "status": "sold",
+    "status_display": "Vendida",
+    "price_mxn": "12500.00",
+    "price_usd": "750.00",
+    "updated_at": "2026-09-18T14:22:00Z"
+  }
+  ```
+
+  `status` is `available`, `sold`, `reserved`, `on_loan`, or
+  `not_available`. `status_display` is the Spanish label. Prices are
+  decimal strings. Response carries `Cache-Control: no-store`.
+
+  ## Error (404/429)
+
+  ```json
+  {
+    "status": "error",
+    "message": "Not found.",
+    "data": {}
+  }
+  ```
+}

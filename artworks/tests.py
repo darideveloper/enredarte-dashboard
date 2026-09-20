@@ -2653,3 +2653,130 @@ class VisitThrottleWiringTestCase(TestCase):
         self.assertEqual(second.status_code, 429)
         artwork.refresh_from_db()
         self.assertEqual(artwork.views_count, 1)
+
+
+class StatusArtworkApiTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        self.artist = Artist.objects.create(name="Frida", slug="frida-status")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=2000, price_usd=100, status=ArtworkStatus.AVAILABLE,
+            slug="obra-status-1",
+        )
+        self.url = f"/api/artworks/artworks/{self.artwork.slug}/status/"
+
+    def test_status_returns_live_fields_without_side_effects(self):
+        views_before = self.artwork.views_count
+        updated_before = self.artwork.updated_at
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(
+            set(data.keys()),
+            {"slug", "status", "status_display", "price_mxn", "price_usd", "updated_at"},
+        )
+        self.assertEqual(data["slug"], self.artwork.slug)
+        self.assertEqual(data["status"], "available")
+        self.assertEqual(data["status_display"], "Disponible")
+        self.assertEqual(data["price_mxn"], "2000.00")
+        self.assertEqual(data["price_usd"], "100.00")
+        self.assertIsInstance(data["price_mxn"], str)
+        self.assertIsInstance(data["price_usd"], str)
+        # updated_at parses as ISO-8601.
+        from datetime import datetime
+
+        datetime.fromisoformat(data["updated_at"].replace("Z", "+00:00"))
+        self.assertEqual(response["Cache-Control"], "no-store")
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.views_count, views_before)
+        self.assertEqual(self.artwork.updated_at, updated_before)
+
+    def test_status_sold_reports_vendida(self):
+        from artworks.models import ArtworkStatus
+
+        self.artwork.status = ArtworkStatus.SOLD
+        self.artwork.save(update_fields=["status", "updated_at"])
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "sold")
+        self.assertEqual(data["status_display"], "Vendida")
+
+    def test_status_reserved_reports_reservada(self):
+        from artworks.models import ArtworkStatus
+
+        self.artwork.status = ArtworkStatus.RESERVED
+        self.artwork.save(update_fields=["status", "updated_at"])
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "reserved")
+        self.assertEqual(data["status_display"], "Reservada")
+
+    def test_status_unknown_slug_404(self):
+        response = self.client.get("/api/artworks/artworks/no-existe/status/")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.json(),
+            {"status": "error", "message": "Not found.", "data": {}},
+        )
+
+    def test_status_inactive_artwork_404(self):
+        self.artwork.is_active = False
+        self.artwork.save(update_fields=["is_active", "updated_at"])
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_status_inactive_artist_404(self):
+        self.artist.is_active = False
+        self.artist.save(update_fields=["is_active", "updated_at"])
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 404)
+
+
+class StatusThrottleWiringTestCase(TestCase):
+    def test_status_action_uses_scoped_throttle(self):
+        from rest_framework.throttling import ScopedRateThrottle
+
+        from artworks.views import ArtworkViewSet
+
+        action = ArtworkViewSet.artwork_status
+        self.assertIn(ScopedRateThrottle, action.kwargs["throttle_classes"])
+        view = ArtworkViewSet()
+        view.action = "artwork_status"
+        view.get_throttles()
+        self.assertEqual(view.throttle_scope, "artwork_status")
+
+    def test_status_throttle_rate_configured(self):
+        from django.conf import settings
+
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["artwork_status"], "120/hour"
+        )
+
+    def test_status_throttle_429(self):
+        from django.conf import settings as dj_settings
+        from django.core.cache import cache
+
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        artist = Artist.objects.create(name="Throttle", slug="throttle-status-artist")
+        artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.AVAILABLE,
+            slug="obra-status-throttle-1",
+        )
+        # NOTE: DRF binds THROTTLE_RATES at import, so replacing the whole
+        # REST_FRAMEWORK dict is invisible to throttles — mutate in place.
+        rates = dj_settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        original = dict(rates)
+        rates["artwork_status"] = "1/min"
+        self.addCleanup(rates.update, original)
+        cache.clear()
+        self.addCleanup(cache.clear)
+        first = self.client.get(f"/api/artworks/artworks/{artwork.slug}/status/")
+        second = self.client.get(f"/api/artworks/artworks/{artwork.slug}/status/")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
