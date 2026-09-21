@@ -392,7 +392,9 @@ EMAIL_HOST = os.getenv("EMAIL_HOST", "")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+# TLS (STARTTLS, port 587) and SSL (implicit TLS, port 465) are mutually exclusive — never both True.
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "False") == "True"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "True") == "True"
 EMAIL_FROM = os.getenv("EMAIL_FROM", "") or EMAIL_HOST_USER or "no-reply@localhost"
 EMAILS_NOTIFICATIONS = [e.strip() for e in os.getenv("EMAILS_NOTIFICATIONS", "").split(",") if e.strip()]
 ```
