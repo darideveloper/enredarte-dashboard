@@ -1,0 +1,9 @@
+[Enredarte] Datos de entrega
+
+Obra: {{ artwork_title }}
+Comprador: {{ buyer_email }}
+Teléfono: {{ order.receiver_phone }}
+Dirección: {{ order.street }} {{ order.exterior_number }} {{ order.interior_number }} — {{ order.neighborhood }}
+{{ order.city }}, {{ order.state }}, {{ order.postal_code }}, {{ order.country }}
+
+Revisar en el admin: {{ admin_url }}

@@ -1,0 +1,9 @@
+[Enredarte] Venta pagada
+
+Obra: {{ artwork_title }}
+Artista: {{ artist_name }}
+Comprador: {{ buyer_email }}
+Monto: {{ currency }} {{ amount }}
+PaymentIntent: {{ order.stripe_payment_intent_id }}
+
+Revisar en el admin: {{ admin_url }}

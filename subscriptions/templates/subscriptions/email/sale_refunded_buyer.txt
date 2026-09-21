@@ -1,0 +1,10 @@
+Hola,
+
+Hubo un inconveniente con tu compra y realizamos un reembolso completo.
+
+Obra: {{ artwork_title }}
+Monto reembolsado: {{ currency }} {{ amount }}
+
+El reembolso se procesará según los tiempos de tu banco.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

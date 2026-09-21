@@ -44,9 +44,15 @@ class Command(BaseCommand):
                 details = _get("customer_details") or {}
                 name = details.get("name", "") if isinstance(details, dict) else ""
                 if apply_paid_transition(order, str(pi or ""), order.buyer_email, name or ""):
+                    from subscriptions.services import notifications
+
+                    notifications.send_best_effort(notifications.send_sale_paid, order)
                     paid += 1
             elif status_value == "expired":
                 if cancel_order(order):
+                    from subscriptions.services import notifications
+
+                    notifications.send_best_effort(notifications.send_sale_cancelled, order)
                     cancelled += 1
         msg = f"sync_orders_from_stripe: {checked} revisada(s), {paid} pagada(s), {cancelled} cancelada(s)"
         logger.info(msg)

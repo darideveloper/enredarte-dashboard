@@ -1,0 +1,7 @@
+Hola,
+
+Tu obra fue entregada. ¡Gracias por tu compra!
+
+Obra: {{ artwork_title }}
+
+Que la disfrutes. Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

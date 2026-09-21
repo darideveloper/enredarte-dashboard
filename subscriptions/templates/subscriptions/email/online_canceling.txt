@@ -1,0 +1,9 @@
+Hola, {{ artist_name }}:
+
+Tu suscripción en línea será cancelada al final del período vigente.
+
+Período vigente hasta: {{ renew_date }}
+
+Tu perfil seguirá visible hasta esa fecha. A partir de entonces dejará de estar disponible en el sitio público.
+
+Si tienes alguna duda o deseas evitar la cancelación, responde a este correo y con gusto te ayudamos.

@@ -1,0 +1,8 @@
+[Enredarte] Nueva reserva
+
+Obra: {{ artwork_title }}
+Comprador: {{ buyer_email }}
+Monto: {{ currency }} {{ amount }}
+Sesión Stripe: {{ order.stripe_checkout_session_id }}
+
+Revisar en el admin: {{ admin_url }}

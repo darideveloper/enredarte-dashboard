@@ -23,6 +23,9 @@ class Command(BaseCommand):
         released = 0
         for order in expired:
             if cancel_order(order):
+                from subscriptions.services import notifications
+
+                notifications.send_best_effort(notifications.send_sale_cancelled, order)
                 released += 1
         msg = f"release_expired_orders: {released} liberada(s)"
         logger.info(msg)

@@ -1,0 +1,9 @@
+Hola, {{ artist_name }}:
+
+Te informamos de un aviso de doble pago en tu obra.
+
+Obra: {{ artwork_title }}
+
+Se cobró un segundo pago por una obra ya vendida y lo reembolsamos automáticamente. No necesitas hacer nada.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

@@ -1,0 +1,6 @@
+[Enredarte] Pedido entregado
+
+Obra: {{ artwork_title }}
+Comprador: {{ buyer_email }}
+
+Revisar en el admin: {{ admin_url }}

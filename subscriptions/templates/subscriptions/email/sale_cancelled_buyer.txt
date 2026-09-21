@@ -1,0 +1,9 @@
+Hola,
+
+Tu pago no se completó y la reserva de la obra ya no está vigente.
+
+Obra: {{ artwork_title }}
+
+Si aún te interesa, revisa su disponibilidad en el sitio y vuelve a intentarlo dentro del tiempo indicado.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

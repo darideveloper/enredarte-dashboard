@@ -1,0 +1,10 @@
+Hola, {{ artist_name }}:
+
+Te informamos que tu obra se vendió.
+
+Obra: {{ artwork_title }}
+Monto: {{ currency }} {{ amount }}
+
+El comprador completará sus datos de entrega y el equipo coordinará el envío contigo.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

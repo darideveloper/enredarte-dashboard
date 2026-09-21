@@ -1,0 +1,9 @@
+Hola,
+
+Tu obra va en camino.
+
+Obra: {{ artwork_title }}
+
+Estamos coordinando el envío y te avisaremos en cuanto llegue por cualquier novedad.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

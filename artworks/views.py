@@ -248,6 +248,9 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
                 {"status": "error", "message": "Stripe no respondió.", "data": {}},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+        from subscriptions.services import notifications
+
+        notifications.send_best_effort(notifications.send_sale_reserved, order)
         return Response({"checkout_url": order.checkout_url}, status=status.HTTP_201_CREATED)
 
     @action(
@@ -342,7 +345,11 @@ class OrderSummaryView(APIView):
                               if not isinstance(details, dict) else details.get("name")) or ""
                 with transaction.atomic():
                     order = ArtworkOrder.objects.select_for_update().get(pk=order.pk)
-                    apply_paid_transition(order, str(pi or ""), order.buyer_email, buyer_name or "")
+                    transitioned = apply_paid_transition(order, str(pi or ""), order.buyer_email, buyer_name or "")
+                if transitioned:
+                    from subscriptions.services import notifications
+
+                    notifications.send_best_effort(notifications.send_sale_paid, order)
                 order = _public_order_queryset().get(pk=order.pk)
             else:
                 return Response(
@@ -380,4 +387,7 @@ class OrderDeliveryView(APIView):
             setattr(order, field, value)
         order.status = ArtworkOrderStatus.DATA_COMPLETE
         order.save()
+        from subscriptions.services import notifications
+
+        notifications.send_best_effort(notifications.send_sale_delivery_complete, order)
         return Response(OrderSummarySerializer(order).data, status=status.HTTP_200_OK)

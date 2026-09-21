@@ -1,0 +1,13 @@
+Hola,
+
+Completaste tu solicitud y dejamos la obra separada para ti durante 30 minutos.
+
+Obra: {{ artwork_title }}
+Monto: {{ currency }} {{ amount }}
+
+Para completar tu pago, usa este enlace:
+{{ checkout_url }}
+
+Si no completas el pago en 30 minutos, la obra volverá a estar disponible para otros compradores.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.
