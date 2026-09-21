@@ -1,9 +1,4 @@
-# Artwork Status Specification
-
-## Purpose
-To define the public endpoint that returns the live sale status and prices of a single artwork — including its visibility rules, throttling, caching, and the non-normative frontend call guidance.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Public artwork status endpoint
 The system SHALL expose `GET /api/artworks/artworks/{slug}/status/` as a public endpoint (no authentication) that returns the live sale status and prices of a single artwork. When the artwork is `reserved` with stale `pending_payment` order(s) (`session_expires_at` in the past), the endpoint SHALL reconcile each stale order newest-first against Stripe (via `retrieve_checkout_session`, Stripe fetch outside the row lock, re-verify + mutate inside `select_for_update`, stopping at the first paid-transition) before responding: a hold whose session reports `status == "expired"` with `payment_status != "paid"` SHALL be persisted (`cancel_order`: order → `cancelled`, artwork → `available`) and returned as `available`; a hold reporting `payment_status == "paid"` SHALL be persisted (paid-transition: order → `paid_pending_data`, artwork → `sold`, including the double-sale refund backstop) and returned as `sold`; a hold whose session is still `open` + unpaid, or that is unverifiable (Stripe error/unknown shape, or `session_expires_at=None`), SHALL be returned as stored (`reserved`) with no state change. The hot path (available/sold/live-reserved) SHALL make no Stripe calls and no database writes.
@@ -47,26 +42,3 @@ The system SHALL expose `GET /api/artworks/artworks/{slug}/status/` as a public 
 #### Scenario: Response is not cached
 - **WHEN** the status endpoint returns `200 OK`
 - **THEN** the response SHALL include a `Cache-Control: no-store` header.
-
-### Requirement: Status endpoint throttling
-The system SHALL rate-limit the status endpoint with a dedicated `artwork_status` `ScopedRateThrottle` scope at `120/hour` per client, so detail-page mounts stay well under budget while automated scraping is bounded.
-
-#### Scenario: Throttle scope applied
-- **WHEN** the `artwork_status` action handles a request
-- **THEN** the view SHALL enforce the `artwork_status` throttle scope.
-
-#### Scenario: Rate configured
-- **WHEN** `REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]` is inspected
-- **THEN** it SHALL contain `"artwork_status": "120/hour"`.
-
-#### Scenario: Rate exceeded
-- **WHEN** a client exceeds the `artwork_status` rate
-- **THEN** the response SHALL be `429 Too Many Requests` and no artwork data SHALL be returned.
-
-## Advisory: Frontend call contract (non-normative)
-
-The following guidance targets the public frontend, which lives in a separate codebase. It is NOT enforced or tested by this backend; the requirements above fully define this change.
-
-- The frontend should call the status endpoint once per artwork detail mount (no auth header), compare live `status` against the baked HTML, and swap the buy form for a `Vendida`/`Reservada` badge when they differ.
-- The call should never block render; on any failure (network, `404`, `429`) the page should keep the baked HTML.
-- `on_loan` and `not_available` should be treated like `sold` (badge, no buy form). Catalog cards are out of scope for this endpoint (no batch support in v1).

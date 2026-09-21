@@ -13,8 +13,12 @@ get {
 docs {
   # GET /api/artworks/artworks/:slug/status/ — Live artwork sale status
 
-  Returns the live sale `status` and prices of a single artwork with no
-  side effects. Feeds the landing BuyWidget island: baked static HTML
+  Returns the live sale `status` and prices of a single artwork. Read-only
+  on the hot path; a stale `reserved` hold (expired session from a closed
+  tab or abandoned Checkout) is reconciled against Stripe and persisted
+  before responding — Stripe-expired returns `available`, Stripe-paid
+  returns `sold`, still-open/unreachable keeps `reserved`.
+  Feeds the landing BuyWidget island: baked static HTML
   paints fast, then this call swaps the buy form for a Vendida/Reservada
   badge when the live status differs.
   Public endpoint, no `Authorization` header. Throttled: `artwork_status`

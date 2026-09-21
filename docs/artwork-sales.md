@@ -38,8 +38,14 @@ End-to-end purchase of unique artworks. Subscriptions live in
    **Marcar entregada** (`shipped → delivered`),
    **Liberar reserva** (`pending_payment → cancelled` + release).
 8. Expiry: `checkout.session.expired` (or async failed) → `cancelled` +
-   artwork `available`. Lost webhooks: external cron runs
-   `release_expired_orders`; drift: `sync_orders_from_stripe [--dry-run]`.
+   artwork `available`. Abandoned holds (closed tab, abandoned Checkout)
+   also self-heal lazily with zero infra: `POST buy/` and
+   `GET artworks/{slug}/status/` reconcile a stale `reserved` hold against
+   Stripe before deciding — Stripe-expired → release (buy proceeds as a
+   fresh sale, status returns `available`); Stripe-paid → complete to `sold`;
+   still-`open`/unreachable → hold kept. Lost webhooks with zero traffic:
+   external cron runs `release_expired_orders`; drift:
+   `sync_orders_from_stripe [--dry-run]`.
 9. Double-sale backstop: `completed` for an already-sold artwork →
    order `refunded` + automatic Stripe refund (fees not recovered).
    Manual refunds happen in the Stripe Dashboard (out of scope).
@@ -99,6 +105,8 @@ is live — follow the URL either way).
 | 400 | Bad currency/email (`data` has field errors) | Inline form errors |
 | 404 | Unknown slug or inactive artwork | "Obra no disponible" / 404 page |
 | 409 | Reserved by another buyer, or not `available` | "Someone is already buying this piece — try again in a few minutes" |
+| 409 | Stale hold, already paid (`"Obra no disponible."`) | "This piece just sold" — refresh, show sold badge |
+| 201 | Stale hold, Stripe-expired (auto-released, fresh sale) | Redirect to `checkout_url` (full page) |
 | 502 | Stripe did not respond (nothing reserved) | "Payment service unavailable — try again" |
 | 503 | Backend misconfigured (`PUBLIC_SITE_URL`) | Generic error + alert the operator |
 | 429 | Throttled | "Too many attempts — wait and retry" |
@@ -131,7 +139,7 @@ flowchart TD
     C --> D["POST artworks/slug/buy"]
     D --> E{"response?"}
     E -- 201/200 --> F["Redirect to checkout_url<br/>(Stripe Checkout)"]
-    E -- 409 --> G["Show: another buyer<br/>is checking out"]
+    E -- 409 --> G["Show: another buyer<br/>is checking out<br/>(or just sold — refresh status)"]
     E -- 400 --> H["Show field errors"]
     E -- 502/503/429 --> I["Show retry-later error"]
     F --> J{"Stripe result"}

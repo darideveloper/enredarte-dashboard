@@ -34,6 +34,12 @@ docs {
   Same email + live session → same URL (`200`, follow it either way).
   Different email while reserved → `409`.
 
+  Stale holds self-heal: if the `reserved` artwork's session already expired
+  (closed tab, abandoned Checkout), this call verifies it against Stripe
+  first — Stripe-expired → the hold is released and your request proceeds as
+  a fresh sale (`201`); Stripe-paid → `409 "Obra no disponible."` (refresh,
+  show the sold badge); still-open/unreachable → `409` as before.
+
   ## Status codes
 
   - `201 Created` — new reservation, `{checkout_url}` ready
@@ -76,8 +82,9 @@ docs {
   ```
 
   - `400` → `message: "Invalid data"`, `data` carries per-field errors
-  - `409` → `message: "Reserva en curso para esta obra."` (another buyer)
-    or `"Obra no disponible."` (not `available`)
+  - `409` → `message: "Reserva en curso para esta obra."` (another buyer,
+    or an unverifiable stale hold) or `"Obra no disponible."` (not
+    `available`, or a stale hold that turned out paid — refresh the page)
   - `502` → `message: "Stripe no respondió."`
   - `503` → `message: "Ventas no configuradas (PUBLIC_SITE_URL)."`
 }

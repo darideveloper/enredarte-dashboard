@@ -42,7 +42,7 @@ from artworks.serializers import (
     TechniqueSerializer,
     ThemeSerializer,
 )
-from artworks.services import apply_paid_transition
+from artworks.services import apply_paid_transition, reconcile_stale_reservations
 
 
 class ArtistViewSet(viewsets.ReadOnlyModelViewSet):
@@ -176,6 +176,13 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         try:
+            # Lazy reconcile (phase 1, no lock): a stale RESERVED hold from a
+            # closed tab or abandoned Checkout self-heals here — verified
+            # against Stripe, never on clock alone. The atomic block below
+            # re-reads the row, so it sees the post-transition state.
+            probe = Artwork.objects.filter(slug=pk, is_active=True).only("status").first()
+            if probe is not None and probe.status == ArtworkStatus.RESERVED:
+                reconcile_stale_reservations(probe)
             with transaction.atomic():
                 try:
                     artwork = Artwork.objects.select_for_update().get(slug=pk, is_active=True)
@@ -274,6 +281,11 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
                 {"status": "error", "message": "Not found.", "data": {}},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if artwork.status == ArtworkStatus.RESERVED:
+            # Lazy reconcile (Stripe fetch lock-free, persist under row lock):
+            # re-read the post-transition row so the response never goes stale.
+            reconcile_stale_reservations(artwork)
+            artwork.refresh_from_db()
         response = Response(
             {
                 "slug": artwork.slug,

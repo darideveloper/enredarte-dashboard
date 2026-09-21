@@ -2202,10 +2202,15 @@ class BuyArtworkApiTestCase(TestCase):
         order = ArtworkOrder.objects.get(artwork=self.artwork)
         order.session_expires_at = timezone.now() - timedelta(minutes=1)
         order.save(update_fields=["session_expires_at"])
-        with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
-            response = self.client.post(
-                self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
-            )
+        # Fail-closed path: Stripe unreachable → hold kept, no network involved.
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            side_effect=RuntimeError("stripe down"),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                response = self.client.post(
+                    self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+                )
         self.assertEqual(response.status_code, 409)
 
     def test_missing_public_site_url_503(self):
@@ -2237,6 +2242,190 @@ class BuyArtworkApiTestCase(TestCase):
         self.assertEqual(ArtworkOrder.objects.count(), 0)
         self.artwork.refresh_from_db()
         self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+
+class BuyReconcileTestCase(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.artist = Artist.objects.create(name="Frida", slug="frida-buy-reconcile")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=2000, price_usd=100, status=ArtworkStatus.AVAILABLE,
+            slug="obra-buy-reconcile-1",
+        )
+        self.url = f"/api/artworks/artworks/{self.artwork.slug}/buy/"
+
+    def _mock_session(self, checkout_url="https://checkout.stripe/new", expires=None):
+        import time
+
+        class S:
+            id = "cs_test_new"
+            url = checkout_url
+            expires_at = expires or int(time.time()) + 1800
+
+        return S()
+
+    def _first_buy(self):
+        from unittest.mock import patch
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=self._mock_session(checkout_url="https://checkout.stripe/first"),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                response = self.client.post(
+                    self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+                )
+        self.assertEqual(response.status_code, 201)
+
+    def _expire_hold(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from artworks.models import ArtworkOrder
+
+        order = ArtworkOrder.objects.get(artwork=self.artwork)
+        order.session_expires_at = timezone.now() - timedelta(minutes=1)
+        order.save(update_fields=["session_expires_at"])
+        return order
+
+    def test_stale_expired_second_buyer_gets_201(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self._first_buy()
+        old = self._expire_hold()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "expired", "payment_status": "unpaid"},
+        ):
+            with patch(
+                "subscriptions.services.stripe_client.create_artwork_checkout_session",
+                return_value=self._mock_session(),
+            ):
+                with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                    response = self.client.post(
+                        self.url, {"currency": "mxn", "email": "other@b.com"},
+                        content_type="application/json",
+                    )
+        self.assertEqual(response.status_code, 201)
+        old.refresh_from_db()
+        self.assertEqual(old.status, ArtworkOrderStatus.CANCELLED)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.status, ArtworkStatus.RESERVED)
+        new = ArtworkOrder.objects.exclude(pk=old.pk).get(artwork=self.artwork)
+        self.assertEqual(new.buyer_email, "other@b.com")
+        self.assertEqual(new.status, ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_stale_paid_returns_sold_409(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self._first_buy()
+        old = self._expire_hold()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "complete", "payment_status": "paid",
+                          "payment_intent": "pi_1",
+                          "customer_details": {"name": "Buyer", "email": "a@b.com"}},
+        ):
+            with patch(
+                "subscriptions.services.stripe_client.create_artwork_checkout_session"
+            ) as mock_create:
+                with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                    response = self.client.post(
+                        self.url, {"currency": "mxn", "email": "other@b.com"},
+                        content_type="application/json",
+                    )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json()["message"], "Obra no disponible.")
+        mock_create.assert_not_called()
+        old.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(old.status, ArtworkOrderStatus.PAID_PENDING_DATA)
+        self.assertEqual(self.artwork.status, ArtworkStatus.SOLD)
+        self.assertEqual(ArtworkOrder.objects.filter(artwork=self.artwork).count(), 1)
+
+    def test_stale_open_unpaid_keeps_409(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self._first_buy()
+        old = self._expire_hold()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "open", "payment_status": "unpaid"},
+        ):
+            with patch(
+                "subscriptions.services.stripe_client.create_artwork_checkout_session"
+            ) as mock_create:
+                with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                    response = self.client.post(
+                        self.url, {"currency": "mxn", "email": "other@b.com"},
+                        content_type="application/json",
+                    )
+        self.assertEqual(response.status_code, 409)
+        mock_create.assert_not_called()
+        old.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(old.status, ArtworkOrderStatus.PENDING_PAYMENT)
+        self.assertEqual(self.artwork.status, ArtworkStatus.RESERVED)
+
+    def test_stale_stripe_down_keeps_409(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self._first_buy()
+        old = self._expire_hold()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            side_effect=RuntimeError("stripe down"),
+        ):
+            with patch(
+                "subscriptions.services.stripe_client.create_artwork_checkout_session"
+            ) as mock_create:
+                with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                    response = self.client.post(
+                        self.url, {"currency": "mxn", "email": "other@b.com"},
+                        content_type="application/json",
+                    )
+        self.assertEqual(response.status_code, 409)
+        mock_create.assert_not_called()
+        old.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(old.status, ArtworkOrderStatus.PENDING_PAYMENT)
+        self.assertEqual(self.artwork.status, ArtworkStatus.RESERVED)
+
+    def test_live_hold_same_buyer_reuses_without_stripe_verify(self):
+        from unittest.mock import patch
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=self._mock_session(checkout_url="https://checkout.stripe/first"),
+        ):
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                self.client.post(
+                    self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+                )
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session"
+        ) as mock_retrieve:
+            with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+                response = self.client.post(
+                    self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
+                )
+        self.assertEqual(response.status_code, 200)
+        mock_retrieve.assert_not_called()
 
 
 class OrderSummaryDeliveryTestCase(TestCase):
@@ -2493,6 +2682,196 @@ class ArtworkOrderCommandsTestCase(TestCase):
         self.assertEqual(self.expired.status, ArtworkOrderStatus.PENDING_PAYMENT)
 
 
+class _StripeLike(dict):
+    """Mimics stripe>=15 StripeObject: item access works, .get raises."""
+
+    @property
+    def get(self):
+        raise AttributeError("is a dict method")
+
+
+class ReconcileStaleReservationsTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkStatus
+
+        artist = Artist.objects.create(name="Frida", slug="frida-reconcile")
+        self.artwork = Artwork.objects.create(
+            artist=artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.RESERVED,
+            slug="obra-reconcile-1",
+        )
+
+    def _order(self, **kwargs):
+        from artworks.models import ArtworkOrder, ArtworkOrderStatus
+
+        params = {
+            "artwork": self.artwork, "currency": "mxn", "amount": 1000,
+            "buyer_email": "a@b.com", "status": ArtworkOrderStatus.PENDING_PAYMENT,
+            "stripe_checkout_session_id": "cs_test",
+            "session_expires_at": timezone.now() - timedelta(hours=1),
+        }
+        params.update(kwargs)
+        return ArtworkOrder.objects.create(**params)
+
+    def test_noop_when_not_reserved(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkStatus
+        from artworks.services import reconcile_stale_reservations
+
+        self.artwork.status = ArtworkStatus.AVAILABLE
+        self.artwork.save()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session"
+        ) as mock_retrieve:
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "noop")
+            mock_retrieve.assert_not_called()
+
+    def test_noop_live_hold_makes_no_stripe_calls(self):
+        from unittest.mock import patch
+
+        from artworks.services import reconcile_stale_reservations
+
+        order = self._order(session_expires_at=timezone.now() + timedelta(hours=1))
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session"
+        ) as mock_retrieve:
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "noop")
+            mock_retrieve.assert_not_called()
+        order.refresh_from_db()
+        from artworks.models import ArtworkOrderStatus
+
+        self.assertEqual(order.status, ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_noop_none_expiry_makes_no_stripe_calls(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus
+        from artworks.services import reconcile_stale_reservations
+
+        order = self._order(session_expires_at=None)
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session"
+        ) as mock_retrieve:
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "noop")
+            mock_retrieve.assert_not_called()
+        order.refresh_from_db()
+        self.assertEqual(order.status, ArtworkOrderStatus.PENDING_PAYMENT)
+
+    def test_expired_unpaid_releases(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+        from artworks.services import reconcile_stale_reservations
+
+        order = self._order()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "expired", "payment_status": "unpaid"},
+        ):
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "released")
+        order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(order.status, ArtworkOrderStatus.CANCELLED)
+        self.assertIsNotNone(order.cancelled_at)
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+    def test_expired_paid_sells(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+        from artworks.services import reconcile_stale_reservations
+
+        order = self._order()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "complete", "payment_status": "paid",
+                          "payment_intent": "pi_1",
+                          "customer_details": {"name": "Buyer Name",
+                                               "email": "Buyer@Example.com"}},
+        ):
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "sold")
+        order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(order.status, ArtworkOrderStatus.PAID_PENDING_DATA)
+        self.assertEqual(order.buyer_email, "buyer@example.com")
+        self.assertEqual(order.buyer_name, "Buyer Name")
+        self.assertIsNotNone(order.paid_at)
+        self.assertEqual(self.artwork.status, ArtworkStatus.SOLD)
+
+    def test_open_unpaid_keeps_hold(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+        from artworks.services import reconcile_stale_reservations
+
+        order = self._order()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "open", "payment_status": "unpaid"},
+        ):
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "kept")
+        order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(order.status, ArtworkOrderStatus.PENDING_PAYMENT)
+        self.assertEqual(self.artwork.status, ArtworkStatus.RESERVED)
+
+    def test_stripe_error_keeps_hold(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+        from artworks.services import reconcile_stale_reservations
+
+        order = self._order()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            side_effect=RuntimeError("stripe down"),
+        ):
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "kept")
+        order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(order.status, ArtworkOrderStatus.PENDING_PAYMENT)
+        self.assertEqual(self.artwork.status, ArtworkStatus.RESERVED)
+
+    def test_stripe_object_shape_releases(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+        from artworks.services import reconcile_stale_reservations
+
+        order = self._order()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value=_StripeLike({"status": "expired", "payment_status": "unpaid"}),
+        ):
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "released")
+        order.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(order.status, ArtworkOrderStatus.CANCELLED)
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+    def test_releases_all_stale_newest_first(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+        from artworks.services import reconcile_stale_reservations
+
+        older = self._order(session_expires_at=timezone.now() - timedelta(hours=2))
+        newer = self._order(session_expires_at=timezone.now() - timedelta(hours=1))
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "expired", "payment_status": "unpaid"},
+        ) as mock_retrieve:
+            self.assertEqual(reconcile_stale_reservations(self.artwork), "released")
+            self.assertEqual(mock_retrieve.call_count, 2)
+        older.refresh_from_db()
+        newer.refresh_from_db()
+        self.artwork.refresh_from_db()
+        self.assertEqual(older.status, ArtworkOrderStatus.CANCELLED)
+        self.assertEqual(newer.status, ArtworkOrderStatus.CANCELLED)
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+
+
 class SalesThrottleWiringTestCase(TestCase):
     def test_buy_action_uses_scoped_throttle(self):
         from rest_framework.throttling import ScopedRateThrottle
@@ -2734,6 +3113,112 @@ class StatusArtworkApiTestCase(TestCase):
         self.artist.save(update_fields=["is_active", "updated_at"])
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 404)
+
+
+class StatusReconcileTestCase(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+
+        from artworks.models import Artist, Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.artist = Artist.objects.create(name="Frida", slug="frida-status-reconcile")
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=2000, price_usd=100, status=ArtworkStatus.RESERVED,
+            slug="obra-status-reconcile-1",
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=2000, buyer_email="a@b.com",
+            status=ArtworkOrderStatus.PENDING_PAYMENT,
+            stripe_checkout_session_id="cs_test",
+            session_expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        self.url = f"/api/artworks/artworks/{self.artwork.slug}/status/"
+
+    def _updated_z(self):
+        self.artwork.refresh_from_db()
+        return self.artwork.updated_at.isoformat().replace("+00:00", "Z")
+
+    def test_stale_expired_returns_available_with_fresh_row(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "expired", "payment_status": "unpaid"},
+        ):
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "available")
+        self.assertEqual(data["status_display"], "Disponible")
+        self.assertEqual(data["updated_at"], self._updated_z())
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.CANCELLED)
+        self.assertEqual(self.artwork.status, ArtworkStatus.AVAILABLE)
+        # Second call is a no-op read on the already-fresh row.
+        second_updated = self._updated_z()
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session"
+        ) as mock_retrieve:
+            second = self.client.get(self.url)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["status"], "available")
+        mock_retrieve.assert_not_called()
+        self.assertEqual(second.json()["updated_at"], second_updated)
+
+    def test_stale_paid_returns_sold_with_fresh_row(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrderStatus, ArtworkStatus
+
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "complete", "payment_status": "paid",
+                          "payment_intent": "pi_1",
+                          "customer_details": {"name": "Buyer", "email": "a@b.com"}},
+        ):
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "sold")
+        self.assertEqual(data["status_display"], "Vendida")
+        self.assertEqual(data["updated_at"], self._updated_z())
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, ArtworkOrderStatus.PAID_PENDING_DATA)
+        self.assertEqual(self.artwork.status, ArtworkStatus.SOLD)
+
+    def test_stale_open_unpaid_returns_reserved_without_write(self):
+        from unittest.mock import patch
+
+        updated_before = self.artwork.updated_at
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            return_value={"status": "open", "payment_status": "unpaid"},
+        ):
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "reserved")
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.updated_at, updated_before)
+
+    def test_stale_stripe_down_returns_reserved_without_write(self):
+        from unittest.mock import patch
+
+        updated_before = self.artwork.updated_at
+        with patch(
+            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            side_effect=RuntimeError("stripe down"),
+        ):
+            response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "reserved")
+        self.assertEqual(response["Cache-Control"], "no-store")
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.updated_at, updated_before)
 
 
 class StatusThrottleWiringTestCase(TestCase):
