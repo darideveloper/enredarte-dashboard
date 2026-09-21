@@ -1,0 +1,7 @@
+Hola, {{ artist_name }}:
+
+Tu suscripción en línea finalizó y tu perfil ya no es visible en el sitio público.
+
+Si deseas volver a aparecer, ponte en contacto con el equipo para renovar tu suscripción.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

@@ -1,0 +1,10 @@
+Hola,
+
+Tu pago fue confirmado. ¡Gracias por tu compra!
+
+Obra: {{ artwork_title }}
+Monto: {{ currency }} {{ amount }}
+
+Para coordinar la entrega, completa tus datos de envío desde la página que verás al finalizar la compra.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

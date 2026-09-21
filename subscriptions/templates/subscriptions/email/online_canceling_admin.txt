@@ -1,0 +1,8 @@
+[Enredarte] Suscripción en línea en cancelación
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Estado: cancelación solicitada — visible hasta el fin del período ({{ renew_date }}).
+Cliente Stripe: {{ artist.subscription.stripe_customer_id }}
+Suscripción Stripe: {{ artist.subscription.stripe_subscription_id }}
+
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/

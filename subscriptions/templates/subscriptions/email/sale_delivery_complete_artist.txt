@@ -1,0 +1,9 @@
+Hola, {{ artist_name }}:
+
+El comprador de tu obra ya envió sus datos de entrega, para coordinar el envío contigo.
+
+Obra: {{ artwork_title }}
+
+Por favor ponte en contacto con el equipo para preparar la entrega.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

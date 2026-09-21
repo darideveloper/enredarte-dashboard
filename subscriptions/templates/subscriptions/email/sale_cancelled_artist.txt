@@ -1,0 +1,7 @@
+Hola, {{ artist_name }}:
+
+Te informamos que la reserva de tu obra se liberó y vuelve a estar disponible.
+
+Obra: {{ artwork_title }}
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

@@ -1,0 +1,9 @@
+Hola,
+
+Recibimos tus datos de entrega. ¡Gracias!
+
+Obra: {{ artwork_title }}
+
+El equipo preparará el envío en breve y te avisaremos cuando la obra esté en camino.
+
+Si tienes alguna duda, responde a este correo y con gusto te ayudamos.

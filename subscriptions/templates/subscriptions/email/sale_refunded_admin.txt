@@ -1,0 +1,9 @@
+[Enredarte] Reembolso por doble venta
+
+Obra: {{ artwork_title }}
+Comprador: {{ buyer_email }}
+Monto: {{ currency }} {{ amount }}
+PaymentIntent: {{ order.stripe_payment_intent_id }}
+Refund: {{ refund_id }}
+
+Revisar en el admin: {{ admin_url }}

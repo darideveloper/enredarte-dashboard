@@ -1,0 +1,8 @@
+[Enredarte] Suscripción en línea cancelada
+
+Artista: {{ artist_name }} ({{ artist.email }})
+Estado: cancelada definitivamente — ya no visible en el sitio público.
+Cliente Stripe: {{ artist.subscription.stripe_customer_id }}
+Suscripción Stripe: {{ artist.subscription.stripe_subscription_id }}
+
+Revisar en el admin: {{ host }}/admin/artworks/artist/{{ artist.pk }}/change/

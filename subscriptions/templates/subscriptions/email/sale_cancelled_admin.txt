@@ -1,0 +1,7 @@
+[Enredarte] Reserva cancelada
+
+Obra: {{ artwork_title }}
+Comprador: {{ buyer_email }}
+Motivo: reserva liberada (no se completó el pago)
+
+Revisar en el admin: {{ admin_url }}

@@ -114,7 +114,7 @@ class ArtistSocialLinkInline(TabularInline):
     fields = ["platform", "url"]
     verbose_name = "Red social"
     verbose_name_plural = "Redes sociales"
-    extra = 1
+    extra = 0
 
 
 class ArtistSubscriptionInline(StackedInline):
@@ -1418,20 +1418,28 @@ class ArtworkOrderAdmin(ModelAdminUnfoldBase):
 
     @admin.action(description="Marcar enviada")
     def marcar_enviada(self, request, queryset):
-        ok = queryset.filter(status=ArtworkOrderStatus.DATA_COMPLETE).update(status=ArtworkOrderStatus.SHIPPED)
+        eligible = list(queryset.filter(status=ArtworkOrderStatus.DATA_COMPLETE).values_list("id", flat=True))
+        ok = queryset.filter(id__in=eligible).update(status=ArtworkOrderStatus.SHIPPED)
         bad = queryset.count() - ok
         if bad:
             self.message_user(request, f"{bad} pedido(s) no estaban en Datos completos.", messages.ERROR)
         if ok:
+            changed = ArtworkOrder.objects.filter(id__in=eligible)
+            for order in changed:
+                notifications.send_best_effort(notifications.send_sale_shipped, order)
             self.message_user(request, f"{ok} pedido(s) marcados como enviados.", messages.SUCCESS)
 
     @admin.action(description="Marcar entregada")
     def marcar_entregada(self, request, queryset):
-        ok = queryset.filter(status=ArtworkOrderStatus.SHIPPED).update(status=ArtworkOrderStatus.DELIVERED)
+        eligible = list(queryset.filter(status=ArtworkOrderStatus.SHIPPED).values_list("id", flat=True))
+        ok = queryset.filter(id__in=eligible).update(status=ArtworkOrderStatus.DELIVERED)
         bad = queryset.count() - ok
         if bad:
             self.message_user(request, f"{bad} pedido(s) no estaban Enviados.", messages.ERROR)
         if ok:
+            changed = ArtworkOrder.objects.filter(id__in=eligible)
+            for order in changed:
+                notifications.send_best_effort(notifications.send_sale_delivered, order)
             self.message_user(request, f"{ok} pedido(s) marcados como entregados.", messages.SUCCESS)
 
     @admin.action(description="Liberar reserva")
@@ -1450,6 +1458,7 @@ class ArtworkOrderAdmin(ModelAdminUnfoldBase):
             if order.artwork.status == _AS.RESERVED:
                 order.artwork.status = _AS.AVAILABLE
                 order.artwork.save(update_fields=["status", "updated_at"])
+            notifications.send_best_effort(notifications.send_sale_cancelled, order)
             ok += 1
         if bad:
             self.message_user(request, f"{bad} pedido(s) no estaban pendientes de pago.", messages.ERROR)

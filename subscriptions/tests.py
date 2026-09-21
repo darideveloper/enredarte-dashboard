@@ -2452,3 +2452,213 @@ class ArtworkOrderWebhookTestCase(TestCase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 200)
         self.assertEqual(self.ArtworkOrder.objects.filter(slug=self.order.slug).count(), 1)
+
+
+@override_settings(
+    STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET,
+    EMAILS_NOTIFICATIONS=["admin1@x.com", "admin2@x.com"],
+)
+class OnlineEmailNotificationsTest(ArtistTestBase):
+    """Online cancellation-email senders + webhook transition-gated firing."""
+
+    def _subscription(self, status=ArtistSubscription.Status.ACTIVE):
+        return ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=status,
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_123",
+            current_period_end=timezone.now() + timedelta(days=5),
+        )
+
+    def _post(self, event_type, event_id, sub_obj):
+        event = make_event(event_type, event_id, sub_obj)
+        payload = json.dumps(event).encode()
+        return self.client.post(
+            "/webhooks/stripe/",
+            data=payload,
+            content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+        )
+
+    def test_canceling_sender_addresses_artist_and_admin(self):
+        from subscriptions.services import notifications
+
+        sub = self._subscription()
+        mail.outbox = []
+        notifications.send_online_canceling(sub)
+        self.assertEqual(len(mail.outbox), 2)
+        artist_msg, admin_msg = mail.outbox
+        self.assertEqual(artist_msg.to, ["artista@x.com"])
+        self.assertEqual(artist_msg.subject, "Tu suscripción en línea será cancelada")
+        self.assertEqual(admin_msg.to, ["admin1@x.com", "admin2@x.com"])
+        self.assertTrue(admin_msg.subject.startswith("[Enredarte] Suscripción en línea en cancelación"))
+        artist_html = dict((m, c) for c, m in artist_msg.alternatives)["text/html"]
+        self.assertIn("seguirá visible", artist_html)
+
+    def test_canceled_sender_addresses_artist_and_admin(self):
+        from subscriptions.services import notifications
+
+        sub = self._subscription()
+        mail.outbox = []
+        notifications.send_online_canceled(sub)
+        self.assertEqual(len(mail.outbox), 2)
+        artist_msg, admin_msg = mail.outbox
+        self.assertEqual(artist_msg.subject, "Tu suscripción en línea fue cancelada")
+        artist_html = dict((m, c) for c, m in artist_msg.alternatives)["text/html"]
+        self.assertIn("ya no es visible", artist_html)
+
+    def test_transition_canceling_fires_once_on_first_event(self):
+        sub = self._subscription()
+        mail.outbox = []
+        # First update: active -> canceling (real transition) => one pair of mails
+        with self.captureOnCommitCallbacks(execute=True):
+            self._post(
+                "customer.subscription.updated", "evt_cancel_1",
+                make_subscription(status="active", cancel_at_period_end=True, period_end=future_epoch()),
+            )
+        self.assertEqual(len(mail.outbox), 2)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELING)
+
+        # Repeat update on the already-canceling row: re-derives canceling, no mail
+        with self.captureOnCommitCallbacks(execute=True):
+            self._post(
+                "customer.subscription.updated", "evt_cancel_2",
+                make_subscription(status="active", cancel_at_period_end=True, period_end=future_epoch()),
+            )
+        self.assertEqual(len(mail.outbox), 2)  # unchanged
+
+    def test_deleted_fires_canceled_once(self):
+        sub = self._subscription(ArtistSubscription.Status.CANCELING)
+        mail.outbox = []
+        with self.captureOnCommitCallbacks(execute=True):
+            self._post(
+                "customer.subscription.deleted", "evt_del_1",
+                make_subscription(status="canceled"),
+            )
+        self.assertEqual(len(mail.outbox), 2)
+        sub.refresh_from_db()
+        self.assertEqual(sub.status, ArtistSubscription.Status.CANCELED)
+        self.assertFalse(sub.artist.is_active)
+
+        # Duplicate event_id is a no-op
+        with self.captureOnCommitCallbacks(execute=True):
+            self._post(
+                "customer.subscription.deleted", "evt_del_1",
+                make_subscription(status="canceled"),
+            )
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_cash_row_ignored_sends_no_mail(self):
+        sub = self._subscription()
+        sub.payment_method = ArtistSubscription.PaymentMethod.CASH
+        sub.save(update_fields=["payment_method"])
+        mail.outbox = []
+        with self.captureOnCommitCallbacks(execute=True):
+            self._post(
+                "customer.subscription.updated", "evt_cash_canceling",
+                make_subscription(status="active", cancel_at_period_end=True, period_end=future_epoch()),
+            )
+        self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(
+    STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET,
+    EMAILS_NOTIFICATIONS=["admin1@x.com", "admin2@x.com"],
+)
+class ArtworkOrderWebhookEmailTest(TestCase):
+    """Webhook-driven artwork-sale emails (paid trio, cancel trio, refund)."""
+
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkOrder, ArtworkStatus
+
+        self.Artist = Artist
+        self.Artwork = Artwork
+        self.ArtworkOrder = ArtworkOrder
+        self.ArtworkStatus = ArtworkStatus
+        self.artist = Artist.objects.create(
+            name="WH Email Frida", email="artista@x.com", slug="wh-email-frida"
+        )
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=5000, price_usd=250, status=ArtworkStatus.RESERVED,
+            slug="obra-wh-email-1",
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=5000,
+            buyer_email="comprador@x.com", stripe_checkout_session_id="cs_whm_1",
+        )
+
+    def _post(self, event_type, event_id, session):
+        event = make_event(event_type, event_id, session)
+        payload = json.dumps(event).encode()
+        return self.client.post(
+            "/webhooks/stripe/", data=payload, content_type="application/json",
+            HTTP_STRIPE_SIGNATURE=stripe_signature(payload),
+        )
+
+    def _art_session(self, payment_status="paid", pi="pi_whm_1"):
+        return {
+            "id": "cs_whm_1", "payment_status": payment_status,
+            "payment_intent": pi,
+            "customer_details": {"name": "Buyer", "email": "comprador@x.com"},
+            "metadata": {"kind": "artwork_order", "order": self.order.slug},
+        }
+
+    def test_completed_paid_mails_trio_once(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self._post("checkout.session.completed", "evt_whm_1", self._art_session())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 3)
+        to_set = {tuple(sorted(m.to)) for m in mail.outbox}
+        self.assertIn(("comprador@x.com",), to_set)
+        self.assertIn(("artista@x.com",), to_set)
+        self.assertIn(("admin1@x.com", "admin2@x.com"), to_set)
+
+    def test_expired_mails_trio_once(self):
+        from artworks.models import ArtworkOrderStatus
+
+        self.order.status = ArtworkOrderStatus.PENDING_PAYMENT
+        self.order.save(update_fields=["status"])
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self._post("checkout.session.expired", "evt_whm_2", self._art_session())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 3)
+        subjects = {m.subject for m in mail.outbox}
+        self.assertIn("Tu pago no se completó", subjects)
+        self.assertTrue(any(s.startswith("[Enredarte] Reserva cancelada — obra-wh-email-1") for s in subjects))
+
+    def test_double_sale_refund_mails_trio(self):
+        from unittest.mock import patch
+
+        self.artwork.status = self.ArtworkStatus.SOLD
+        self.artwork.save(update_fields=["status"])
+        with patch("subscriptions.services.stripe_client.create_refund", return_value=_Refund("re_1")),              self.captureOnCommitCallbacks(execute=True):
+            response = self._post("checkout.session.completed", "evt_whm_3", self._art_session(pi="pi_dbl"))
+        self.assertEqual(response.status_code, 200)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "refunded")
+        self.assertEqual(len(mail.outbox), 3)
+        admin = next(m for m in mail.outbox if m.to == ["admin1@x.com", "admin2@x.com"])
+        admin_html = dict((m, c) for c, m in admin.alternatives)["text/html"]
+        self.assertIn("re_1", admin_html)
+
+    def test_refund_failure_sends_no_mail(self):
+        from unittest.mock import patch
+
+        self.artwork.status = self.ArtworkStatus.SOLD
+        self.artwork.save(update_fields=["status"])
+        mail.outbox = []
+        with patch(
+            "subscriptions.services.stripe_client.create_refund",
+            side_effect=RuntimeError("stripe down"),
+        ):
+            response = self._post("checkout.session.completed", "evt_whm_4", self._art_session(pi="pi_fail"))
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(len(mail.outbox), 0)
+
+
+class _Refund:
+    def __init__(self, rid):
+        self.id = rid
+

@@ -63,21 +63,33 @@ def _apply_artwork_paid(order, session):
     """Paid-transition with double-sale refund backstop."""
     from artworks.models import ArtworkOrderStatus
     from artworks.services import apply_paid_transition, artwork_reserved_by
-    from subscriptions.services import stripe_client
+    from django.db import transaction
+    from subscriptions.services import notifications, stripe_client
 
     if order.status != ArtworkOrderStatus.PENDING_PAYMENT:
         return
     pi, email, name = _session_buyer(session)
     if not artwork_reserved_by(order):
-        from django.utils import timezone
-
         order.status = ArtworkOrderStatus.REFUNDED
         order.stripe_payment_intent_id = pi or order.stripe_payment_intent_id
         order.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
         logger.warning("artwork double-sale order=%s refunding pi=%s", order.slug, pi)
-        stripe_client.create_refund(pi)
+        refund = stripe_client.create_refund(pi)
+        refund_id = (
+            getattr(refund, "id", "") if not isinstance(refund, dict) else refund.get("id", "")
+        )
+        transaction.on_commit(
+            lambda o=order, rid=refund_id: notifications.send_best_effort(
+                notifications.send_sale_refunded, o, refund_id=rid
+            )
+        )
         return
-    apply_paid_transition(order, pi, email or order.buyer_email, name)
+    if apply_paid_transition(order, pi, email or order.buyer_email, name):
+        transaction.on_commit(
+            lambda o=order: notifications.send_best_effort(
+                notifications.send_sale_paid, o
+            )
+        )
 
 
 def _handle_artwork_checkout_completed(event):
@@ -93,12 +105,19 @@ def _handle_artwork_checkout_completed(event):
 
 def _handle_artwork_checkout_expired(event):
     from artworks.services import cancel_order
+    from django.db import transaction
+    from subscriptions.services import notifications
 
     session = event["data"]["object"]
     order, _ = _find_artwork_order(session)
     if order is None:
         return False
-    cancel_order(order)
+    if cancel_order(order):
+        transaction.on_commit(
+            lambda o=order: notifications.send_best_effort(
+                notifications.send_sale_cancelled, o
+            )
+        )
     return True
 
 
@@ -113,12 +132,19 @@ def _handle_artwork_async_succeeded(event):
 
 def _handle_artwork_async_failed(event):
     from artworks.services import cancel_order
+    from django.db import transaction
+    from subscriptions.services import notifications
 
     session = event["data"]["object"]
     order, _ = _find_artwork_order(session)
     if order is None:
         return False
-    cancel_order(order)
+    if cancel_order(order):
+        transaction.on_commit(
+            lambda o=order: notifications.send_best_effort(
+                notifications.send_sale_cancelled, o
+            )
+        )
     return True
 
 
@@ -207,19 +233,59 @@ def _handle_subscription_created(event):
     _sync_artist(sub)
 
 
+def _subscription_prior_status(stripe_sub):
+    """Status of the local row before upsert, or None if no row matches."""
+    sub_id = sget(stripe_sub, "id")
+    cus_id = sget(stripe_sub, "customer")
+    if isinstance(cus_id, dict):
+        cus_id = sget(cus_id, "id", cus_id) or cus_id
+    obj = (
+        ArtistSubscription.objects.filter(stripe_subscription_id=sub_id).first()
+        or ArtistSubscription.objects.filter(stripe_customer_id=cus_id).first()
+    )
+    return obj.status if obj is not None else None
+
+
 def _handle_subscription_updated(event):
+    from subscriptions.services import notifications
+
     stripe_sub = event["data"]["object"]
+    prior = _subscription_prior_status(stripe_sub)
     sub = ArtistSubscription.upsert_from_stripe(stripe_sub)
     if sub is None:
         return
+    # Two-phase cancellation: mail only on a genuine transition INTO canceling
+    # (a repeat update for an already-canceling row re-derives the status but
+    # must not re-mail).
+    if (
+        sub.status == ArtistSubscription.Status.CANCELING
+        and prior != ArtistSubscription.Status.CANCELING
+    ):
+        transaction.on_commit(
+            lambda s=sub: notifications.send_best_effort(
+                notifications.send_online_canceling, s
+            )
+        )
     _sync_artist(sub)
 
 
 def _handle_subscription_deleted(event):
+    from subscriptions.services import notifications
+
     stripe_sub = event["data"]["object"]
+    prior = _subscription_prior_status(stripe_sub)
     sub = ArtistSubscription.upsert_from_stripe(stripe_sub)
     if sub is None:
         return
+    if (
+        sub.status == ArtistSubscription.Status.CANCELED
+        and prior != ArtistSubscription.Status.CANCELED
+    ):
+        transaction.on_commit(
+            lambda s=sub: notifications.send_best_effort(
+                notifications.send_online_canceled, s
+            )
+        )
     _sync_artist(sub)
 
 

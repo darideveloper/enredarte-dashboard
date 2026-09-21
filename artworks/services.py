@@ -80,12 +80,18 @@ def _cancel_reconciled(order_id):
             order = ArtworkOrder.objects.select_for_update().get(pk=order_id)
         except ArtworkOrder.DoesNotExist:
             return False
-        return cancel_order(order)
+        changed = cancel_order(order)
+        if changed:
+            from subscriptions.services import notifications
+
+            notifications.send_best_effort(notifications.send_sale_cancelled, order)
+        return changed
 
 
 def _apply_reconciled_paid(order_id, session):
     """Paid-transition inside row locks, with the double-sale refund backstop."""
     from subscriptions.services import stripe_client
+    from subscriptions.services import notifications
     from subscriptions.services.stripe_compat import sget
 
     with transaction.atomic():
@@ -102,11 +108,20 @@ def _apply_reconciled_paid(order_id, session):
             order.stripe_payment_intent_id = pi or order.stripe_payment_intent_id
             order.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
             logger.warning("reconcile double-sale order=%s refunding pi=%s", order.slug, pi)
-            stripe_client.create_refund(pi)
+            refund = stripe_client.create_refund(pi)
+            refund_id = (
+                getattr(refund, "id", "") if not isinstance(refund, dict) else refund.get("id", "")
+            )
+            notifications.send_best_effort(
+                notifications.send_sale_refunded, order, refund_id=refund_id
+            )
             return True
         # Point the transition at our locked row so it cannot drift mid-flight.
         order.artwork = artwork
-        return apply_paid_transition(order, pi, email or order.buyer_email, name)
+        if apply_paid_transition(order, pi, email or order.buyer_email, name):
+            notifications.send_best_effort(notifications.send_sale_paid, order)
+            return True
+        return False
 
 
 def reconcile_stale_reservations(artwork):

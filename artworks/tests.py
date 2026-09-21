@@ -6,9 +6,10 @@ from django.contrib import admin
 from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core import mail
 from django.core.management import call_command
 from django.db import IntegrityError
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -165,6 +166,74 @@ class ArtistAdminTestCase(TestCase):
         formset = response.context_data["inline_admin_formsets"][0].formset
         self.assertEqual(len(formset.extra_forms), 0)
         self.assertEqual(len(formset.forms), 2)
+
+    def test_artist_change_page_has_no_empty_social_link_row(self):
+        """The social-links inline must not render a phantom empty row.
+
+        Regression: `extra = 1` plus a required `platform` choice defaulting to
+        Instagram produced a half-empty row that blocked saving until deleted.
+        """
+        artist = Artist.objects.create(
+            name="Frida Kahlo", slug="frida-kahlo", email="frida@example.com"
+        )
+        ArtistTranslation.objects.create(artist=artist, language="es", bio="Pintora mexicana.")
+        ArtistTranslation.objects.create(artist=artist, language="en", bio="Mexican painter.")
+
+        url = reverse("admin:artworks_artist_change", args=[artist.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        social_formset = response.context_data["inline_admin_formsets"][1].formset
+        self.assertIs(social_formset.model, ArtistSocialLink)
+        self.assertEqual(social_formset.prefix, "social_links")
+        self.assertEqual(len(social_formset.extra_forms), 0)
+        self.assertEqual(len(social_formset.forms), 0)
+
+    def test_artist_change_saves_without_social_links(self):
+        """A clean change-form POST must save without creating social links.
+
+        The POST replays exactly what the rendered change page submits, so it
+        guards the whole inline save path (management forms, translation
+        validation, subscription inline). The phantom Instagram row itself is
+        covered by `test_artist_change_page_has_no_empty_social_link_row`.
+        """
+        artist = Artist.objects.create(
+            name="Frida Kahlo", slug="frida-kahlo", email="frida@example.com"
+        )
+        ArtistTranslation.objects.create(artist=artist, language="es", bio="Pintora mexicana.")
+        ArtistTranslation.objects.create(artist=artist, language="en", bio="Mexican painter.")
+
+        url = reverse("admin:artworks_artist_change", args=[artist.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        data = {
+            "name": artist.name,
+            "slug": artist.slug,
+            "email": artist.email,
+            "website": "",
+            "photo": "",
+            "birth_year": "",
+            "death_year": "",
+            "location": "",
+            "is_active": "on",
+            "_save": "Guardar",
+        }
+        for inline_formset in response.context_data["inline_admin_formsets"]:
+            formset = inline_formset.formset
+            for field in formset.management_form:
+                data[f"{formset.prefix}-{field.name}"] = (
+                    "" if field.value() is None else field.value()
+                )
+            for form in formset.forms:
+                for field in form:
+                    data[f"{form.prefix}-{field.name}"] = (
+                        "" if field.value() is None else field.value()
+                    )
+
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ArtistSocialLink.objects.filter(artist=artist).count(), 0)
 
 class ArtistSubscriptionInlineTestCase(TestCase):
     def setUp(self):
@@ -3359,3 +3428,160 @@ class StatusThrottleWiringTestCase(TestCase):
         second = self.client.get(f"/api/artworks/artworks/{artwork.slug}/status/")
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 429)
+
+
+@override_settings(EMAILS_NOTIFICATIONS=["admin1@x.com", "admin2@x.com"])
+class SaleEmailNotificationsTest(TestCase):
+    """Sender audience/subject/template tests for artwork-sale emails."""
+
+    def setUp(self):
+        from artworks.models import Artist, Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+
+        self.artist = Artist.objects.create(
+            name="Frida", email="artista@x.com", slug="frida-email-sale"
+        )
+        self.artwork = Artwork.objects.create(
+            artist=self.artist, year=2020, dimensions="10x10",
+            price_mxn=1000, price_usd=50, status=ArtworkStatus.RESERVED,
+            slug="obra-email-sale",
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork, currency="mxn", amount=1000,
+            buyer_email="comprador@x.com",
+            status=ArtworkOrderStatus.PAID_PENDING_DATA,
+            stripe_payment_intent_id="pi_123",
+        )
+
+    def _body_and_html(self, msg):
+        html = dict((m, c) for c, m in msg.alternatives).get("text/html", "")
+        return msg.body or "", html
+
+    def test_sale_paid_sends_three_spanish_audiences(self):
+        from subscriptions.services import notifications
+
+        mail.outbox = []
+        notifications.send_sale_paid(self.order)
+        self.assertEqual(len(mail.outbox), 3)
+        to_set = {tuple(sorted(m.to)) for m in mail.outbox}
+        self.assertIn(("comprador@x.com",), to_set)
+        self.assertIn(("artista@x.com",), to_set)
+        self.assertIn(("admin1@x.com", "admin2@x.com"), to_set)
+
+        subjects = {m.subject for m in mail.outbox}
+        self.assertEqual(subjects, {
+            "Tu pago fue confirmado",
+            "Tu obra obra-email-sale se vendió",
+            f"[Enredarte] Venta pagada — obra-email-sale ({self.order.slug})",
+        })
+        for msg in mail.outbox:
+            body, html = self._body_and_html(msg)
+            self.assertTrue(body)
+            self.assertTrue(html)
+
+    def test_skip_artist_when_no_email(self):
+        from subscriptions.services import notifications
+
+        self.artist.email = ""
+        self.artist.save(update_fields=["email"])
+        mail.outbox = []
+        with self.assertLogs("subscriptions.services.notifications", level="WARNING"):
+            notifications.send_sale_paid(self.order)
+        self.assertEqual(len(mail.outbox), 2)  # buyer + admin only
+        to_set = {tuple(sorted(m.to)) for m in mail.outbox}
+        self.assertNotIn(("artista@x.com",), to_set)
+
+    def test_sale_reserved_includes_checkout_url(self):
+        from subscriptions.services import notifications
+
+        self.order.checkout_url = "https://checkout.stripe/xyz"
+        self.order.save(update_fields=["checkout_url"])
+        mail.outbox = []
+        notifications.send_sale_reserved(self.order)
+        self.assertEqual(len(mail.outbox), 2)  # buyer + admin
+        buyer = next(m for m in mail.outbox if m.to == ["comprador@x.com"])
+        body, html = self._body_and_html(buyer)
+        self.assertIn("https://checkout.stripe/xyz", body)
+        self.assertIn("https://checkout.stripe/xyz", html)
+
+    def test_sale_refunded_carries_refund_id_in_admin(self):
+        from subscriptions.services import notifications
+
+        mail.outbox = []
+        notifications.send_sale_refunded(self.order, refund_id="re_999")
+        admin = next(m for m in mail.outbox if m.to == ["admin1@x.com", "admin2@x.com"])
+        body, html = self._body_and_html(admin)
+        self.assertIn("re_999", body)
+        self.assertIn("re_999", html)
+        self.assertIn("pi_123", body)
+
+    def test_sale_delivery_complete_artist_states_purpose_and_no_payment_ids(self):
+        from subscriptions.services import notifications
+
+        mail.outbox = []
+        notifications.send_sale_delivery_complete(self.order)
+        artist = next(m for m in mail.outbox if m.to == ["artista@x.com"])
+        body, html = self._body_and_html(artist)
+        for content in (body, html):
+            self.assertIn("coordinar el envío", content)
+            self.assertNotIn("pi_123", content)
+
+    def test_buy_endpoint_sends_reserved_mail_on_fresh_reservation(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkStatus
+
+        self.artwork.status = ArtworkStatus.AVAILABLE
+        self.artwork.save(update_fields=["status"])
+        url = f"/api/artworks/artworks/{self.artwork.slug}/buy/"
+
+        class S:
+            id = "cs_1"
+            url = "https://checkout.stripe/xyz"
+            expires_at = None
+
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=S(),
+        ), self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            mail.outbox = []
+            response = self.client.post(
+                url, {"currency": "mxn", "email": "nuevo@x.com"}, content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(mail.outbox), 2)  # buyer + admin
+        buyer = next(m for m in mail.outbox if m.to == ["nuevo@x.com"])
+        body, html = self._body_and_html(buyer)
+        self.assertIn("https://checkout.stripe/xyz", body)
+
+    def test_buy_reuse_sends_no_mail(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkStatus
+
+        self.artwork.status = ArtworkStatus.RESERVED
+        self.artwork.save(update_fields=["status"])
+        url = f"/api/artworks/artworks/{self.artwork.slug}/buy/"
+
+        class S:
+            id = "cs_1"
+            url = "https://checkout.stripe/xyz"
+            expires_at = None
+
+        from django.utils import timezone as _tz
+        from datetime import timedelta
+
+        self.order.status = "pending_payment"
+        self.order.session_expires_at = _tz.now() + timedelta(minutes=20)
+        self.order.checkout_url = "https://checkout.stripe/xyz"
+        self.order.buyer_email = "mismo@x.com"
+        self.order.save()
+        mail.outbox = []
+        with patch(
+            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            return_value=S(),
+        ), self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            response = self.client.post(
+                url, {"currency": "mxn", "email": "mismo@x.com"}, content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
