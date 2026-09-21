@@ -281,6 +281,7 @@ class ArtistAvailableWorksFilter(admin.SimpleListFilter):
 
 MSG_LINK_GENERATED = gettext_lazy("Link de suscripción generado.")
 MSG_LINK_REGENERATED = gettext_lazy("Link regenerado.")
+MSG_STALE_CUSTOMER = gettext_lazy("El customer fue eliminado de Stripe; regenera el link")
 
 
 def _artist_redirect_url(artist):
@@ -476,12 +477,20 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         """True when the subscription row is on the manual cash path."""
         return bool(sub and sub.payment_method == ArtistSubscription.PaymentMethod.CASH)
 
-    def _is_online_started(self, sub):
-        """True when an online row already went through Stripe (link or ids)."""
-        return bool(
-            sub
-            and sub.payment_method == ArtistSubscription.PaymentMethod.ONLINE
-            and (sub.signup_url or sub.stripe_customer_id or sub.stripe_subscription_id)
+    def _has_active_stripe_billing(self, sub):
+        """True when the online row is actively billing (blocks cash conversion).
+
+        Status-driven: only actively-billing online rows block a switch to cash.
+        Never-paid (`pending`), `canceled`, `canceling`, and cancel-requested
+        (`active` with `cancel_at_period_end`) rows may convert to cash.
+        """
+        if not (sub and sub.payment_method == ArtistSubscription.PaymentMethod.ONLINE):
+            return False
+        if sub.status == ArtistSubscription.Status.PAST_DUE:
+            return True
+        return (
+            sub.status == ArtistSubscription.Status.ACTIVE
+            and not sub.cancel_at_period_end
         )
 
     def has_marcar_efectivo_permission(self, request, object_id):
@@ -491,8 +500,8 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             return True
         if self._is_cash_sub(sub):
             return sub.status == ArtistSubscription.Status.CANCELED
-        # Online row that never started (failed link generation): allow cash.
-        return not self._is_online_started(sub)
+        # Only actively-billing online rows block cash conversion.
+        return not self._has_active_stripe_billing(sub)
 
     def has_confirmar_pago_permission(self, request, object_id):
         artist = self._resolve_artist(object_id)
@@ -522,6 +531,49 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             return redirect(redirect_url)
         return None
 
+    def _is_stale_customer_error(self, e, customer_id):
+        """True when a Stripe error means the stored customer is missing/deleted.
+
+        Grounded on the Stripe SDK (pinned >=15.5.1,<16): the checkouts/billing
+        endpoints report a nonexistent/deleted customer as an
+        `InvalidRequestError` with `code == "resource_missing"` and/or the
+        customer id surfacing in the error text/`param`. Falls back to matching
+        the stored id in the message so a shape change degrades to the generic
+        error path rather than mis-recovering.
+        """
+        if not isinstance(e, stripe.error.InvalidRequestError):
+            return False
+        if e.code == "resource_missing":
+            return True
+        if customer_id and (
+            (getattr(e, "param", None) or "").lower() == "customer"
+            or customer_id in str(e)
+        ):
+            return True
+        return False
+
+    def _create_session_recovering_stale_customer(self, sub, artist, price_id):
+        """Create a checkout session, recreating a deleted/dangling customer once.
+
+        Uses the stored `stripe_customer_id` (creating one when missing). If the
+        checkout call reveals that customer as missing/deleted in Stripe, clears
+        the stale id, creates a fresh customer, and retries once. Any other
+        `StripeError` propagates to the caller's generic error path.
+        """
+        for attempt in range(2):
+            try:
+                if not sub.stripe_customer_id:
+                    customer = stripe_client.create_customer(artist.email)
+                    sub.stripe_customer_id = customer.id
+                return stripe_client.create_checkout_session(
+                    sub.stripe_customer_id, {"artist_id": str(artist.pk)}, price_id
+                )
+            except stripe.error.StripeError as e:
+                if attempt == 0 and self._is_stale_customer_error(e, sub.stripe_customer_id):
+                    sub.stripe_customer_id = None
+                    continue
+                raise
+
     @action(description="Generar link de suscripción", url_path="generate-link", permissions=["generate_link"])
     def generate_link(self, request, object_id):
         artist = self._resolve_artist(object_id)
@@ -550,13 +602,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             sub.raw_state = {}
 
         try:
-            if not sub.stripe_customer_id:
-                customer = stripe_client.create_customer(artist.email)
-                sub.stripe_customer_id = customer.id
-
-            session = stripe_client.create_checkout_session(
-                sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
-            )
+            session = self._create_session_recovering_stale_customer(sub, artist, plan.stripe_price_id)
         except stripe.error.StripeError as e:
             logger.warning("generate_link artist=%s StripeError: %s", artist.pk, e)
             messages.error(request, f"Stripe no respondió: {e}")
@@ -612,13 +658,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
 
         plan = BillingPlan.get_solo()
         try:
-            if not sub.stripe_customer_id:
-                customer = stripe_client.create_customer(artist.email)
-                sub.stripe_customer_id = customer.id
-
-            session = stripe_client.create_checkout_session(
-                sub.stripe_customer_id, {"artist_id": str(artist.pk)}, plan.stripe_price_id
-            )
+            session = self._create_session_recovering_stale_customer(sub, artist, plan.stripe_price_id)
         except stripe.error.StripeError as e:
             logger.warning("regenerate_link artist=%s StripeError: %s", artist.pk, e)
             messages.error(request, f"Stripe no respondió: {e}")
@@ -655,6 +695,11 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         try:
             session = stripe_client.create_billing_portal_session(sub.stripe_customer_id)
         except stripe.error.StripeError as e:
+            if self._is_stale_customer_error(e, sub.stripe_customer_id):
+                sub.stripe_customer_id = None
+                sub.save(update_fields=["stripe_customer_id", "updated_at"])
+                messages.warning(request, MSG_STALE_CUSTOMER)
+                return redirect(redirect_url)
             logger.warning("open_portal artist=%s StripeError: %s", artist.pk, e)
             messages.error(request, f"Stripe no respondió: {e}")
             return redirect(redirect_url)
@@ -678,8 +723,21 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             customer = stripe_client.fetch_customer(sub.stripe_customer_id)
             subs = stripe_client.list_subscriptions(sub.stripe_customer_id, limit=1)
         except stripe.error.StripeError as e:
+            if self._is_stale_customer_error(e, sub.stripe_customer_id):
+                sub.stripe_customer_id = None
+                sub.save(update_fields=["stripe_customer_id", "updated_at"])
+                messages.warning(request, MSG_STALE_CUSTOMER)
+                return redirect(redirect_url)
             logger.warning("sync_from_stripe artist=%s StripeError: %s", artist.pk, e)
             messages.error(request, f"Stripe no respondió: {e}")
+            return redirect(redirect_url)
+        if sget(customer, "deleted"):
+            # A customer deleted in Stripe retrieves as a `deleted` marker
+            # (no exception); clear the dangling id and point the operator at
+            # regenerating the link rather than leaving a dead pointer.
+            sub.stripe_customer_id = None
+            sub.save(update_fields=["stripe_customer_id", "updated_at"])
+            messages.warning(request, MSG_STALE_CUSTOMER)
             return redirect(redirect_url)
         sub.customer_email = sget(customer, "email") or sub.customer_email
 
@@ -727,7 +785,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
 
         sub = ArtistSubscription.objects.filter(artist=artist).first()
         if sub is not None and (
-            self._is_online_started(sub)
+            self._has_active_stripe_billing(sub)
             or (self._is_cash_sub(sub) and sub.status != ArtistSubscription.Status.CANCELED)
         ):
             messages.error(request, gettext("Este artista tiene una suscripción en línea activa. Cancélala en Stripe antes de marcarlo como efectivo."))
@@ -744,6 +802,10 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         sub.status = ArtistSubscription.Status.PENDING
         sub.signup_url = ""
         sub.signup_url_expires_at = None
+        # Cash rows carry no Stripe linkage; drop any pointer (None, not "",
+        # because stripe_customer_id/stripe_subscription_id are unique-nullable).
+        sub.stripe_customer_id = None
+        sub.stripe_subscription_id = None
         # Fresh cycle: drop any dates from a previous canceled period.
         sub.cash_last_paid_at = None
         sub.current_period_end = None
@@ -755,6 +817,8 @@ class ArtistAdmin(ModelAdminUnfoldBase):
                 "status",
                 "signup_url",
                 "signup_url_expires_at",
+                "stripe_customer_id",
+                "stripe_subscription_id",
                 "cash_last_paid_at",
                 "current_period_end",
                 "raw_state",

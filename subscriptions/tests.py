@@ -1962,6 +1962,185 @@ class CashAdminActionsTest(ArtistTestBase):
         self.assertTrue(self.admin.has_marcar_efectivo_permission(self.request, opk))
         self.assertTrue(self.admin.has_generate_link_permission(self.request, opk))
 
+    # -- Online row cash-conversion guard (status-driven blocking) --
+
+    def _make_online(self, status, **extra):
+        return ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=status,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+            **extra,
+        )
+
+    def test_button_visibility_online_pending_allows_cash(self):
+        self._make_online(ArtistSubscription.Status.PENDING, signup_url="https://checkout.stripe.com/c/live", stripe_customer_id="cus_1")
+        self.assertTrue(self.admin.has_marcar_efectivo_permission(self.request, str(self.artist.pk)))
+
+    def test_button_visibility_online_canceling_allows_cash(self):
+        self._make_online(ArtistSubscription.Status.CANCELING, current_period_end=timezone.now() + timedelta(days=5))
+        self.assertTrue(self.admin.has_marcar_efectivo_permission(self.request, str(self.artist.pk)))
+
+    def test_button_visibility_online_active_cancel_requested_allows_cash(self):
+        self._make_online(ArtistSubscription.Status.ACTIVE, cancel_at_period_end=True)
+        self.assertTrue(self.admin.has_marcar_efectivo_permission(self.request, str(self.artist.pk)))
+
+    def test_button_visibility_online_active_billing_blocks_cash(self):
+        self._make_online(ArtistSubscription.Status.ACTIVE, cancel_at_period_end=False)
+        self.assertFalse(self.admin.has_marcar_efectivo_permission(self.request, str(self.artist.pk)))
+
+    def test_button_visibility_online_past_due_blocks_cash(self):
+        self._make_online(ArtistSubscription.Status.PAST_DUE)
+        self.assertFalse(self.admin.has_marcar_efectivo_permission(self.request, str(self.artist.pk)))
+
+    def test_marcar_efectivo_converts_online_pending_with_live_link(self):
+        self._make_online(
+            ArtistSubscription.Status.PENDING,
+            signup_url="https://checkout.stripe.com/c/live",
+            stripe_customer_id="cus_123",
+            stripe_subscription_id="sub_123",
+        )
+        mail.outbox = []
+        response = self.client.get(self._action_url(self.artist, "marcar-efectivo"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.CASH)
+        self.assertEqual(sub.status, ArtistSubscription.Status.PENDING)
+        self.assertEqual(sub.signup_url, "")
+        self.assertIsNone(sub.stripe_customer_id)
+        self.assertIsNone(sub.stripe_subscription_id)
+        self.assertIn("Artista registrado para pago en efectivo. Pendiente de confirmación.", self._messages(response))
+        self.assertEqual(len(mail.outbox), 2)
+
+    def test_marcar_efectivo_allowed_for_active_cancel_requested_and_canceling(self):
+        for status, extra in (
+            (ArtistSubscription.Status.ACTIVE, {"cancel_at_period_end": True}),
+            (ArtistSubscription.Status.CANCELING, {}),
+        ):
+            with self.subTest(status=status):
+                artist = self.make_artist(f"Conv {status}", email=f"{status}@x.com")
+                ArtistSubscription.objects.create(
+                    artist=artist, status=status,
+                    payment_method=ArtistSubscription.PaymentMethod.ONLINE, **extra,
+                )
+                response = self.client.get(self._action_url(artist, "marcar-efectivo"))
+                self.assertEqual(response.status_code, 302)
+                sub = ArtistSubscription.objects.get(artist=artist)
+                self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.CASH)
+
+    def test_marcar_efectivo_refused_for_active_billing(self):
+        sub = self._make_online(ArtistSubscription.Status.ACTIVE, cancel_at_period_end=False)
+        mail.outbox = []
+        response = self.client.get(self._action_url(self.artist, "marcar-efectivo"))
+        self.assertEqual(response.status_code, 403)
+        sub.refresh_from_db()
+        self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.ONLINE)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_marcar_efectivo_refused_for_past_due(self):
+        sub = self._make_online(ArtistSubscription.Status.PAST_DUE)
+        mail.outbox = []
+        response = self.client.get(self._action_url(self.artist, "marcar-efectivo"))
+        self.assertEqual(response.status_code, 403)
+        sub.refresh_from_db()
+        self.assertEqual(sub.payment_method, ArtistSubscription.PaymentMethod.ONLINE)
+        self.assertEqual(len(mail.outbox), 0)
+
+    # -- Deleted/broken Stripe customer recovery --
+
+    def test_generate_link_recovers_from_deleted_customer(self):
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+            stripe_customer_id="cus_stale",
+        )
+        session = type("S", (), {"url": "https://checkout.stripe.com/c/recovered", "expires_at": future_epoch()})
+        with patch("artworks.admin.stripe_client.create_customer", return_value=type("C", (), {"id": "cus_new"})), \
+             patch(
+                 "artworks.admin.stripe_client.create_checkout_session",
+                 side_effect=[stripe_lib.error.InvalidRequestError("no such customer", None, code="resource_missing"), session],
+             ):
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.stripe_customer_id, "cus_new")
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/recovered")
+
+    def test_regenerate_link_recovers_from_deleted_customer(self):
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+            stripe_customer_id="cus_stale",
+            signup_url="https://checkout.stripe.com/c/old",
+            signup_url_expires_at=timezone.now() - timedelta(hours=1),
+        )
+        session = type("S", (), {"url": "https://checkout.stripe.com/c/recovered", "expires_at": future_epoch()})
+        with patch("artworks.admin.stripe_client.create_customer", return_value=type("C", (), {"id": "cus_new"})), \
+             patch(
+                 "artworks.admin.stripe_client.create_checkout_session",
+                 side_effect=[stripe_lib.error.InvalidRequestError("no such customer", None, code="resource_missing"), session],
+             ):
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
+        self.assertEqual(response.status_code, 302)
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.stripe_customer_id, "cus_new")
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/recovered")
+
+    def test_open_portal_clears_stale_customer_and_warns(self):
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+            stripe_customer_id="cus_stale",
+            signup_url="https://checkout.stripe.com/c/x",
+        )
+        with patch(
+            "artworks.admin.stripe_client.create_billing_portal_session",
+            side_effect=stripe_lib.error.InvalidRequestError("no such customer", None, code="resource_missing"),
+        ):
+            response = self.client.get(self._action_url(self.artist, "open-portal"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertIsNone(sub.stripe_customer_id)
+        self.assertIn("El customer fue eliminado de Stripe; regenera el link", self._messages(response))
+
+    def test_sync_from_stripe_clears_stale_customer_and_warns(self):
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+            stripe_customer_id="cus_stale",
+        )
+        with patch(
+            "artworks.admin.stripe_client.fetch_customer",
+            side_effect=stripe_lib.error.InvalidRequestError("no such customer", None, code="resource_missing"),
+        ):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertIsNone(sub.stripe_customer_id)
+        self.assertIn("El customer fue eliminado de Stripe; regenera el link", self._messages(response))
+
+    def test_sync_from_stripe_clears_deleted_customer_without_error(self):
+        sub = ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+            stripe_customer_id="cus_stale",
+        )
+        with patch("artworks.admin.stripe_client.fetch_customer", return_value=type("C", (), {"deleted": True})), \
+             patch("artworks.admin.stripe_client.list_subscriptions", return_value=[]):
+            response = self.client.get(self._action_url(self.artist, "sync-from-stripe"))
+        self.assertEqual(response.status_code, 302)
+        sub.refresh_from_db()
+        self.assertIsNone(sub.stripe_customer_id)
+        self.assertIn("El customer fue eliminado de Stripe; regenera el link", self._messages(response))
+
 
 @override_settings(EMAILS_NOTIFICATIONS=["admin1@x.com"])
 class CheckCashRenewalsTest(ArtistTestBase):
