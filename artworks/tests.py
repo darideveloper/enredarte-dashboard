@@ -165,6 +165,74 @@ class ArtistAdminTestCase(TestCase):
         self.assertEqual(len(formset.extra_forms), 0)
         self.assertEqual(len(formset.forms), 2)
 
+    def test_artist_change_page_has_no_empty_social_link_row(self):
+        """The social-links inline must not render a phantom empty row.
+
+        Regression: `extra = 1` plus a required `platform` choice defaulting to
+        Instagram produced a half-empty row that blocked saving until deleted.
+        """
+        artist = Artist.objects.create(
+            name="Frida Kahlo", slug="frida-kahlo", email="frida@example.com"
+        )
+        ArtistTranslation.objects.create(artist=artist, language="es", bio="Pintora mexicana.")
+        ArtistTranslation.objects.create(artist=artist, language="en", bio="Mexican painter.")
+
+        url = reverse("admin:artworks_artist_change", args=[artist.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        social_formset = response.context_data["inline_admin_formsets"][1].formset
+        self.assertIs(social_formset.model, ArtistSocialLink)
+        self.assertEqual(social_formset.prefix, "social_links")
+        self.assertEqual(len(social_formset.extra_forms), 0)
+        self.assertEqual(len(social_formset.forms), 0)
+
+    def test_artist_change_saves_without_social_links(self):
+        """A clean change-form POST must save without creating social links.
+
+        The POST replays exactly what the rendered change page submits, so it
+        guards the whole inline save path (management forms, translation
+        validation, subscription inline). The phantom Instagram row itself is
+        covered by `test_artist_change_page_has_no_empty_social_link_row`.
+        """
+        artist = Artist.objects.create(
+            name="Frida Kahlo", slug="frida-kahlo", email="frida@example.com"
+        )
+        ArtistTranslation.objects.create(artist=artist, language="es", bio="Pintora mexicana.")
+        ArtistTranslation.objects.create(artist=artist, language="en", bio="Mexican painter.")
+
+        url = reverse("admin:artworks_artist_change", args=[artist.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+
+        data = {
+            "name": artist.name,
+            "slug": artist.slug,
+            "email": artist.email,
+            "website": "",
+            "photo": "",
+            "birth_year": "",
+            "death_year": "",
+            "location": "",
+            "is_active": "on",
+            "_save": "Guardar",
+        }
+        for inline_formset in response.context_data["inline_admin_formsets"]:
+            formset = inline_formset.formset
+            for field in formset.management_form:
+                data[f"{formset.prefix}-{field.name}"] = (
+                    "" if field.value() is None else field.value()
+                )
+            for form in formset.forms:
+                for field in form:
+                    data[f"{form.prefix}-{field.name}"] = (
+                        "" if field.value() is None else field.value()
+                    )
+
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ArtistSocialLink.objects.filter(artist=artist).count(), 0)
+
 class ArtistSubscriptionInlineTestCase(TestCase):
     def setUp(self):
         self.superuser = User.objects.create_superuser(

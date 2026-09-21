@@ -114,7 +114,7 @@ class ArtistSocialLinkInline(TabularInline):
     fields = ["platform", "url"]
     verbose_name = "Red social"
     verbose_name_plural = "Redes sociales"
-    extra = 1
+    extra = 0
 
 
 class ArtistSubscriptionInline(StackedInline):
