@@ -190,6 +190,7 @@ class ArtistSubscriptionAdmin(ModelAdminUnfoldBase):
     ]
     list_filter = [
         "status",
+        "payment_method",
         ArtistIsActiveFilter,
     ]
     search_fields = [

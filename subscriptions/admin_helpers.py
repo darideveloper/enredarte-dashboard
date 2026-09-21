@@ -30,6 +30,15 @@ def _badge(status, label):
     )
 
 
+def _method_prefix(payment_method):
+    """Spanish payment-method prefix, or empty string when unknown."""
+    if payment_method == ArtistSubscription.PaymentMethod.CASH:
+        return "Efectivo"
+    if payment_method == ArtistSubscription.PaymentMethod.ONLINE:
+        return "En línea"
+    return ""
+
+
 def subscription_badge(subscription):
     """Render an `ArtistSubscription.status` as a colored pill badge.
 
@@ -39,7 +48,11 @@ def subscription_badge(subscription):
     """
     if subscription is None:
         return _muted_badge()
-    return _badge(subscription.status, subscription.get_status_display())
+    label = subscription.get_status_display()
+    prefix = _method_prefix(subscription.payment_method)
+    if prefix:
+        label = f"{prefix} · {label}"
+    return _badge(subscription.status, label)
 
 
 def subscription_badge_from_artist(artist_row):
@@ -48,4 +61,7 @@ def subscription_badge_from_artist(artist_row):
         return _muted_badge()
     status = artist_row._subscription_status
     label = ArtistSubscription(status=status).get_status_display()
+    prefix = _method_prefix(getattr(artist_row, "_payment_method", None))
+    if prefix:
+        label = f"{prefix} · {label}"
     return _badge(status, label)

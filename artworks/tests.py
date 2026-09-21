@@ -19,6 +19,7 @@ from core.models import unique_slugify
 
 from artworks.admin import (
     ArtistAvailableWorksFilter,
+    ArtistPaymentMethodFilter,
     ArtistSubscriptionInline,
     ArtCuratorAdmin,
     ArtCuratorTranslationInline,
@@ -1258,6 +1259,8 @@ class ArtworkDiscoveryAdminTestCase(TestCase):
 
     def test_artist_admin_filters(self):
         artist_admin = admin.site._registry[Artist]
+        self.assertEqual(artist_admin.list_filter[0], ArtistPaymentMethodFilter)
+        self.assertIn(ArtistPaymentMethodFilter, artist_admin.list_filter)
         self.assertIn(("location", RelatedOnlyFieldListFilter), artist_admin.list_filter)
         self.assertIn("created_at", artist_admin.list_filter)
         self.assertIn(ArtistAvailableWorksFilter, artist_admin.list_filter)
@@ -1414,6 +1417,97 @@ class AdminFilterBehaviorTestCase(TestCase):
         result = without_filter.queryset(self.request, Artist.objects.all())
         self.assertIn(artist_sold, result)
         self.assertNotIn(artist_available, result)
+
+    def test_artist_payment_method_filter(self):
+        from subscriptions.models import ArtistSubscription
+
+        artist_online = Artist.objects.create(name="En línea", slug="en-linea")
+        artist_cash = Artist.objects.create(name="Efectivo", slug="efectivo")
+        artist_none = Artist.objects.create(name="Sin sub", slug="sin-sub")
+        ArtistSubscription.objects.create(
+            artist=artist_online,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+        )
+        ArtistSubscription.objects.create(
+            artist=artist_cash,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+        )
+
+        online_filter = ArtistPaymentMethodFilter(
+            self.request, {"payment_method": ["online"]}, Artist, self.artist_admin
+        )
+        result = online_filter.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_online, result)
+        self.assertNotIn(artist_cash, result)
+        self.assertNotIn(artist_none, result)
+
+        cash_filter = ArtistPaymentMethodFilter(
+            self.request, {"payment_method": ["cash"]}, Artist, self.artist_admin
+        )
+        result = cash_filter.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_cash, result)
+        self.assertNotIn(artist_online, result)
+        self.assertNotIn(artist_none, result)
+
+        none_filter = ArtistPaymentMethodFilter(
+            self.request, {"payment_method": ["none"]}, Artist, self.artist_admin
+        )
+        result = none_filter.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_none, result)
+        self.assertNotIn(artist_online, result)
+        self.assertNotIn(artist_cash, result)
+
+        unfiltered = ArtistPaymentMethodFilter(
+            self.request, {}, Artist, self.artist_admin
+        )
+        result = unfiltered.queryset(self.request, Artist.objects.all())
+        self.assertIn(artist_online, result)
+        self.assertIn(artist_cash, result)
+        self.assertIn(artist_none, result)
+
+    def test_payment_method_badge_prefix(self):
+        from subscriptions.admin_helpers import (
+            subscription_badge,
+            subscription_badge_from_artist,
+        )
+        from subscriptions.models import ArtistSubscription
+
+        artist_online = Artist.objects.create(name="Badge online", slug="badge-online")
+        artist_cash = Artist.objects.create(name="Badge cash", slug="badge-cash")
+        artist_none = Artist.objects.create(name="Badge none", slug="badge-none")
+        ArtistSubscription.objects.create(
+            artist=artist_online,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+        )
+        ArtistSubscription.objects.create(
+            artist=artist_cash,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+        )
+
+        rows = {
+            a.pk: a
+            for a in self.artist_admin.get_queryset(self.request).filter(
+                pk__in=[artist_online.pk, artist_cash.pk, artist_none.pk]
+            )
+        }
+        with self.assertNumQueries(0):
+            online_badge = subscription_badge_from_artist(rows[artist_online.pk])
+            cash_badge = subscription_badge_from_artist(rows[artist_cash.pk])
+            none_badge = subscription_badge_from_artist(rows[artist_none.pk])
+        self.assertIn("En línea", online_badge)
+        self.assertIn("Activa", online_badge)
+        self.assertIn("Efectivo", cash_badge)
+        self.assertIn("Sin suscripción", none_badge)
+
+        sub_online = ArtistSubscription.objects.get(artist=artist_online)
+        sub_cash = ArtistSubscription.objects.get(artist=artist_cash)
+        self.assertIn("En línea", subscription_badge(sub_online))
+        self.assertIn("Efectivo", subscription_badge(sub_cash))
+        self.assertIn("Sin suscripción", subscription_badge(None))
 
 
 class StaticfilesBackendTestCase(TestCase):

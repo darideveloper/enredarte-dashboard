@@ -1013,6 +1013,33 @@ class ArtistAdminBadgeTest(ArtistTestBase):
         response = self.client.get("/admin/artworks/artist/")
         self.assertContains(response, "Cancelada definitivamente")
 
+    def test_changelist_badge_prefixes_payment_method(self):
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.CASH,
+        )
+        self.client.force_login(self.user)
+        response = self.client.get("/admin/artworks/artist/")
+        self.assertContains(response, "Efectivo")
+
+    def test_changelist_badge_prefixes_online_method(self):
+        ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.ACTIVE,
+            payment_method=ArtistSubscription.PaymentMethod.ONLINE,
+        )
+        self.client.force_login(self.user)
+        response = self.client.get("/admin/artworks/artist/")
+        self.assertContains(response, "En línea")
+
+    def test_subscription_admin_has_payment_method_filter(self):
+        from subscriptions.admin import ArtistSubscriptionAdmin
+
+        subscription_admin = django_admin.site._registry[ArtistSubscription]
+        self.assertIsInstance(subscription_admin, ArtistSubscriptionAdmin)
+        self.assertIn("payment_method", subscription_admin.list_filter)
+
 
 @override_settings(STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET)
 class WebhookSpecTest(ArtistTestBase):

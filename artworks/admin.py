@@ -279,6 +279,33 @@ class ArtistAvailableWorksFilter(admin.SimpleListFilter):
         return queryset
 
 
+class ArtistPaymentMethodFilter(admin.SimpleListFilter):
+    title = "Método de pago"
+    parameter_name = "payment_method"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("online", "En línea"),
+            ("cash", "Efectivo"),
+            ("none", "Sin suscripción"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() in ("online", "cash"):
+            return queryset.filter(
+                Exists(
+                    ArtistSubscription.objects.filter(
+                        artist=OuterRef("pk"), payment_method=self.value()
+                    )
+                )
+            )
+        if self.value() == "none":
+            return queryset.filter(
+                ~Exists(ArtistSubscription.objects.filter(artist=OuterRef("pk")))
+            )
+        return queryset
+
+
 MSG_LINK_GENERATED = gettext_lazy("Link de suscripción generado.")
 MSG_LINK_REGENERATED = gettext_lazy("Link regenerado.")
 MSG_STALE_CUSTOMER = gettext_lazy("El customer fue eliminado de Stripe; regenera el link")
@@ -310,6 +337,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name", "email", "slug", "translations__bio"]
     list_filter = [
+        ArtistPaymentMethodFilter,
         "is_active",
         "created_at",
         ("location", RelatedOnlyFieldListFilter),
@@ -406,11 +434,17 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         subscription_status = Subquery(
             ArtistSubscription.objects.filter(artist=OuterRef("pk")).values("status")[:1]
         )
+        subscription_payment_method = Subquery(
+            ArtistSubscription.objects.filter(artist=OuterRef("pk")).values(
+                "payment_method"
+            )[:1]
+        )
         return (
             super().get_queryset(request)
             .annotate(
                 _has_subscription=subscription_exists,
                 _subscription_status=subscription_status,
+                _payment_method=subscription_payment_method,
             )
             .annotate(
                 _artworks_count=Count("artworks", filter=Q(artworks__is_active=True), distinct=True),
