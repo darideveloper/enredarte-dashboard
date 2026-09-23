@@ -7,3 +7,16 @@ Obra: {{ artwork_title }}
 Estamos coordinando el envío y te avisaremos en cuanto llegue por cualquier novedad.
 
 Si tienes alguna duda, responde a este correo y con gusto te ayudamos.
+
+--------------------------------------------------
+(English version below)
+
+Hello,
+
+Your artwork is on its way.
+
+Artwork: {{ artwork_title }}
+
+We are coordinating the shipment and will keep you updated on any news.
+
+If you have any questions, reply to this email and we will gladly help you.

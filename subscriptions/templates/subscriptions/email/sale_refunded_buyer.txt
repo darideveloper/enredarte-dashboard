@@ -8,3 +8,17 @@ Monto reembolsado: {{ currency }} {{ amount }}
 El reembolso se procesará según los tiempos de tu banco.
 
 Si tienes alguna duda, responde a este correo y con gusto te ayudamos.
+
+--------------------------------------------------
+(English version below)
+
+Hello,
+
+There was an issue with your purchase, and we have issued a full refund.
+
+Artwork: {{ artwork_title }}
+Refunded amount: {{ currency }} {{ amount }}
+
+The refund will be processed according to your bank's processing times.
+
+If you have any questions, reply to this email and we will gladly help you.

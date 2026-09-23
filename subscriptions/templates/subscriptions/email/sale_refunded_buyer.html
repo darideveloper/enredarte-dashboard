@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tu reembolso está en camino</title>
+    <title>Tu reembolso está en camino / Your refund is on the way</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #faf7f2; margin: 0; padding: 24px; }
         .card { background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 32px; max-width: 520px; margin: 0 auto; }
@@ -20,6 +20,15 @@
            <strong>Monto reembolsado:</strong> {{ currency }} {{ amount }}</p>
         <p>El reembolso se procesará según los tiempos de tu banco.</p>
         <p class="muted">Si tienes alguna duda, responde a este correo y con gusto te ayudamos.</p>
+
+        <hr style="border: 0; border-top: 1px solid #e5e0d8; margin: 24px 0;">
+
+        <h2 style="color: #1d3a2f; font-size: 18px; margin: 0 0 12px;">Your refund is on the way</h2>
+        <p>There was an issue with your purchase, and we have issued a <strong>full refund</strong>.</p>
+        <p><strong>Artwork:</strong> {{ artwork_title }}<br>
+           <strong>Refunded amount:</strong> {{ currency }} {{ amount }}</p>
+        <p>The refund will be processed according to your bank's processing times.</p>
+        <p class="muted">If you have any questions, reply to this email and we will gladly help you.</p>
     </div>
 </body>
 </html>

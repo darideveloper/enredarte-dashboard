@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tu pago fue confirmado</title>
+    <title>Tu pago fue confirmado / Payment confirmed</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #faf7f2; margin: 0; padding: 24px; }
         .card { background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 32px; max-width: 520px; margin: 0 auto; }
@@ -20,6 +20,15 @@
            <strong>Monto:</strong> {{ currency }} {{ amount }}</p>
         <p>Para coordinar la entrega, completa tus datos de envío desde la página que verás al finalizar la compra.</p>
         <p class="muted">Si tienes alguna duda, responde a este correo y con gusto te ayudamos.</p>
+
+        <hr style="border: 0; border-top: 1px solid #e5e0d8; margin: 24px 0;">
+
+        <h2 style="color: #1d3a2f; font-size: 18px; margin: 0 0 12px;">Payment confirmed</h2>
+        <p>Your payment was confirmed. Thank you for your purchase!</p>
+        <p><strong>Artwork:</strong> {{ artwork_title }}<br>
+           <strong>Amount:</strong> {{ currency }} {{ amount }}</p>
+        <p>To arrange delivery, please complete your shipping details on the page shown after checkout.</p>
+        <p class="muted">If you have any questions, reply to this email and we will gladly help you.</p>
     </div>
 </body>
 </html>

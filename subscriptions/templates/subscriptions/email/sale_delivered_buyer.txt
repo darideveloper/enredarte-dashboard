@@ -5,3 +5,14 @@ Tu obra fue entregada. ¡Gracias por tu compra!
 Obra: {{ artwork_title }}
 
 Que la disfrutes. Si tienes alguna duda, responde a este correo y con gusto te ayudamos.
+
+--------------------------------------------------
+(English version below)
+
+Hello,
+
+Your artwork was delivered. Thank you for your purchase!
+
+Artwork: {{ artwork_title }}
+
+We hope you enjoy it! If you have any questions, reply to this email and we will gladly help you.
