@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from subscriptions.models import BillingPlanPriceHistory
 from subscriptions.services import stripe_client
-from subscriptions.services.stripe_compat import sget
+from core.stripe_compat import sget
 
 logger = logging.getLogger(__name__)
 

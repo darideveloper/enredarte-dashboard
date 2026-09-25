@@ -1,8 +1,5 @@
-# stripe-observability Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fix-stripe-prod-polish. Update Purpose after archive.
-## Requirements
 ### Requirement: Stripe observability via structured logging
 
 The system SHALL provide structured logging for all Stripe money-path operations (webhook delivery, `ArtistAdmin` Stripe actions, `BillingPlan` price sync) via a `LOGGING` dict in `project/settings.py` (console handler, level `INFO` for `subscriptions`/`artworks` loggers, pass-through for optional `SENTRY_DSN`). Every Stripe API failure, webhook dispatch, and price-sync history creation SHALL be logged at appropriate level (`INFO` for success, `WARNING` for recoverable fallback, `EXCEPTION` for crash) so operators can trace money-path calls without inspecting Stripe Dashboard alone. The `StripeEvent` audit row referenced below SHALL be `core.models.StripeEvent` after the model moves to `core`; webhook delivery logging SHALL continue to originate from `subscriptions/webhooks.py` under the `subscriptions` logger, and sale-branch logging from `artworks/order_webhooks.py` under the `artworks` logger.

@@ -25,9 +25,11 @@ know about subscriptions at all.
 Layers:
 
 ```
-stripe SDK  ──► subscriptions/services/stripe_client.py   (only file that imports `stripe`)
+stripe SDK init  ──► core/stripe.py   (imported by subscription + sale clients below)
+subscription client ──► subscriptions/services/stripe_client.py
 webhooks / views  ──► services/subscription_state.compute_is_active()
-ArtistSubscription / StripeEvent  (subscriptions/models.py)
+ArtistSubscription  (subscriptions/models.py)
+StripeEvent         (core/models.py, shared webhook audit log)
 ArtistAdmin buttons (artworks/admin.py + change_form template)
 ```
 

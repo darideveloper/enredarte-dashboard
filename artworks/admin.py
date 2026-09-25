@@ -47,11 +47,14 @@ from artworks.models import (
     Theme,
     ThemeTranslation,
 )
+from artworks import sale_notifications
+from core.mail_utils import send_best_effort
 from project.admin_base import ModelAdminUnfoldBase, TranslatableNameAdminMixin
 from subscriptions.admin_helpers import subscription_badge, subscription_badge_from_artist
-from subscriptions.models import ArtistSubscription, BillingPlan, epoch_to_datetime
+from subscriptions.models import ArtistSubscription, BillingPlan
+from core.stripe_utils import epoch_to_datetime
 from subscriptions.services import notifications, stripe_client
-from subscriptions.services.stripe_compat import sget
+from core.stripe_compat import sget
 from subscriptions.services.subscription_state import cash_renew_datetime, compute_is_active
 from unfold.admin import StackedInline, TabularInline
 from unfold.decorators import action
@@ -1426,7 +1429,7 @@ class ArtworkOrderAdmin(ModelAdminUnfoldBase):
         if ok:
             changed = ArtworkOrder.objects.filter(id__in=eligible)
             for order in changed:
-                notifications.send_best_effort(notifications.send_sale_shipped, order)
+                send_best_effort(sale_notifications.send_sale_shipped, order)
             self.message_user(request, f"{ok} pedido(s) marcados como enviados.", messages.SUCCESS)
 
     @admin.action(description="Marcar entregada")
@@ -1439,7 +1442,7 @@ class ArtworkOrderAdmin(ModelAdminUnfoldBase):
         if ok:
             changed = ArtworkOrder.objects.filter(id__in=eligible)
             for order in changed:
-                notifications.send_best_effort(notifications.send_sale_delivered, order)
+                send_best_effort(sale_notifications.send_sale_delivered, order)
             self.message_user(request, f"{ok} pedido(s) marcados como entregados.", messages.SUCCESS)
 
     @admin.action(description="Liberar reserva")
@@ -1458,7 +1461,7 @@ class ArtworkOrderAdmin(ModelAdminUnfoldBase):
             if order.artwork.status == _AS.RESERVED:
                 order.artwork.status = _AS.AVAILABLE
                 order.artwork.save(update_fields=["status", "updated_at"])
-            notifications.send_best_effort(notifications.send_sale_cancelled, order)
+            send_best_effort(sale_notifications.send_sale_cancelled, order)
             ok += 1
         if bad:
             self.message_user(request, f"{bad} pedido(s) no estaban pendientes de pago.", messages.ERROR)

@@ -9,13 +9,15 @@ from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
+# Artist is read here only for the ArtistSubscription "artist active" list
+# filter (membership domain), not for sale code; kept intentionally.
 from artworks.models import Artist
 from project.admin_base import ModelAdminUnfoldBase
 from solo.admin import SingletonModelAdmin
 from subscriptions.admin_helpers import subscription_badge
-from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory, StripeEvent
+from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory
 from subscriptions.services import stripe_client
-from subscriptions.services.stripe_compat import sget
+from core.stripe_compat import sget
 
 
 class BillingPlanForm(forms.ModelForm):
@@ -222,43 +224,3 @@ class ArtistSubscriptionAdmin(ModelAdminUnfoldBase):
     def display_status(self, obj):
         return subscription_badge(obj)
 
-
-@admin.register(StripeEvent)
-class StripeEventAdmin(ModelAdminUnfoldBase):
-    sidebar_icon = "receipt_long"
-    list_display = [
-        "event_type",
-        "display_event_id",
-        "received_at",
-        "processed_at",
-        "display_error",
-    ]
-    list_filter = ["event_type", "received_at"]
-    search_fields = ["event_id", "event_type"]
-    readonly_fields = [
-        "event_id",
-        "event_type",
-        "received_at",
-        "processed_at",
-        "payload",
-        "error",
-    ]
-    date_hierarchy = "received_at"
-    list_per_page = 50
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
-    @admin.display(description=_("ID del evento"))
-    def display_event_id(self, obj):
-        return obj.event_id[:30]
-
-    @admin.display(description=_("Error"))
-    def display_error(self, obj):
-        return obj.error or "-"

@@ -6,6 +6,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from artworks.models import Artwork, ArtworkOrder, ArtworkOrderStatus, ArtworkStatus
+from artworks import sale_notifications
+from core.mail_utils import send_best_effort
 
 logger = logging.getLogger(__name__)
 
@@ -82,17 +84,14 @@ def _cancel_reconciled(order_id):
             return False
         changed = cancel_order(order)
         if changed:
-            from subscriptions.services import notifications
-
-            notifications.send_best_effort(notifications.send_sale_cancelled, order)
+            send_best_effort(sale_notifications.send_sale_cancelled, order)
         return changed
 
 
 def _apply_reconciled_paid(order_id, session):
     """Paid-transition inside row locks, with the double-sale refund backstop."""
-    from subscriptions.services import stripe_client
-    from subscriptions.services import notifications
-    from subscriptions.services.stripe_compat import sget
+    from artworks import stripe_orders
+    from core.stripe_compat import sget
 
     with transaction.atomic():
         try:
@@ -108,18 +107,18 @@ def _apply_reconciled_paid(order_id, session):
             order.stripe_payment_intent_id = pi or order.stripe_payment_intent_id
             order.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
             logger.warning("reconcile double-sale order=%s refunding pi=%s", order.slug, pi)
-            refund = stripe_client.create_refund(pi)
+            refund = stripe_orders.create_refund(pi)
             refund_id = (
                 getattr(refund, "id", "") if not isinstance(refund, dict) else refund.get("id", "")
             )
-            notifications.send_best_effort(
-                notifications.send_sale_refunded, order, refund_id=refund_id
+            send_best_effort(
+                sale_notifications.send_sale_refunded, order, refund_id=refund_id
             )
             return True
         # Point the transition at our locked row so it cannot drift mid-flight.
         order.artwork = artwork
         if apply_paid_transition(order, pi, email or order.buyer_email, name):
-            notifications.send_best_effort(notifications.send_sale_paid, order)
+            send_best_effort(sale_notifications.send_sale_paid, order)
             return True
         return False
 
@@ -136,8 +135,8 @@ def reconcile_stale_reservations(artwork):
     hold — callers always re-read the row, so behavior stays correct), or
     ``"noop"`` (nothing stale to reconcile — zero Stripe calls).
     """
-    from subscriptions.services import stripe_client
-    from subscriptions.services.stripe_compat import sget
+    from artworks import stripe_orders
+    from core.stripe_compat import sget
 
     if artwork.status != ArtworkStatus.RESERVED:
         return "noop"
@@ -153,7 +152,7 @@ def reconcile_stale_reservations(artwork):
     outcome = "kept"
     for order in stale:
         try:
-            session = stripe_client.retrieve_checkout_session(
+            session = stripe_orders.retrieve_checkout_session(
                 order.stripe_checkout_session_id
             )
         except Exception:

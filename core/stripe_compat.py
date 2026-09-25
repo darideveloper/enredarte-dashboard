@@ -1,4 +1,4 @@
-"""Stripe SDK compatibility helpers.
+"""Stripe SDK compatibility helpers (shared by subscriptions and artworks).
 
 Stripe Python >=15 blocks dict methods (e.g. .get) on StripeObject
 (stripe/_stripe_object.py:163 raises AttributeError "is a dict method").

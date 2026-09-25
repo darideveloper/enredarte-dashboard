@@ -43,6 +43,8 @@ from artworks.serializers import (
     ThemeSerializer,
 )
 from artworks.services import apply_paid_transition, reconcile_stale_reservations
+from artworks import sale_notifications
+from core.mail_utils import send_best_effort
 
 
 class ArtistViewSet(viewsets.ReadOnlyModelViewSet):
@@ -158,8 +160,8 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
         throttle_classes=[ScopedRateThrottle],
     )
     def buy(self, request, pk=None):
-        from subscriptions.models import epoch_to_datetime
-        from subscriptions.services import stripe_client
+        from core.stripe_utils import epoch_to_datetime
+        from artworks import stripe_orders
 
         serializer = BuyArtworkSerializer(data=request.data)
         if not serializer.is_valid():
@@ -221,7 +223,7 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
                 success_url = f"{public_url}/compra-exitosa/?order={order.slug}"
                 cancel_url = f"{public_url}/compra-cancelada/"
                 try:
-                    session = stripe_client.create_artwork_checkout_session(
+                    session = stripe_orders.create_artwork_checkout_session(
                         amount=amount, currency=currency, customer_email=email,
                         metadata={"kind": "artwork_order", "order": order.slug},
                         success_url=success_url, cancel_url=cancel_url,
@@ -248,9 +250,7 @@ class ArtworkViewSet(viewsets.ReadOnlyModelViewSet):
                 {"status": "error", "message": "Stripe no respondió.", "data": {}},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        from subscriptions.services import notifications
-
-        notifications.send_best_effort(notifications.send_sale_reserved, order)
+        send_best_effort(sale_notifications.send_sale_reserved, order)
         return Response({"checkout_url": order.checkout_url}, status=status.HTTP_201_CREATED)
 
     @action(
@@ -317,7 +317,7 @@ class OrderSummaryView(APIView):
     throttle_scope = "artwork_orders"
 
     def get(self, request, slug):
-        from subscriptions.services import stripe_client
+        from artworks import stripe_orders
 
         order = _public_order_queryset().filter(slug=slug).first()
         if order is None or order.status in (
@@ -329,7 +329,7 @@ class OrderSummaryView(APIView):
             )
         if order.status == ArtworkOrderStatus.PENDING_PAYMENT:
             try:
-                session = stripe_client.retrieve_checkout_session(order.stripe_checkout_session_id)
+                session = stripe_orders.retrieve_checkout_session(order.stripe_checkout_session_id)
                 paid = (getattr(session, "payment_status", None)
                         or (session.get("payment_status") if isinstance(session, dict) else None))
             except Exception:
@@ -347,9 +347,7 @@ class OrderSummaryView(APIView):
                     order = ArtworkOrder.objects.select_for_update().get(pk=order.pk)
                     transitioned = apply_paid_transition(order, str(pi or ""), order.buyer_email, buyer_name or "")
                 if transitioned:
-                    from subscriptions.services import notifications
-
-                    notifications.send_best_effort(notifications.send_sale_paid, order)
+                    send_best_effort(sale_notifications.send_sale_paid, order)
                 order = _public_order_queryset().get(pk=order.pk)
             else:
                 return Response(
@@ -387,7 +385,5 @@ class OrderDeliveryView(APIView):
             setattr(order, field, value)
         order.status = ArtworkOrderStatus.DATA_COMPLETE
         order.save()
-        from subscriptions.services import notifications
-
-        notifications.send_best_effort(notifications.send_sale_delivery_complete, order)
+        send_best_effort(sale_notifications.send_sale_delivery_complete, order)
         return Response(OrderSummarySerializer(order).data, status=status.HTTP_200_OK)

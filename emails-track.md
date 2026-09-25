@@ -1,8 +1,12 @@
 # Emails Track
 
-All mail is sent from `subscriptions/services/notifications.py` via `EmailMultiAlternatives`
+Mail is sent from per-domain mailers: `subscriptions/services/notifications.py` (cash + online
+subscriptions) and `artworks/sale_notifications.py` (artwork sales), both via the shared helpers
+in `core/mail_utils.py` (`send_best_effort`, `send_audience`) using `EmailMultiAlternatives`
 (TXT + HTML alternatives, Spanish-only, best-effort: a mail failure never rolls back a state
-change and never turns a webhook 200 into a 500). Use `notifications.send_best_effort(...)`
+change and never turns a webhook 200 into a 500). Sale templates live under
+`artworks/templates/artworks/email/`; subscription templates under
+`subscriptions/templates/subscriptions/email/`. Use `core.mail_utils.send_best_effort(...)`
 at every firing site.
 
 The audience of each mail is chosen only from addresses the flow already holds:

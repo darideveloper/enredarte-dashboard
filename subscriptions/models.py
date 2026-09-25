@@ -1,4 +1,3 @@
-from datetime import datetime, timezone as dt_timezone
 import logging
 
 from django.conf import settings
@@ -7,18 +6,11 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from core.models import TimeStampedModel
+from core.stripe_compat import sget, to_plain_dict
+from core.stripe_utils import epoch_to_datetime
 from solo.models import SingletonModel
 
-from subscriptions.services.stripe_compat import sget, to_plain_dict
-
 logger = logging.getLogger(__name__)
-
-
-def epoch_to_datetime(ts):
-    """Convert a Stripe unix timestamp to an aware datetime (UTC), or None."""
-    if not ts:
-        return None
-    return datetime.fromtimestamp(ts, tz=dt_timezone.utc)
 
 
 def map_stripe_status(stripe_status, cancel_at_period_end):
@@ -341,47 +333,3 @@ class ArtistSubscription(TimeStampedModel):
         obj.apply_stripe_payload(stripe_sub)
         return obj
 
-
-class StripeEvent(models.Model):
-    """Audit log of every webhook received from Stripe (idempotency source)."""
-
-    event_id = models.CharField(
-        max_length=120,
-        unique=True,
-        verbose_name=_("ID del evento"),
-        help_text=_("`evt_xxx` tal como lo envía Stripe. Único: bloquea duplicados."),
-    )
-    event_type = models.CharField(
-        max_length=80,
-        verbose_name=_("Tipo de evento"),
-    )
-    received_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name=_("Recibido el"),
-    )
-    processed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name=_("Procesado el"),
-        help_text=_("Relleno tras procesar el evento; vacío si falló."),
-    )
-    payload = models.JSONField(
-        default=dict,
-        blank=True,
-        verbose_name=_("Carga útil"),
-        help_text=_("Objeto del evento completo tal como lo envió Stripe."),
-    )
-    error = models.TextField(
-        blank=True,
-        default="",
-        verbose_name=_("Error"),
-        help_text=_("Mensaje de excepción si el procesamiento falló."),
-    )
-
-    class Meta:
-        ordering = ["-received_at"]
-        verbose_name = _("Evento de Stripe")
-        verbose_name_plural = _("Eventos de Stripe")
-
-    def __str__(self):
-        return f"{self.event_type} ({self.event_id[:20]})"

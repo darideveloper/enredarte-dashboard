@@ -6,6 +6,8 @@ from django.core.management.base import BaseCommand
 
 from artworks.models import ArtworkOrder, ArtworkOrderStatus
 from artworks.services import apply_paid_transition, cancel_order
+from artworks import sale_notifications
+from core.mail_utils import send_best_effort
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,7 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help="No modifica nada, solo reporta.")
 
     def handle(self, *args, **options):
-        from subscriptions.services import stripe_client
+        from artworks import stripe_orders
 
         dry_run = options["dry_run"]
         pending = ArtworkOrder.objects.select_related("artwork").filter(
@@ -27,7 +29,7 @@ class Command(BaseCommand):
         for order in pending:
             checked += 1
             try:
-                session = stripe_client.retrieve_checkout_session(order.stripe_checkout_session_id)
+                session = stripe_orders.retrieve_checkout_session(order.stripe_checkout_session_id)
             except Exception:
                 logger.exception("sync order=%s retrieve failed", order.slug)
                 continue
@@ -44,15 +46,11 @@ class Command(BaseCommand):
                 details = _get("customer_details") or {}
                 name = details.get("name", "") if isinstance(details, dict) else ""
                 if apply_paid_transition(order, str(pi or ""), order.buyer_email, name or ""):
-                    from subscriptions.services import notifications
-
-                    notifications.send_best_effort(notifications.send_sale_paid, order)
+                    send_best_effort(sale_notifications.send_sale_paid, order)
                     paid += 1
             elif status_value == "expired":
                 if cancel_order(order):
-                    from subscriptions.services import notifications
-
-                    notifications.send_best_effort(notifications.send_sale_cancelled, order)
+                    send_best_effort(sale_notifications.send_sale_cancelled, order)
                     cancelled += 1
         msg = f"sync_orders_from_stripe: {checked} revisada(s), {paid} pagada(s), {cancelled} cancelada(s)"
         logger.info(msg)
