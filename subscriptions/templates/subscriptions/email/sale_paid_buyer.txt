@@ -8,3 +8,17 @@ Monto: {{ currency }} {{ amount }}
 Para coordinar la entrega, completa tus datos de envío desde la página que verás al finalizar la compra.
 
 Si tienes alguna duda, responde a este correo y con gusto te ayudamos.
+
+--------------------------------------------------
+(English version below)
+
+Hello,
+
+Your payment was confirmed. Thank you for your purchase!
+
+Artwork: {{ artwork_title }}
+Amount: {{ currency }} {{ amount }}
+
+To arrange delivery, please complete your shipping details on the page shown after checkout.
+
+If you have any questions, reply to this email and we will gladly help you.

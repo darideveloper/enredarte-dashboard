@@ -182,34 +182,34 @@ _SALE_AUDIENCES = {
 
 _SALE_SUBJECTS = {
     "reserved": {
-        "buyer": "Tu compra está reservada: completa tu pago",
+        "buyer": "Tu compra está reservada / Your purchase is reserved",
         "admin": "[Enredarte] Nueva reserva — {artwork} ({order})",
     },
     "paid": {
-        "buyer": "Tu pago fue confirmado",
+        "buyer": "Tu pago fue confirmado / Payment confirmed",
         "artist": "Tu obra {title} se vendió",
         "admin": "[Enredarte] Venta pagada — {artwork} ({order})",
     },
     "delivery_complete": {
-        "buyer": "Recibimos tus datos de entrega",
+        "buyer": "Recibimos tus datos de entrega / Delivery details received",
         "artist": "Datos de entrega listos para {title}",
         "admin": "[Enredarte] Datos de entrega — {artwork} ({order})",
     },
     "shipped": {
-        "buyer": "Tu obra va en camino",
+        "buyer": "Tu obra va en camino / Your artwork is on its way",
         "admin": "[Enredarte] Pedido enviado — {artwork} ({order})",
     },
     "delivered": {
-        "buyer": "Tu obra fue entregada ¡gracias por tu compra!",
+        "buyer": "Tu obra fue entregada / Your artwork was delivered",
         "admin": "[Enredarte] Pedido entregado — {artwork} ({order})",
     },
     "cancelled": {
-        "buyer": "Tu pago no se completó",
+        "buyer": "Tu pago no se completó / Payment not completed",
         "artist": "La reserva de {title} se liberó",
         "admin": "[Enredarte] Reserva cancelada — {artwork} ({order})",
     },
     "refunded": {
-        "buyer": "Tu reembolso está en camino",
+        "buyer": "Tu reembolso está en camino / Your refund is on the way",
         "artist": "Aviso de doble pago en {title}",
         "admin": "[Enredarte] Reembolso por doble venta — {artwork} ({order})",
     },

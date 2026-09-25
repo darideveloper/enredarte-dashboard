@@ -2625,7 +2625,7 @@ class ArtworkOrderWebhookEmailTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 3)
         subjects = {m.subject for m in mail.outbox}
-        self.assertIn("Tu pago no se completó", subjects)
+        self.assertIn("Tu pago no se completó / Payment not completed", subjects)
         self.assertTrue(any(s.startswith("[Enredarte] Reserva cancelada — obra-wh-email-1") for s in subjects))
 
     def test_double_sale_refund_mails_trio(self):

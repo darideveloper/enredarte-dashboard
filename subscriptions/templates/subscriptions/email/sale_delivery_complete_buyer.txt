@@ -7,3 +7,16 @@ Obra: {{ artwork_title }}
 El equipo preparará el envío en breve y te avisaremos cuando la obra esté en camino.
 
 Si tienes alguna duda, responde a este correo y con gusto te ayudamos.
+
+--------------------------------------------------
+(English version below)
+
+Hello,
+
+We received your delivery details. Thank you!
+
+Artwork: {{ artwork_title }}
+
+Our team will prepare the shipment shortly, and we will let you know once the artwork is on its way.
+
+If you have any questions, reply to this email and we will gladly help you.

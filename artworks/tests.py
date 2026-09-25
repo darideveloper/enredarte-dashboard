@@ -3469,7 +3469,7 @@ class SaleEmailNotificationsTest(TestCase):
 
         subjects = {m.subject for m in mail.outbox}
         self.assertEqual(subjects, {
-            "Tu pago fue confirmado",
+            "Tu pago fue confirmado / Payment confirmed",
             "Tu obra obra-email-sale se vendió",
             f"[Enredarte] Venta pagada — obra-email-sale ({self.order.slug})",
         })
@@ -3585,3 +3585,30 @@ class SaleEmailNotificationsTest(TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 0)
+
+    def test_all_buyer_templates_are_bilingual(self):
+        from subscriptions.services import notifications
+
+        expectations = [
+            (notifications.send_sale_reserved, [self.order], "dejamos la obra separada para ti", "held the artwork for you"),
+            (notifications.send_sale_paid, [self.order], "Tu pago fue confirmado", "Your payment was confirmed"),
+            (notifications.send_sale_delivery_complete, [self.order], "Recibimos tus datos de entrega", "received your delivery details"),
+            (notifications.send_sale_shipped, [self.order], "Tu obra", "Your artwork"),
+            (notifications.send_sale_delivered, [self.order], "Tu obra fue entregada", "Your artwork was delivered"),
+            (notifications.send_sale_cancelled, [self.order], "Tu pago no se completó", "Your payment was not completed"),
+            (notifications.send_sale_refunded, [self.order], "reembolso completo", "full refund"),
+        ]
+
+        for sender, args, es_text, en_text in expectations:
+            mail.outbox = []
+            sender(*args)
+            buyer_msg = next((m for m in mail.outbox if m.to == [self.order.buyer_email]), None)
+            self.assertIsNotNone(buyer_msg, f"No buyer message sent for {sender.__name__}")
+            body, html = self._body_and_html(buyer_msg)
+            self.assertIn(es_text, body, f"Spanish text missing in body for {sender.__name__}")
+            self.assertIn(es_text, html, f"Spanish text missing in html for {sender.__name__}")
+            self.assertIn(en_text, body, f"English text missing in body for {sender.__name__}")
+            self.assertIn(en_text, html, f"English text missing in html for {sender.__name__}")
+            self.assertIn("English version below", body)
+            self.assertIn("<hr", html)
+

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tu compra está reservada: completa tu pago</title>
+    <title>Tu compra está reservada / Your purchase is reserved</title>
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background: #faf7f2; margin: 0; padding: 24px; }
         .card { background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 32px; max-width: 520px; margin: 0 auto; }
@@ -23,6 +23,17 @@
         <p class="cta"><a href="{{ checkout_url }}" style="color:#fff; text-decoration:none;">Completar el pago</a></p>
         <p class="muted">Si no completas el pago en 30 minutos, la obra volverá a estar disponible para otros compradores.</p>
         <p class="muted">Si tienes alguna duda, responde a este correo y con gusto te ayudamos.</p>
+
+        <hr style="border: 0; border-top: 1px solid #e5e0d8; margin: 24px 0;">
+
+        <h2 style="color: #1d3a2f; font-size: 18px; margin: 0 0 12px;">Your purchase is reserved</h2>
+        <p>You completed your request and we have held the artwork for you for <strong>30 minutes</strong>.</p>
+        <p><strong>Artwork:</strong> {{ artwork_title }}<br>
+           <strong>Amount:</strong> {{ currency }} {{ amount }}</p>
+        <p>To complete your payment, use this link:</p>
+        <p class="cta"><a href="{{ checkout_url }}" style="color:#fff; text-decoration:none;">Complete payment</a></p>
+        <p class="muted">If you do not complete the payment within 30 minutes, the artwork will become available to other buyers again.</p>
+        <p class="muted">If you have any questions, reply to this email and we will gladly help you.</p>
     </div>
 </body>
 </html>

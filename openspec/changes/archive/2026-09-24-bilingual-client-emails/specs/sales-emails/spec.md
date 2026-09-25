@@ -1,8 +1,5 @@
-# sales-emails Specification
+## MODIFIED Requirements
 
-## Purpose
-Transactional emails that notify the buyer, the artist and the admin list at each stage of an artwork sale lifecycle: reserved, paid, delivery complete, shipped, delivered, cancelled and refunded. Each sale sender is best-effort and per-audience, extending the shared `EMAILS_NOTIFICATIONS` infrastructure with no change to existing cash senders.
-## Requirements
 ### Requirement: Sale-reserved emails to buyer and admin
 The system SHALL send buyer + admin mails when `POST artworks/{slug}/buy/` creates a fresh reservation (`available → reserved`, new `pending_payment` order). The buyer mail (`to=[buyer_email]`) SHALL carry subject `"Tu compra está reservada / Your purchase is reserved"`, the live `checkout_url` + 30-minute expiry note, and SHALL provide both Spanish and English versions of the notification in the same template body (HTML and TXT alternatives), with Spanish first followed by an English section. The admin mail (`to=EMAILS_NOTIFICATIONS`, subject `"[Enredarte] Nueva reserva — {artwork} ({order})"`) SHALL carry buyer email, artwork title, amount/currency, Stripe session id, and the order admin link. Sends happen after the atomic block commits and SHALL be best-effort (failure never changes the `201`). Same-buyer reuse (`200` same URL) SHALL send nothing. The artist SHALL receive nothing on reserve.
 

@@ -7,3 +7,16 @@ Obra: {{ artwork_title }}
 Si aún te interesa, revisa su disponibilidad en el sitio y vuelve a intentarlo dentro del tiempo indicado.
 
 Si tienes alguna duda, responde a este correo y con gusto te ayudamos.
+
+--------------------------------------------------
+(English version below)
+
+Hello,
+
+Your payment was not completed and the artwork reservation is no longer active.
+
+Artwork: {{ artwork_title }}
+
+If you are still interested, check its availability on the site and try again within the designated time window.
+
+If you have any questions, reply to this email and we will gladly help you.
