@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 
@@ -16,6 +17,12 @@ class Artist(Person):
     location = models.ForeignKey(
         "Location", on_delete=models.SET_NULL, null=True, blank=True, related_name="artists",
         verbose_name="Ubicación",
+    )
+    commission = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        verbose_name="Comisión del artista (%)",
+        help_text="Porcentaje de la venta de obras que corresponde al artista (0 a 100). El porcentaje restante corresponde a Enredarte.",
     )
 
     class Meta:

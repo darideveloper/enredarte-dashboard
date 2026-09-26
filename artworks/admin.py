@@ -404,6 +404,9 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         ("Contacto y medios", {
             "fields": ("email", "website", "photo")
         }),
+        ("Acuerdo comercial", {
+            "fields": ("commission",)
+        }),
         ("Resumen", {
             "fields": (
                 "display_techniques_detail",
@@ -428,6 +431,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     ]
     list_display = [
         "display_name",
+        "display_commission",
         "display_email",
         "display_active",
         "subscription_status_badge",
@@ -479,6 +483,12 @@ class ArtistAdmin(ModelAdminUnfoldBase):
     @admin.display(description="Nombre", ordering="name")
     def display_name(self, obj):
         return obj.name
+
+    @admin.display(description="Comisión", ordering="commission")
+    def display_commission(self, obj):
+        if obj.commission is not None:
+            return f"{obj.commission}%"
+        return "-"
 
     @admin.display(description="Correo electrónico", ordering="email")
     def display_email(self, obj):
@@ -1292,6 +1302,7 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
     ]
     autocomplete_fields = ["disciplines", "techniques", "themes", "formats", "scales"]
     list_per_page = 25
+    readonly_fields = ["display_artist_commission"]
     fieldsets = (
         ("Atributos principales", {
             "fields": (("artist", "year"), "dimensions")
@@ -1306,7 +1317,12 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
             )
         }),
         ("Comercial y estado", {
-            "fields": (("price_mxn", "price_usd"), "status", ("is_highlighted", "views_count"))
+            "fields": (
+                ("price_mxn", "price_usd"),
+                "status",
+                ("is_highlighted", "views_count"),
+                "display_artist_commission",
+            )
         }),
         ("Configuración del sistema", {
             "fields": ("slug", "is_active")
@@ -1381,6 +1397,16 @@ class ArtworkAdmin(ModelAdminUnfoldBase):
     def display_active(self, obj):
         return obj.is_active
 
+    @admin.display(description="Comisión del artista")
+    def display_artist_commission(self, obj):
+        try:
+            artist = obj.artist if obj else None
+        except Exception:
+            artist = None
+        if artist and artist.commission is not None:
+            return f"{artist.commission}%"
+        return "-"
+
 
 class ArtworkOrderInline(TabularInline):
     model = ArtworkOrder
@@ -1403,13 +1429,13 @@ class ArtworkOrderAdmin(ModelAdminUnfoldBase):
     date_hierarchy = "created_at"
     search_fields = ("slug", "buyer_email", "artwork__translations__title", "stripe_checkout_session_id")
     readonly_fields = (
-        "slug", "artwork", "status", "currency", "amount",
+        "slug", "artwork", "display_artist_commission", "status", "currency", "amount",
         "stripe_checkout_session_id", "checkout_url", "session_expires_at",
         "stripe_payment_intent_id", "buyer_email", "buyer_name",
         "paid_at", "cancelled_at", "created_at", "updated_at",
     )
     fieldsets = (
-        ("Pedido", {"fields": ("artwork", "status", "currency", "amount")}),
+        ("Pedido", {"fields": ("artwork", "display_artist_commission", "status", "currency", "amount")}),
         ("Stripe y comprador", {"fields": (
             "stripe_checkout_session_id", "checkout_url", "session_expires_at",
             "stripe_payment_intent_id", "buyer_email", "buyer_name",
@@ -1473,6 +1499,17 @@ class ArtworkOrderAdmin(ModelAdminUnfoldBase):
             self.message_user(request, f"{bad} pedido(s) no estaban pendientes de pago.", messages.ERROR)
         if ok:
             self.message_user(request, f"{ok} reserva(s) liberada(s).", messages.SUCCESS)
+
+    @admin.display(description="Comisión del artista")
+    def display_artist_commission(self, obj):
+        try:
+            artwork = obj.artwork if obj else None
+            artist = artwork.artist if artwork else None
+        except Exception:
+            artist = None
+        if artist and artist.commission is not None:
+            return f"{artist.commission}%"
+        return "-"
 
 
 ArtworkAdmin.inlines = [*ArtworkAdmin.inlines, ArtworkOrderInline]

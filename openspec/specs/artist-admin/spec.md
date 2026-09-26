@@ -10,7 +10,7 @@ The system SHALL register the `Artist` model in `artworks/admin.py` using `Model
 
 #### Scenario: Viewing artist list in admin
 - **WHEN** an administrator opens the Django Admin panel
-- **THEN** the sidebar SHALL display "Artistas" with a palette icon and list artists with columns in this order: Name, Email, Active state, "Suscripción" badge (showing the `ArtistSubscription.status` in Spanish, or "Sin suscripción" when the artist has no subscription row), Obras count, Disponibles count, Galerías count.
+- **THEN** the sidebar SHALL display "Artistas" with a palette icon and list artists with columns in this order: Name (`display_name`), Commission (`display_commission` formatted as an integer with a percentage symbol e.g., `25%`), Email (`display_email`), Active state (`display_active`), "Suscripción" badge (showing the `ArtistSubscription.status` in Spanish, or "Sin suscripción" when the artist has no subscription row), Obras count, Disponibles count, Galerías count.
 
 #### Scenario: Email is a required field for an active artist to obtain a payment link
 - **WHEN** an administrator creates a new `Artist` (or edits an existing one) through the Django Unfold admin form
@@ -28,11 +28,11 @@ The system SHALL display `ArtistTranslation` as a `StackedInline` inside the `Ar
 - **THEN** the two translation inline forms SHALL render with default language selections set to Spanish (`es`) and English (`en`).
 
 ### Requirement: Artist admin form field ordering
-The system SHALL organize the `ArtistAdmin` form using `fieldsets` to logically group fields and ensure `slug` directly follows `name`.
+The system SHALL organize the `ArtistAdmin` form using `fieldsets` to logically group fields, ensure `slug` directly follows `name`, and include an "Acuerdo comercial" fieldset containing the editable `commission` field.
 
 #### Scenario: Creating or editing an artist
 - **WHEN** an administrator views the Artist add or edit form
-- **THEN** fields SHALL be organized into logical sections (e.g., Personal Info, Contact & Media, System Status) with the `slug` field positioned immediately after `name` to visually support auto-population.
+- **THEN** fields SHALL be organized into logical sections: "Datos personales" (with `slug` positioned immediately after `name`), "Contacto y medios", "Acuerdo comercial" (containing `commission`), "Resumen" (readonly derived blocks), and "Estado del sistema".
 
 ### Requirement: Location selector on Artist admin
 The system SHALL add the `location` field to the `ArtistAdmin` edit form so an administrator can assign a shared `Location` to an artist.

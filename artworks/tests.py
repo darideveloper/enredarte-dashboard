@@ -116,6 +116,7 @@ class ArtistAdminTestCase(TestCase):
             list(artist_admin.list_display),
             [
                 "display_name",
+                "display_commission",
                 "display_email",
                 "display_active",
                 "subscription_status_badge",
@@ -213,6 +214,7 @@ class ArtistAdminTestCase(TestCase):
             "name": artist.name,
             "slug": artist.slug,
             "email": artist.email,
+            "commission": artist.commission,
             "website": "",
             "photo": "",
             "birth_year": "",
@@ -3752,4 +3754,108 @@ class SaleEmailNotificationsTest(TestCase):
             self.assertIn(en_text, html, f"English text missing in html for {sender.__name__}")
             self.assertIn("English version below", body)
             self.assertIn("<hr", html)
+
+
+class ArtistCommissionTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import ArtworkOrder, ArtworkOrderStatus, ArtworkOrderCurrency
+
+        self.superuser = User.objects.create_superuser(
+            username="admin_comm", email="admin_comm@example.com", password="password123"
+        )
+        self.client.login(username="admin_comm", password="password123")
+        self.artist = Artist.objects.create(
+            name="Diego Rivera",
+            slug="diego-rivera",
+            email="diego@example.com",
+            commission=25,
+        )
+        self.artwork = Artwork.objects.create(
+            artist=self.artist,
+            slug="mural-revolucion",
+            year=1930,
+            dimensions="200x300 cm",
+            price_mxn=50000.00,
+            price_usd=2500.00,
+            status=ArtworkStatus.AVAILABLE,
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork,
+            slug="order-comm-1",
+            status=ArtworkOrderStatus.PENDING_PAYMENT,
+            currency=ArtworkOrderCurrency.MXN,
+            amount=50000.00,
+            buyer_email="buyer@example.com",
+        )
+
+    def test_commission_default_value(self):
+        artist = Artist.objects.create(name="Default Artist", slug="default-artist", email="def@example.com")
+        self.assertEqual(artist.commission, 0)
+
+    def test_commission_bounds_validation(self):
+        from django.core.exceptions import ValidationError
+
+        self.artist.commission = 0
+        self.artist.full_clean()
+        self.artist.save()
+
+        self.artist.commission = 100
+        self.artist.full_clean()
+        self.artist.save()
+
+        self.artist.commission = -1
+        with self.assertRaises(ValidationError):
+            self.artist.full_clean()
+
+        self.artist.commission = 101
+        with self.assertRaises(ValidationError):
+            self.artist.full_clean()
+
+    def test_artist_admin_display_commission(self):
+        artist_admin = admin.site._registry[Artist]
+        self.assertEqual(artist_admin.display_commission(self.artist), "25%")
+
+        self.artist.commission = 0
+        self.assertEqual(artist_admin.display_commission(self.artist), "0%")
+
+    def test_artist_admin_changelist_shows_commission(self):
+        url = reverse("admin:artworks_artist_changelist")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "25%")
+
+    def test_artist_admin_fieldsets_has_acuerdo_comercial(self):
+        artist_admin = admin.site._registry[Artist]
+        fieldsets_dict = dict(artist_admin.fieldsets)
+        self.assertIn("Acuerdo comercial", fieldsets_dict)
+        self.assertEqual(fieldsets_dict["Acuerdo comercial"]["fields"], ("commission",))
+
+    def test_artwork_admin_display_artist_commission(self):
+        artwork_admin = admin.site._registry[Artwork]
+        self.assertIn("display_artist_commission", artwork_admin.readonly_fields)
+        self.assertEqual(artwork_admin.display_artist_commission(self.artwork), "25%")
+
+        dummy = Artwork(artist=None)
+        self.assertEqual(artwork_admin.display_artist_commission(dummy), "-")
+
+    def test_artwork_order_admin_display_artist_commission(self):
+        from artworks.models import ArtworkOrder
+
+        order_admin = admin.site._registry[ArtworkOrder]
+        self.assertIn("display_artist_commission", order_admin.readonly_fields)
+        self.assertEqual(order_admin.display_artist_commission(self.order), "25%")
+
+        dummy_order = ArtworkOrder(artwork=None)
+        self.assertEqual(order_admin.display_artist_commission(dummy_order), "-")
+
+    def test_public_serializers_exclude_commission(self):
+        from artworks.serializers import ArtistSerializer, ArtworkSerializer
+
+        artist_data = ArtistSerializer(self.artist).data
+        self.assertNotIn("commission", artist_data)
+
+        artwork_data = ArtworkSerializer(self.artwork).data
+        self.assertNotIn("commission", artwork_data)
+        if "artist" in artwork_data and isinstance(artwork_data["artist"], dict):
+            self.assertNotIn("commission", artwork_data["artist"])
 
