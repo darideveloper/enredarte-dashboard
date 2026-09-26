@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 from artworks.admin_filters import YearFilter, has_related_filter
 from artworks.models import (
     ArtCurator,
+    ArtCuratorSocialLink,
     ArtCuratorTranslation,
     Artist,
     ArtistSocialLink,
@@ -200,6 +201,14 @@ class ArtistSubscriptionInline(StackedInline):
 class ArtCuratorTranslationInline(TranslationInline):
     model = ArtCuratorTranslation
     fields = ["language", "bio"]
+
+
+class ArtCuratorSocialLinkInline(TabularInline):
+    model = ArtCuratorSocialLink
+    fields = ["platform", "url"]
+    verbose_name = "Red social"
+    verbose_name_plural = "Redes sociales"
+    extra = 0
 
 
 class DisciplineTranslationInline(TranslationInline):
@@ -1032,7 +1041,7 @@ class ArtistAdmin(ModelAdminUnfoldBase):
 @admin.register(ArtCurator)
 class ArtCuratorAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "person_check"
-    inlines = [ArtCuratorTranslationInline]
+    inlines = [ArtCuratorTranslationInline, ArtCuratorSocialLinkInline]
     prepopulated_fields = {"slug": ("name",)}
     search_fields = ["name", "email", "slug", "translations__bio"]
     list_filter = [

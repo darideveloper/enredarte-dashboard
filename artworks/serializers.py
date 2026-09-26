@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from artworks.models import (
     ArtCurator,
+    ArtCuratorSocialLink,
     Artist,
     ArtistSocialLink,
     Artwork,
@@ -46,6 +47,12 @@ class ActiveRefField(RefSerializer):
 class ArtistSocialLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArtistSocialLink
+        fields = ["id", "platform", "url"]
+
+
+class ArtCuratorSocialLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ArtCuratorSocialLink
         fields = ["id", "platform", "url"]
 
 
@@ -100,12 +107,13 @@ class ArtistSerializer(serializers.ModelSerializer):
 class ArtCuratorSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField()
     translations = serializers.SerializerMethodField()
+    social_links = ArtCuratorSocialLinkSerializer(many=True, read_only=True)
 
     class Meta:
         model = ArtCurator
         fields = [
             "id", "slug", "is_active", "created_at", "updated_at",
-            "name", "email", "website", "photo", "translations",
+            "name", "email", "website", "photo", "translations", "social_links",
         ]
 
     def get_photo(self, obj):
