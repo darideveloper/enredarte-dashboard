@@ -68,7 +68,7 @@ class ArtistTranslation(TranslationBase):
         return f"{self.artist} ({self.language})"
 
 
-class ArtistSocialLink(BaseModel):
+class BaseSocialLink(BaseModel):
     class Platform(models.TextChoices):
         INSTAGRAM = "instagram", "Instagram"
         FACEBOOK = "facebook", "Facebook"
@@ -79,19 +79,37 @@ class ArtistSocialLink(BaseModel):
         BEHANCE = "behance", "Behance"
         OTHER = "other", "Otra"
 
-    artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="social_links", verbose_name="Artista")
     platform = models.CharField(max_length=20, choices=Platform.choices, verbose_name="Plataforma")
     url = models.URLField(verbose_name="URL")
+
+    class Meta:
+        abstract = True
+
+    @property
+    def parent(self):
+        raise NotImplementedError
 
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = unique_slugify(
-                f"{self.artist.slug}-{self.platform}", ArtistSocialLink.objects.all()
+                f"{self.parent.slug}-{self.platform}", type(self)._default_manager.all()
             )
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.get_platform_display()} — {self.artist}"
+        return f"{self.get_platform_display()} — {self.parent}"
+
+
+class ArtistSocialLink(BaseSocialLink):
+    artist = models.ForeignKey(Artist, on_delete=models.CASCADE, related_name="social_links", verbose_name="Artista")
+
+    class Meta:
+        verbose_name = "Red social del artista"
+        verbose_name_plural = "Redes sociales del artista"
+
+    @property
+    def parent(self):
+        return self.artist
 
 
 class Location(TranslatableName):
@@ -126,6 +144,20 @@ class ArtCuratorTranslation(TranslationBase):
 
     def __str__(self):
         return f"{self.art_curator} ({self.language})"
+
+
+class ArtCuratorSocialLink(BaseSocialLink):
+    curator = models.ForeignKey(
+        ArtCurator, on_delete=models.CASCADE, related_name="social_links", verbose_name="Curador de arte"
+    )
+
+    class Meta:
+        verbose_name = "Red social del curador"
+        verbose_name_plural = "Redes sociales del curador"
+
+    @property
+    def parent(self):
+        return self.curator
 
 
 class Gallery(TranslatableName):

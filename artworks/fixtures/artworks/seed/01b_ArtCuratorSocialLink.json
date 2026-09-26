@@ -1,0 +1,54 @@
+[
+  {
+    "model": "artworks.artcuratorsociallink",
+    "pk": 1,
+    "fields": {
+      "curator": 1,
+      "platform": "instagram",
+      "url": "https://instagram.com/renataortega",
+      "slug": "renata-ortega-instagram",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artcuratorsociallink",
+    "pk": 2,
+    "fields": {
+      "curator": 1,
+      "platform": "linkedin",
+      "url": "https://linkedin.com/in/renataortega",
+      "slug": "renata-ortega-linkedin",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artcuratorsociallink",
+    "pk": 3,
+    "fields": {
+      "curator": 2,
+      "platform": "linkedin",
+      "url": "https://linkedin.com/in/hugosalinas",
+      "slug": "hugo-salinas-linkedin",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  },
+  {
+    "model": "artworks.artcuratorsociallink",
+    "pk": 4,
+    "fields": {
+      "curator": 2,
+      "platform": "x",
+      "url": "https://x.com/hugosalinas",
+      "slug": "hugo-salinas-x",
+      "is_active": true,
+      "created_at": "2026-01-03T00:00:00Z",
+      "updated_at": "2026-01-03T00:00:00Z"
+    }
+  }
+]

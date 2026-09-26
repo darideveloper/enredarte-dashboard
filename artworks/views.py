@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 
 from artworks.models import (
     ArtCurator,
+    ArtCuratorSocialLink,
     Artist,
     ArtistSocialLink,
     Artwork,
@@ -56,10 +57,13 @@ class ArtistViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ArtCuratorViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = ArtCurator.objects.filter(is_active=True).prefetch_related(
-        "translations"
-    ).order_by("-created_at")
     serializer_class = ArtCuratorSerializer
+
+    def get_queryset(self):
+        return ArtCurator.objects.filter(is_active=True).prefetch_related(
+            Prefetch("social_links", queryset=ArtCuratorSocialLink.objects.filter(is_active=True)),
+            "translations",
+        ).order_by("-created_at")
 
 
 class LocationViewSet(viewsets.ReadOnlyModelViewSet):

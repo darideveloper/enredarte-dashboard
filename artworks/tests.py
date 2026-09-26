@@ -23,6 +23,7 @@ from artworks.admin import (
     ArtistPaymentMethodFilter,
     ArtistSubscriptionInline,
     ArtCuratorAdmin,
+    ArtCuratorSocialLinkInline,
     ArtCuratorTranslationInline,
     ArtistAdmin,
     ArtistSocialLinkInline,
@@ -51,6 +52,7 @@ from artworks.admin import (
 from artworks.admin_filters import HasRelatedFilter, YearFilter, has_related_filter
 from artworks.models import (
     ArtCurator,
+    ArtCuratorSocialLink,
     ArtCuratorTranslation,
     Artist,
     ArtistSocialLink,
@@ -372,6 +374,55 @@ class ArtCuratorAdminTestCase(TestCase):
     def test_curator_admin_has_translation_inline(self):
         curator_admin = admin.site._registry[ArtCurator]
         self.assertIn(ArtCuratorTranslationInline, curator_admin.inlines)
+
+    def test_curator_admin_has_social_links_inline(self):
+        curator_admin = admin.site._registry[ArtCurator]
+        self.assertIn(ArtCuratorSocialLinkInline, curator_admin.inlines)
+        self.assertEqual(curator_admin.inlines[1], ArtCuratorSocialLinkInline)
+
+    def test_curator_change_view_inline_formset(self):
+        curator = ArtCurator.objects.create(name="Renata", slug="renata")
+        url = reverse("admin:artworks_artcurator_change", args=[curator.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        social_formset = response.context_data["inline_admin_formsets"][1].formset
+        self.assertIs(social_formset.model, ArtCuratorSocialLink)
+        self.assertEqual(social_formset.prefix, "social_links")
+        self.assertEqual(len(social_formset.extra_forms), 0)
+
+    def test_curator_change_saves_without_social_links(self):
+        curator = ArtCurator.objects.create(name="Renata", slug="renata", email="renata@example.com")
+        ArtCuratorTranslation.objects.create(art_curator=curator, language="es", bio="Curadora.")
+        ArtCuratorTranslation.objects.create(art_curator=curator, language="en", bio="Curator.")
+
+        url = reverse("admin:artworks_artcurator_change", args=[curator.pk])
+        get_response = self.client.get(url)
+        self.assertEqual(get_response.status_code, 200)
+
+        data = {
+            "name": curator.name,
+            "slug": curator.slug,
+            "email": curator.email,
+            "website": "",
+            "photo": "",
+            "is_active": "on",
+            "_save": "Guardar",
+        }
+        for inline_formset in get_response.context_data["inline_admin_formsets"]:
+            formset = inline_formset.formset
+            for field in formset.management_form:
+                data[f"{formset.prefix}-{field.name}"] = (
+                    "" if field.value() is None else field.value()
+                )
+            for form in formset.forms:
+                for field in form:
+                    data[f"{form.prefix}-{field.name}"] = (
+                        "" if field.value() is None else field.value()
+                    )
+
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ArtCuratorSocialLink.objects.filter(curator=curator).count(), 0)
 
     def test_curator_admin_changelist_view(self):
         curator = ArtCurator.objects.create(
@@ -860,6 +911,70 @@ class ArtistSocialLinkModelTestCase(TestCase):
             url="https://behance.net/frida",
         )
         self.assertEqual(self.artist.social_links.count(), 2)
+
+
+class ArtCuratorSocialLinkModelTestCase(TestCase):
+    def setUp(self):
+        self.curator = ArtCurator.objects.create(name="Renata Ortega", slug="renata-ortega")
+
+    def test_create_link_autofills_slug(self):
+        link = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        self.assertEqual(link.slug, "renata-ortega-instagram")
+
+    def test_platform_choices(self):
+        link = ArtCuratorSocialLink(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.LINKEDIN,
+            url="https://linkedin.com/in/renata",
+        )
+        self.assertEqual(link.platform, "linkedin")
+
+    def test_slug_unique_with_suffix(self):
+        ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        second = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata2",
+        )
+        self.assertEqual(second.slug, "renata-ortega-instagram-1")
+
+    def test_multiple_links_per_curator(self):
+        ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.LINKEDIN,
+            url="https://linkedin.com/in/renata",
+        )
+        self.assertEqual(self.curator.social_links.count(), 2)
+
+    def test_curator_social_link_str(self):
+        link = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        self.assertEqual(str(link), "Instagram — Renata Ortega")
+
+    def test_user_provided_slug_preserved(self):
+        link = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+            slug="custom-renata-slug",
+        )
+        self.assertEqual(link.slug, "custom-renata-slug")
 
 
 class LocationModelTestCase(TestCase):
@@ -2070,6 +2185,32 @@ class ArtworksAPITestCase(APITestCase):
         links = response.json()["social_links"]
         self.assertEqual(len(links), 1)
         self.assertEqual(links[0]["platform"], "instagram")
+
+    def test_curator_inactive_social_link_excluded(self):
+        curator = ArtCurator.objects.create(name="Curador Activo", slug="curador-activo")
+        ArtCuratorSocialLink.objects.create(
+            curator=curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/curador",
+        )
+        ArtCuratorSocialLink.objects.create(
+            curator=curator,
+            platform=ArtCuratorSocialLink.Platform.X,
+            url="https://x.com/curador",
+            is_active=False,
+        )
+        response = self._auth_get(f"/api/artworks/art-curators/{curator.id}/")
+        self.assertEqual(response.status_code, 200)
+        links = response.json()["social_links"]
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["platform"], "instagram")
+        self.assertEqual(links[0]["url"], "https://instagram.com/curador")
+
+    def test_curator_without_social_links(self):
+        curator = ArtCurator.objects.create(name="Curador Vacio", slug="curador-vacio")
+        response = self._auth_get(f"/api/artworks/art-curators/{curator.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["social_links"], [])
 
     def test_inactive_location_returns_null(self):
         Location.objects.filter(pk=self.location.pk).update(is_active=False)
