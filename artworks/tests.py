@@ -23,6 +23,7 @@ from artworks.admin import (
     ArtistPaymentMethodFilter,
     ArtistSubscriptionInline,
     ArtCuratorAdmin,
+    ArtCuratorSocialLinkInline,
     ArtCuratorTranslationInline,
     ArtistAdmin,
     ArtistSocialLinkInline,
@@ -51,6 +52,7 @@ from artworks.admin import (
 from artworks.admin_filters import HasRelatedFilter, YearFilter, has_related_filter
 from artworks.models import (
     ArtCurator,
+    ArtCuratorSocialLink,
     ArtCuratorTranslation,
     Artist,
     ArtistSocialLink,
@@ -114,6 +116,7 @@ class ArtistAdminTestCase(TestCase):
             list(artist_admin.list_display),
             [
                 "display_name",
+                "display_commission",
                 "display_email",
                 "display_active",
                 "subscription_status_badge",
@@ -211,6 +214,7 @@ class ArtistAdminTestCase(TestCase):
             "name": artist.name,
             "slug": artist.slug,
             "email": artist.email,
+            "commission": artist.commission,
             "website": "",
             "photo": "",
             "birth_year": "",
@@ -372,6 +376,55 @@ class ArtCuratorAdminTestCase(TestCase):
     def test_curator_admin_has_translation_inline(self):
         curator_admin = admin.site._registry[ArtCurator]
         self.assertIn(ArtCuratorTranslationInline, curator_admin.inlines)
+
+    def test_curator_admin_has_social_links_inline(self):
+        curator_admin = admin.site._registry[ArtCurator]
+        self.assertIn(ArtCuratorSocialLinkInline, curator_admin.inlines)
+        self.assertEqual(curator_admin.inlines[1], ArtCuratorSocialLinkInline)
+
+    def test_curator_change_view_inline_formset(self):
+        curator = ArtCurator.objects.create(name="Renata", slug="renata")
+        url = reverse("admin:artworks_artcurator_change", args=[curator.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        social_formset = response.context_data["inline_admin_formsets"][1].formset
+        self.assertIs(social_formset.model, ArtCuratorSocialLink)
+        self.assertEqual(social_formset.prefix, "social_links")
+        self.assertEqual(len(social_formset.extra_forms), 0)
+
+    def test_curator_change_saves_without_social_links(self):
+        curator = ArtCurator.objects.create(name="Renata", slug="renata", email="renata@example.com")
+        ArtCuratorTranslation.objects.create(art_curator=curator, language="es", bio="Curadora.")
+        ArtCuratorTranslation.objects.create(art_curator=curator, language="en", bio="Curator.")
+
+        url = reverse("admin:artworks_artcurator_change", args=[curator.pk])
+        get_response = self.client.get(url)
+        self.assertEqual(get_response.status_code, 200)
+
+        data = {
+            "name": curator.name,
+            "slug": curator.slug,
+            "email": curator.email,
+            "website": "",
+            "photo": "",
+            "is_active": "on",
+            "_save": "Guardar",
+        }
+        for inline_formset in get_response.context_data["inline_admin_formsets"]:
+            formset = inline_formset.formset
+            for field in formset.management_form:
+                data[f"{formset.prefix}-{field.name}"] = (
+                    "" if field.value() is None else field.value()
+                )
+            for form in formset.forms:
+                for field in form:
+                    data[f"{form.prefix}-{field.name}"] = (
+                        "" if field.value() is None else field.value()
+                    )
+
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(ArtCuratorSocialLink.objects.filter(curator=curator).count(), 0)
 
     def test_curator_admin_changelist_view(self):
         curator = ArtCurator.objects.create(
@@ -860,6 +913,70 @@ class ArtistSocialLinkModelTestCase(TestCase):
             url="https://behance.net/frida",
         )
         self.assertEqual(self.artist.social_links.count(), 2)
+
+
+class ArtCuratorSocialLinkModelTestCase(TestCase):
+    def setUp(self):
+        self.curator = ArtCurator.objects.create(name="Renata Ortega", slug="renata-ortega")
+
+    def test_create_link_autofills_slug(self):
+        link = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        self.assertEqual(link.slug, "renata-ortega-instagram")
+
+    def test_platform_choices(self):
+        link = ArtCuratorSocialLink(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.LINKEDIN,
+            url="https://linkedin.com/in/renata",
+        )
+        self.assertEqual(link.platform, "linkedin")
+
+    def test_slug_unique_with_suffix(self):
+        ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        second = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata2",
+        )
+        self.assertEqual(second.slug, "renata-ortega-instagram-1")
+
+    def test_multiple_links_per_curator(self):
+        ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.LINKEDIN,
+            url="https://linkedin.com/in/renata",
+        )
+        self.assertEqual(self.curator.social_links.count(), 2)
+
+    def test_curator_social_link_str(self):
+        link = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+        )
+        self.assertEqual(str(link), "Instagram — Renata Ortega")
+
+    def test_user_provided_slug_preserved(self):
+        link = ArtCuratorSocialLink.objects.create(
+            curator=self.curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/renata",
+            slug="custom-renata-slug",
+        )
+        self.assertEqual(link.slug, "custom-renata-slug")
 
 
 class LocationModelTestCase(TestCase):
@@ -2070,6 +2187,32 @@ class ArtworksAPITestCase(APITestCase):
         links = response.json()["social_links"]
         self.assertEqual(len(links), 1)
         self.assertEqual(links[0]["platform"], "instagram")
+
+    def test_curator_inactive_social_link_excluded(self):
+        curator = ArtCurator.objects.create(name="Curador Activo", slug="curador-activo")
+        ArtCuratorSocialLink.objects.create(
+            curator=curator,
+            platform=ArtCuratorSocialLink.Platform.INSTAGRAM,
+            url="https://instagram.com/curador",
+        )
+        ArtCuratorSocialLink.objects.create(
+            curator=curator,
+            platform=ArtCuratorSocialLink.Platform.X,
+            url="https://x.com/curador",
+            is_active=False,
+        )
+        response = self._auth_get(f"/api/artworks/art-curators/{curator.id}/")
+        self.assertEqual(response.status_code, 200)
+        links = response.json()["social_links"]
+        self.assertEqual(len(links), 1)
+        self.assertEqual(links[0]["platform"], "instagram")
+        self.assertEqual(links[0]["url"], "https://instagram.com/curador")
+
+    def test_curator_without_social_links(self):
+        curator = ArtCurator.objects.create(name="Curador Vacio", slug="curador-vacio")
+        response = self._auth_get(f"/api/artworks/art-curators/{curator.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["social_links"], [])
 
     def test_inactive_location_returns_null(self):
         Location.objects.filter(pk=self.location.pk).update(is_active=False)
@@ -3622,6 +3765,109 @@ class SaleEmailNotificationsTest(TestCase):
             self.assertIn("English version below", body)
             self.assertIn("<hr", html)
 
+
+class ArtistCommissionTestCase(TestCase):
+    def setUp(self):
+        from artworks.models import ArtworkOrder, ArtworkOrderStatus, ArtworkOrderCurrency
+
+        self.superuser = User.objects.create_superuser(
+            username="admin_comm", email="admin_comm@example.com", password="password123"
+        )
+        self.client.login(username="admin_comm", password="password123")
+        self.artist = Artist.objects.create(
+            name="Diego Rivera",
+            slug="diego-rivera",
+            email="diego@example.com",
+            commission=25,
+        )
+        self.artwork = Artwork.objects.create(
+            artist=self.artist,
+            slug="mural-revolucion",
+            year=1930,
+            dimensions="200x300 cm",
+            price_mxn=50000.00,
+            price_usd=2500.00,
+            status=ArtworkStatus.AVAILABLE,
+        )
+        self.order = ArtworkOrder.objects.create(
+            artwork=self.artwork,
+            slug="order-comm-1",
+            status=ArtworkOrderStatus.PENDING_PAYMENT,
+            currency=ArtworkOrderCurrency.MXN,
+            amount=50000.00,
+            buyer_email="buyer@example.com",
+        )
+
+    def test_commission_default_value(self):
+        artist = Artist.objects.create(name="Default Artist", slug="default-artist", email="def@example.com")
+        self.assertEqual(artist.commission, 0)
+
+    def test_commission_bounds_validation(self):
+        from django.core.exceptions import ValidationError
+
+        self.artist.commission = 0
+        self.artist.full_clean()
+        self.artist.save()
+
+        self.artist.commission = 100
+        self.artist.full_clean()
+        self.artist.save()
+
+        self.artist.commission = -1
+        with self.assertRaises(ValidationError):
+            self.artist.full_clean()
+
+        self.artist.commission = 101
+        with self.assertRaises(ValidationError):
+            self.artist.full_clean()
+
+    def test_artist_admin_display_commission(self):
+        artist_admin = admin.site._registry[Artist]
+        self.assertEqual(artist_admin.display_commission(self.artist), "25%")
+
+        self.artist.commission = 0
+        self.assertEqual(artist_admin.display_commission(self.artist), "0%")
+
+    def test_artist_admin_changelist_shows_commission(self):
+        url = reverse("admin:artworks_artist_changelist")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "25%")
+
+    def test_artist_admin_fieldsets_has_acuerdo_comercial(self):
+        artist_admin = admin.site._registry[Artist]
+        fieldsets_dict = dict(artist_admin.fieldsets)
+        self.assertIn("Acuerdo comercial", fieldsets_dict)
+        self.assertEqual(fieldsets_dict["Acuerdo comercial"]["fields"], ("commission",))
+
+    def test_artwork_admin_display_artist_commission(self):
+        artwork_admin = admin.site._registry[Artwork]
+        self.assertIn("display_artist_commission", artwork_admin.readonly_fields)
+        self.assertEqual(artwork_admin.display_artist_commission(self.artwork), "25%")
+
+        dummy = Artwork(artist=None)
+        self.assertEqual(artwork_admin.display_artist_commission(dummy), "-")
+
+    def test_artwork_order_admin_display_artist_commission(self):
+        from artworks.models import ArtworkOrder
+
+        order_admin = admin.site._registry[ArtworkOrder]
+        self.assertIn("display_artist_commission", order_admin.readonly_fields)
+        self.assertEqual(order_admin.display_artist_commission(self.order), "25%")
+
+        dummy_order = ArtworkOrder(artwork=None)
+        self.assertEqual(order_admin.display_artist_commission(dummy_order), "-")
+
+    def test_public_serializers_exclude_commission(self):
+        from artworks.serializers import ArtistSerializer, ArtworkSerializer
+
+        artist_data = ArtistSerializer(self.artist).data
+        self.assertNotIn("commission", artist_data)
+
+        artwork_data = ArtworkSerializer(self.artwork).data
+        self.assertNotIn("commission", artwork_data)
+        if "artist" in artwork_data and isinstance(artwork_data["artist"], dict):
+            self.assertNotIn("commission", artwork_data["artist"])
 
     def test_buy_mail_failure_keeps_reservation_and_201(self):
         from unittest.mock import patch
