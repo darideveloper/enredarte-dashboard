@@ -109,3 +109,52 @@ class Person(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class StripeEvent(models.Model):
+    """Audit log of every webhook received from Stripe (idempotency source).
+
+    Shared by the subscription and artwork-sale flows: the unique `event_id`
+    is the idempotency lock for the single `POST /webhooks/stripe/` envelope.
+    """
+
+    event_id = models.CharField(
+        max_length=120,
+        unique=True,
+        verbose_name="ID del evento",
+        help_text="`evt_xxx` tal como lo envía Stripe. Único: bloquea duplicados.",
+    )
+    event_type = models.CharField(
+        max_length=80,
+        verbose_name="Tipo de evento",
+    )
+    received_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Recibido el",
+    )
+    processed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Procesado el",
+        help_text="Relleno tras procesar el evento; vacío si falló.",
+    )
+    payload = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Carga útil",
+        help_text="Objeto del evento completo tal como lo envió Stripe.",
+    )
+    error = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Error",
+        help_text="Mensaje de excepción si el procesamiento falló.",
+    )
+
+    class Meta:
+        ordering = ["-received_at"]
+        verbose_name = "Evento de Stripe"
+        verbose_name_plural = "Eventos de Stripe"
+
+    def __str__(self):
+        return f"{self.event_type} ({self.event_id[:20]})"

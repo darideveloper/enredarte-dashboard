@@ -384,7 +384,7 @@ DATETIME_FORMAT = f"{DATE_FORMAT} {TIME_FORMAT}"
 
 **Email SMTP Configuration:**
 
-> **Note:** Email is used for cash-payment notifications (`subscriptions/services/notifications.py`, templates under `subscriptions/templates/subscriptions/email/`). Dev/test default to the console backend (no credentials needed); set the SMTP variables below in production.
+> **Note:** Email is used for cash/online subscription notifications (`subscriptions/services/notifications.py`) and artwork-sale notifications (`artworks/sale_notifications.py`), both via `core/mail_utils.py`; templates live under `subscriptions/templates/subscriptions/email/` and `artworks/templates/artworks/email/`. Dev/test default to the console backend (no credentials needed); set the SMTP variables below in production.
 
 ```python
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")

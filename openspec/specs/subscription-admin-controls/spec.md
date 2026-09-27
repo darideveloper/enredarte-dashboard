@@ -123,7 +123,7 @@ The system SHALL register `ArtistSubscription` in the Django Unfold admin so an 
 - **THEN** the `ArtistSubscription` row with that `stripe_subscription_id` SHALL be the only row that matches.
 
 ### Requirement: StripeEvent admin registration
-The system SHALL register `StripeEvent` in the Django Unfold admin so an operator can browse the audit log: read-only list ordered by `received_at` desc, with a date filter and `event_type` filter, and a detail view showing the `payload` JSON.
+The system SHALL register `StripeEvent` (now `core.models.StripeEvent`) in the Django Unfold admin so an operator can browse the audit log: read-only list ordered by `received_at` desc, with a date filter and `event_type` filter, and a detail view showing the `payload` JSON. Registration SHALL live in `core/admin.py` after the model moves out of `subscriptions`; the admin's behavior, permissions, ordering, filters, and displayed columns SHALL be unchanged.
 
 #### Scenario: Browsing recent webhook deliveries
 - **WHEN** an administrator opens the "Eventos de Stripe" admin
@@ -132,3 +132,7 @@ The system SHALL register `StripeEvent` in the Django Unfold admin so an operato
 #### Scenario: Inspecting a failure
 - **WHEN** an administrator opens a `StripeEvent` row whose `error` is non-empty
 - **THEN** the change view SHALL show `error` and `payload` so the operator can diagnose the failure.
+
+#### Scenario: Audit page survives the model move
+- **WHEN** the app runs after `StripeEvent` moved to `core`
+- **THEN** the "Eventos de Stripe" admin page SHALL still render with the same columns and filters, and existing rows SHALL remain visible.

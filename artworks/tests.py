@@ -2379,7 +2379,7 @@ class BuyArtworkApiTestCase(TestCase):
         from artworks.models import ArtworkOrder, ArtworkStatus
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=self._mock_session(),
         ) as mock_create:
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2405,7 +2405,7 @@ class BuyArtworkApiTestCase(TestCase):
         from artworks.models import ArtworkOrder
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=self._mock_session(),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2457,7 +2457,7 @@ class BuyArtworkApiTestCase(TestCase):
         from artworks.models import ArtworkOrder
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=self._mock_session(checkout_url="https://checkout.stripe/first"),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2466,7 +2466,7 @@ class BuyArtworkApiTestCase(TestCase):
                 )
         self.assertEqual(first.status_code, 201)
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session"
+            "artworks.stripe_orders.create_artwork_checkout_session"
         ) as mock_create:
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
                 second = self.client.post(
@@ -2481,7 +2481,7 @@ class BuyArtworkApiTestCase(TestCase):
         from unittest.mock import patch
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=self._mock_session(),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2500,7 +2500,7 @@ class BuyArtworkApiTestCase(TestCase):
         from artworks.models import ArtworkOrder
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=self._mock_session(),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2510,7 +2510,7 @@ class BuyArtworkApiTestCase(TestCase):
         order.save(update_fields=["session_expires_at"])
         # Fail-closed path: Stripe unreachable → hold kept, no network involved.
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             side_effect=RuntimeError("stripe down"),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2537,7 +2537,7 @@ class BuyArtworkApiTestCase(TestCase):
         from artworks.models import ArtworkOrder, ArtworkStatus
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             side_effect=Exception("stripe down"),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2580,7 +2580,7 @@ class BuyReconcileTestCase(TestCase):
         from unittest.mock import patch
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=self._mock_session(checkout_url="https://checkout.stripe/first"),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2609,11 +2609,11 @@ class BuyReconcileTestCase(TestCase):
         self._first_buy()
         old = self._expire_hold()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "expired", "payment_status": "unpaid"},
         ):
             with patch(
-                "subscriptions.services.stripe_client.create_artwork_checkout_session",
+                "artworks.stripe_orders.create_artwork_checkout_session",
                 return_value=self._mock_session(),
             ):
                 with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2638,13 +2638,13 @@ class BuyReconcileTestCase(TestCase):
         self._first_buy()
         old = self._expire_hold()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "complete", "payment_status": "paid",
                           "payment_intent": "pi_1",
                           "customer_details": {"name": "Buyer", "email": "a@b.com"}},
         ):
             with patch(
-                "subscriptions.services.stripe_client.create_artwork_checkout_session"
+                "artworks.stripe_orders.create_artwork_checkout_session"
             ) as mock_create:
                 with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
                     response = self.client.post(
@@ -2668,11 +2668,11 @@ class BuyReconcileTestCase(TestCase):
         self._first_buy()
         old = self._expire_hold()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "open", "payment_status": "unpaid"},
         ):
             with patch(
-                "subscriptions.services.stripe_client.create_artwork_checkout_session"
+                "artworks.stripe_orders.create_artwork_checkout_session"
             ) as mock_create:
                 with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
                     response = self.client.post(
@@ -2694,11 +2694,11 @@ class BuyReconcileTestCase(TestCase):
         self._first_buy()
         old = self._expire_hold()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             side_effect=RuntimeError("stripe down"),
         ):
             with patch(
-                "subscriptions.services.stripe_client.create_artwork_checkout_session"
+                "artworks.stripe_orders.create_artwork_checkout_session"
             ) as mock_create:
                 with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
                     response = self.client.post(
@@ -2716,7 +2716,7 @@ class BuyReconcileTestCase(TestCase):
         from unittest.mock import patch
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=self._mock_session(checkout_url="https://checkout.stripe/first"),
         ):
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
@@ -2724,7 +2724,7 @@ class BuyReconcileTestCase(TestCase):
                     self.url, {"currency": "mxn", "email": "a@b.com"}, content_type="application/json",
                 )
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session"
+            "artworks.stripe_orders.retrieve_checkout_session"
         ) as mock_retrieve:
             with self.settings(PUBLIC_SITE_URL="https://tienda.example"):
                 response = self.client.post(
@@ -2778,7 +2778,7 @@ class OrderSummaryDeliveryTestCase(TestCase):
         self.artwork.status = ArtworkStatus.RESERVED
         self.artwork.save()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"payment_status": "paid", "payment_intent": "pi_123",
                           "customer_details": {"name": "Buyer", "email": "a@b.com"}},
         ):
@@ -2797,7 +2797,7 @@ class OrderSummaryDeliveryTestCase(TestCase):
         self.order.status = ArtworkOrderStatus.PENDING_PAYMENT
         self.order.save()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"payment_status": "unpaid"},
         ):
             response = self.client.get(f"/api/artworks/orders/{self.order.slug}/")
@@ -2963,7 +2963,7 @@ class ArtworkOrderCommandsTestCase(TestCase):
         from artworks.models import ArtworkOrderStatus, ArtworkStatus
 
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"payment_status": "paid", "payment_intent": "pi_9",
                           "customer_details": {"name": "Buyer"}},
         ):
@@ -2979,7 +2979,7 @@ class ArtworkOrderCommandsTestCase(TestCase):
         from artworks.models import ArtworkOrderStatus
 
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"payment_status": "paid", "payment_intent": "pi_9",
                           "customer_details": {}},
         ):
@@ -3028,7 +3028,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
         self.artwork.status = ArtworkStatus.AVAILABLE
         self.artwork.save()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session"
+            "artworks.stripe_orders.retrieve_checkout_session"
         ) as mock_retrieve:
             self.assertEqual(reconcile_stale_reservations(self.artwork), "noop")
             mock_retrieve.assert_not_called()
@@ -3040,7 +3040,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
 
         order = self._order(session_expires_at=timezone.now() + timedelta(hours=1))
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session"
+            "artworks.stripe_orders.retrieve_checkout_session"
         ) as mock_retrieve:
             self.assertEqual(reconcile_stale_reservations(self.artwork), "noop")
             mock_retrieve.assert_not_called()
@@ -3057,7 +3057,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
 
         order = self._order(session_expires_at=None)
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session"
+            "artworks.stripe_orders.retrieve_checkout_session"
         ) as mock_retrieve:
             self.assertEqual(reconcile_stale_reservations(self.artwork), "noop")
             mock_retrieve.assert_not_called()
@@ -3072,7 +3072,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
 
         order = self._order()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "expired", "payment_status": "unpaid"},
         ):
             self.assertEqual(reconcile_stale_reservations(self.artwork), "released")
@@ -3090,7 +3090,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
 
         order = self._order()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "complete", "payment_status": "paid",
                           "payment_intent": "pi_1",
                           "customer_details": {"name": "Buyer Name",
@@ -3113,7 +3113,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
 
         order = self._order()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "open", "payment_status": "unpaid"},
         ):
             self.assertEqual(reconcile_stale_reservations(self.artwork), "kept")
@@ -3130,7 +3130,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
 
         order = self._order()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             side_effect=RuntimeError("stripe down"),
         ):
             self.assertEqual(reconcile_stale_reservations(self.artwork), "kept")
@@ -3147,7 +3147,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
 
         order = self._order()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value=_StripeLike({"status": "expired", "payment_status": "unpaid"}),
         ):
             self.assertEqual(reconcile_stale_reservations(self.artwork), "released")
@@ -3165,7 +3165,7 @@ class ReconcileStaleReservationsTestCase(TestCase):
         older = self._order(session_expires_at=timezone.now() - timedelta(hours=2))
         newer = self._order(session_expires_at=timezone.now() - timedelta(hours=1))
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "expired", "payment_status": "unpaid"},
         ) as mock_retrieve:
             self.assertEqual(reconcile_stale_reservations(self.artwork), "released")
@@ -3453,7 +3453,7 @@ class StatusReconcileTestCase(TestCase):
         from artworks.models import ArtworkOrderStatus, ArtworkStatus
 
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "expired", "payment_status": "unpaid"},
         ):
             response = self.client.get(self.url)
@@ -3468,7 +3468,7 @@ class StatusReconcileTestCase(TestCase):
         # Second call is a no-op read on the already-fresh row.
         second_updated = self._updated_z()
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session"
+            "artworks.stripe_orders.retrieve_checkout_session"
         ) as mock_retrieve:
             second = self.client.get(self.url)
         self.assertEqual(second.status_code, 200)
@@ -3482,7 +3482,7 @@ class StatusReconcileTestCase(TestCase):
         from artworks.models import ArtworkOrderStatus, ArtworkStatus
 
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "complete", "payment_status": "paid",
                           "payment_intent": "pi_1",
                           "customer_details": {"name": "Buyer", "email": "a@b.com"}},
@@ -3502,7 +3502,7 @@ class StatusReconcileTestCase(TestCase):
 
         updated_before = self.artwork.updated_at
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             return_value={"status": "open", "payment_status": "unpaid"},
         ):
             response = self.client.get(self.url)
@@ -3516,7 +3516,7 @@ class StatusReconcileTestCase(TestCase):
 
         updated_before = self.artwork.updated_at
         with patch(
-            "subscriptions.services.stripe_client.retrieve_checkout_session",
+            "artworks.stripe_orders.retrieve_checkout_session",
             side_effect=RuntimeError("stripe down"),
         ):
             response = self.client.get(self.url)
@@ -3600,10 +3600,10 @@ class SaleEmailNotificationsTest(TestCase):
         return msg.body or "", html
 
     def test_sale_paid_sends_three_spanish_audiences(self):
-        from subscriptions.services import notifications
+        from artworks import sale_notifications
 
         mail.outbox = []
-        notifications.send_sale_paid(self.order)
+        sale_notifications.send_sale_paid(self.order)
         self.assertEqual(len(mail.outbox), 3)
         to_set = {tuple(sorted(m.to)) for m in mail.outbox}
         self.assertIn(("comprador@x.com",), to_set)
@@ -3621,25 +3621,35 @@ class SaleEmailNotificationsTest(TestCase):
             self.assertTrue(body)
             self.assertTrue(html)
 
+    def test_sale_templates_render_from_artworks_namespace(self):
+        from django.template.loader import render_to_string
+
+        from artworks import sale_notifications
+
+        ctx = sale_notifications._sale_context(self.order)
+        for audience in ("buyer", "artist", "admin"):
+            self.assertTrue(render_to_string(f"artworks/email/sale_paid_{audience}.txt", ctx))
+            self.assertTrue(render_to_string(f"artworks/email/sale_paid_{audience}.html", ctx))
+
     def test_skip_artist_when_no_email(self):
-        from subscriptions.services import notifications
+        from artworks import sale_notifications
 
         self.artist.email = ""
         self.artist.save(update_fields=["email"])
         mail.outbox = []
-        with self.assertLogs("subscriptions.services.notifications", level="WARNING"):
-            notifications.send_sale_paid(self.order)
+        with self.assertLogs("artworks.sale_notifications", level="WARNING"):
+            sale_notifications.send_sale_paid(self.order)
         self.assertEqual(len(mail.outbox), 2)  # buyer + admin only
         to_set = {tuple(sorted(m.to)) for m in mail.outbox}
         self.assertNotIn(("artista@x.com",), to_set)
 
     def test_sale_reserved_includes_checkout_url(self):
-        from subscriptions.services import notifications
+        from artworks import sale_notifications
 
         self.order.checkout_url = "https://checkout.stripe/xyz"
         self.order.save(update_fields=["checkout_url"])
         mail.outbox = []
-        notifications.send_sale_reserved(self.order)
+        sale_notifications.send_sale_reserved(self.order)
         self.assertEqual(len(mail.outbox), 2)  # buyer + admin
         buyer = next(m for m in mail.outbox if m.to == ["comprador@x.com"])
         body, html = self._body_and_html(buyer)
@@ -3647,10 +3657,10 @@ class SaleEmailNotificationsTest(TestCase):
         self.assertIn("https://checkout.stripe/xyz", html)
 
     def test_sale_refunded_carries_refund_id_in_admin(self):
-        from subscriptions.services import notifications
+        from artworks import sale_notifications
 
         mail.outbox = []
-        notifications.send_sale_refunded(self.order, refund_id="re_999")
+        sale_notifications.send_sale_refunded(self.order, refund_id="re_999")
         admin = next(m for m in mail.outbox if m.to == ["admin1@x.com", "admin2@x.com"])
         body, html = self._body_and_html(admin)
         self.assertIn("re_999", body)
@@ -3658,10 +3668,10 @@ class SaleEmailNotificationsTest(TestCase):
         self.assertIn("pi_123", body)
 
     def test_sale_delivery_complete_artist_states_purpose_and_no_payment_ids(self):
-        from subscriptions.services import notifications
+        from artworks import sale_notifications
 
         mail.outbox = []
-        notifications.send_sale_delivery_complete(self.order)
+        sale_notifications.send_sale_delivery_complete(self.order)
         artist = next(m for m in mail.outbox if m.to == ["artista@x.com"])
         body, html = self._body_and_html(artist)
         for content in (body, html):
@@ -3683,7 +3693,7 @@ class SaleEmailNotificationsTest(TestCase):
             expires_at = None
 
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=S(),
         ), self.settings(PUBLIC_SITE_URL="https://tienda.example"):
             mail.outbox = []
@@ -3720,7 +3730,7 @@ class SaleEmailNotificationsTest(TestCase):
         self.order.save()
         mail.outbox = []
         with patch(
-            "subscriptions.services.stripe_client.create_artwork_checkout_session",
+            "artworks.stripe_orders.create_artwork_checkout_session",
             return_value=S(),
         ), self.settings(PUBLIC_SITE_URL="https://tienda.example"):
             response = self.client.post(
@@ -3730,16 +3740,16 @@ class SaleEmailNotificationsTest(TestCase):
         self.assertEqual(len(mail.outbox), 0)
 
     def test_all_buyer_templates_are_bilingual(self):
-        from subscriptions.services import notifications
+        from artworks import sale_notifications
 
         expectations = [
-            (notifications.send_sale_reserved, [self.order], "dejamos la obra separada para ti", "held the artwork for you"),
-            (notifications.send_sale_paid, [self.order], "Tu pago fue confirmado", "Your payment was confirmed"),
-            (notifications.send_sale_delivery_complete, [self.order], "Recibimos tus datos de entrega", "received your delivery details"),
-            (notifications.send_sale_shipped, [self.order], "Tu obra", "Your artwork"),
-            (notifications.send_sale_delivered, [self.order], "Tu obra fue entregada", "Your artwork was delivered"),
-            (notifications.send_sale_cancelled, [self.order], "Tu pago no se completó", "Your payment was not completed"),
-            (notifications.send_sale_refunded, [self.order], "reembolso completo", "full refund"),
+            (sale_notifications.send_sale_reserved, [self.order], "dejamos la obra separada para ti", "held the artwork for you"),
+            (sale_notifications.send_sale_paid, [self.order], "Tu pago fue confirmado", "Your payment was confirmed"),
+            (sale_notifications.send_sale_delivery_complete, [self.order], "Recibimos tus datos de entrega", "received your delivery details"),
+            (sale_notifications.send_sale_shipped, [self.order], "Tu obra", "Your artwork"),
+            (sale_notifications.send_sale_delivered, [self.order], "Tu obra fue entregada", "Your artwork was delivered"),
+            (sale_notifications.send_sale_cancelled, [self.order], "Tu pago no se completó", "Your payment was not completed"),
+            (sale_notifications.send_sale_refunded, [self.order], "reembolso completo", "full refund"),
         ]
 
         for sender, args, es_text, en_text in expectations:
@@ -3859,3 +3869,58 @@ class ArtistCommissionTestCase(TestCase):
         if "artist" in artwork_data and isinstance(artwork_data["artist"], dict):
             self.assertNotIn("commission", artwork_data["artist"])
 
+    def test_buy_mail_failure_keeps_reservation_and_201(self):
+        from unittest.mock import patch
+
+        from artworks.models import ArtworkOrder, ArtworkStatus
+
+        self.artwork.status = ArtworkStatus.AVAILABLE
+        self.artwork.save(update_fields=["status"])
+        url = f"/api/artworks/artworks/{self.artwork.slug}/buy/"
+
+        class S:
+            id = "cs_mailfail"
+            url = "https://checkout.stripe/mailfail"
+            expires_at = None
+
+        with patch(
+            "artworks.stripe_orders.create_artwork_checkout_session", return_value=S()
+        ), patch(
+            "artworks.sale_notifications.send_sale_reserved",
+            side_effect=RuntimeError("smtp down"),
+        ), self.settings(PUBLIC_SITE_URL="https://tienda.example"):
+            response = self.client.post(
+                url,
+                {"currency": "mxn", "email": "fallo@x.com"},
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        self.artwork.refresh_from_db()
+        self.assertEqual(self.artwork.status, ArtworkStatus.RESERVED)
+        self.assertTrue(
+            ArtworkOrder.objects.filter(
+                artwork=self.artwork, buyer_email="fallo@x.com"
+            ).exists()
+        )
+
+
+class SaleModulesBoundaryTest(TestCase):
+    """S1: the artworks sale modules must not import the `subscriptions` app."""
+
+    def test_sale_modules_are_subscription_free(self):
+        import ast
+        from pathlib import Path
+
+        base = Path(__file__).resolve().parent
+        for name in ("stripe_orders.py", "sale_notifications.py", "order_webhooks.py"):
+            tree = ast.parse((base / name).read_text())
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    root = (node.module or "").split(".")[0]
+                    if root == "subscriptions":
+                        self.fail(f"{name} imports from {node.module}")
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name.split(".")[0] == "subscriptions":
+                            self.fail(f"{name} imports {alias.name}")

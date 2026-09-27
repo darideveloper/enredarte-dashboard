@@ -17,10 +17,10 @@ Project-specific map of the Enredarte dashboard: what each app owns, which hosts
 
 | App | Owns | Key models |
 |---|---|---|
-| `core` | Publish-to-production flow, base/seed fixture loaders | (no domain models; `admin/system/publish/`) |
+| `core` | Publish-to-production flow, base/seed fixture loaders, shared Stripe primitives | `StripeEvent` (shared Stripe webhook audit log); (no other domain models; `admin/system/publish/`) |
 | `artworks` | Catalog: artists, curators, artworks, taxonomy | `Artist`, `ArtCurator`, `Artwork`, `ArtworkImage`, `Gallery`, `Location`, `Discipline`, `Technique`, `Theme`, `Format`, `Scale` (+ `*Translation` rows) |
 | `blog` | Editorial posts + images | `Post`, `PostTranslation`, `BlogImage` |
-| `subscriptions` | Paid membership gating via Stripe | `BillingPlan` (solo singleton), `BillingPlanPriceHistory`, `ArtistSubscription`, `StripeEvent` |
+| `subscriptions` | Paid membership gating via Stripe | `BillingPlan` (solo singleton), `BillingPlanPriceHistory`, `ArtistSubscription` |
 
 ## Hosts
 

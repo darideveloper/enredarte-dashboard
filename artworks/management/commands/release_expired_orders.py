@@ -7,6 +7,8 @@ from django.utils import timezone
 
 from artworks.models import ArtworkOrder, ArtworkOrderStatus
 from artworks.services import cancel_order
+from artworks import sale_notifications
+from core.mail_utils import send_best_effort
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +25,7 @@ class Command(BaseCommand):
         released = 0
         for order in expired:
             if cancel_order(order):
-                from subscriptions.services import notifications
-
-                notifications.send_best_effort(notifications.send_sale_cancelled, order)
+                send_best_effort(sale_notifications.send_sale_cancelled, order)
                 released += 1
         msg = f"release_expired_orders: {released} liberada(s)"
         logger.info(msg)

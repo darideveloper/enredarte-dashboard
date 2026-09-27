@@ -106,7 +106,7 @@ The system SHALL paginate the `ArtistAdmin` changelist at 50 rows per page.
 - **THEN** at most 50 artists SHALL be rendered per page.
 
 ### Requirement: Subscription action buttons on Artist edit view
-The system SHALL render three admin actions on the `ArtistAdmin` change view (next to the existing fieldset buttons), available only to staff: "Generar / Regenerar link de suscripción", "Abrir Customer Portal", and "Sincronizar desde Stripe". The buttons SHALL be wired to the corresponding endpoints declared in `specs/subscription-admin-controls/spec.md`.
+The system SHALL render three admin actions on the `ArtistAdmin` change view (next to the existing fieldset buttons), available only to staff: "Generar / Regenerar link de suscripción", "Abrir Customer Portal", and "Sincronizar desde Stripe". The buttons SHALL be wired to the corresponding endpoints declared in `specs/subscription-admin-controls/spec.md`. These are **artist-membership** controls: they SHALL remain hosted on `ArtistAdmin` in `artworks/admin.py` and SHALL continue to consume subscription-domain services (`subscriptions.services.stripe_client`, `subscription_state`, `notifications`, `subscriptions.models`) after the artwork-sales refactor. Moving them is explicitly out of scope; only sale-shaped code leaves `subscriptions`, so the "no subscription imports in artworks sale modules" rule does not apply to this admin.
 
 #### Scenario: "Generar / Regenerar link" button is present
 - **WHEN** an administrator opens an `Artist` change page
@@ -119,6 +119,10 @@ The system SHALL render three admin actions on the `ArtistAdmin` change view (ne
 #### Scenario: "Sincronizar desde Stripe" button always available
 - **WHEN** an administrator opens an `Artist` change page
 - **THEN** a "Sincronizar desde Stripe" button SHALL appear; clicking it SHALL always be safe (no-op with a message if there is no Stripe customer yet).
+
+#### Scenario: Membership controls unaffected by the sale refactor
+- **WHEN** the artwork-sales refactor is applied
+- **THEN** the three subscription actions SHALL still render and function on the `Artist` change page, and `artworks/admin.py` SHALL still import the subscription-domain services that back them.
 
 ### Requirement: Subscription status badge on Artist changelist
 The system SHALL add a read-only "Suscripción" badge to the `ArtistAdmin` changelist showing the `ArtistSubscription` payment method plus `status` display label in Spanish — `Efectivo · {status}` for cash rows, `En línea · {status}` for online rows — plus a colored register-style badge variant per state (`pending`, `active`, `past_due`, `canceling`, `canceled`), and the literal "Sin suscripción" when the artist has no subscription row.

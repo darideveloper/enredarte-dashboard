@@ -208,13 +208,21 @@ The buy endpoint SHALL degrade gracefully if USD payments are not enabled on the
 - **WHEN** Stripe rejects a `usd` Checkout Session creation (e.g. currency not supported)
 - **THEN** the response SHALL be `502`, no order SHALL exist, and the artwork SHALL be `available` again.
 
-### Requirement: Artist commission visibility in sales order admin
-The system SHALL display the selling artist's commission percentage as a read-only field (`display_artist_commission`) in the `ArtworkOrderAdmin` change view within `fieldsets` and `readonly_fields`. When an order is associated with an artwork and artist, the field SHALL render the commission percentage formatted with a percentage symbol (e.g. `25%`); if the artwork, artist, or commission is unset, it SHALL display `-`.
+### Requirement: Sale Stripe client owned by artworks
 
-#### Scenario: Viewing sales order displays artist commission
-- **WHEN** an administrator opens the change view for an `ArtworkOrder` whose sold artwork belongs to an artist with a commission rate of 25%
-- **THEN** the "Comisión del artista" read-only field SHALL display `25%`.
+The system SHALL provide `artworks/stripe_orders.py` exposing `create_artwork_checkout_session`, `retrieve_checkout_session`, and `create_refund` with signatures and Stripe behavior identical to today (`mode="payment"`, inline `price_data`, `customer_email` lock, 30-minute `expires_at`, `metadata {"kind": "artwork_order", "order": slug}`, full refunds). `subscriptions/services/stripe_client.py` SHALL NOT contain these three functions after the change. `artworks/views.py` (`buy`, `OrderSummaryView`), `artworks/services.py` (reconcile + double-sale backstop), `artworks/management/commands/sync_orders_from_stripe.py`, and the sale webhook path SHALL import them from `artworks.stripe_orders`. The `ArtworkOrder` lifecycle, reservation semantics, throttles, and public REST paths SHALL NOT change.
 
-#### Scenario: Viewing order with unset artist or commission
-- **WHEN** an administrator views an `ArtworkOrder` where the artist or commission is not set
-- **THEN** the "Comisión del artista" read-only field SHALL display `-`.
+#### Scenario: Buy creates payment session from artworks module
+
+- **WHEN** `POST /api/artworks/artworks/{slug}/buy/` reserves an available artwork
+- **THEN** the Checkout Session SHALL be created via `artworks.stripe_orders.create_artwork_checkout_session` with the same `price_data`, `customer_email`, expiry, and metadata as today, and the response SHALL be `201` with `checkout_url`.
+
+#### Scenario: Order summary paid fallback uses artworks client
+
+- **WHEN** `GET /api/artworks/orders/{slug}/` finds a `pending_payment` order whose Stripe session reports `payment_status == "paid"`
+- **THEN** the verify call SHALL use `artworks.stripe_orders.retrieve_checkout_session`, the paid-transition SHALL apply, and the response SHALL be the order summary.
+
+#### Scenario: Double-sale refund uses artworks client
+
+- **WHEN** a paid session completes for an artwork already sold by another order
+- **THEN** the order SHALL become `refunded` and the refund SHALL be created via `artworks.stripe_orders.create_refund`.

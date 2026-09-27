@@ -16,136 +16,13 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
-from subscriptions.models import ArtistSubscription, StripeEvent, epoch_to_datetime
-from subscriptions.services.stripe_compat import sget, to_plain_dict
+from core.models import StripeEvent
+from core.stripe_compat import sget, to_plain_dict
+from core.stripe_utils import epoch_to_datetime
+from subscriptions.models import ArtistSubscription
 from subscriptions.services.subscription_state import compute_is_active
 
 logger = logging.getLogger(__name__)
-
-
-def _artwork_session_meta(session):
-    meta = sget(session, "metadata") or {}
-    if not isinstance(meta, dict):
-        return {}
-    return meta
-
-
-def _find_artwork_order(session):
-    from artworks.models import ArtworkOrder
-
-    meta = _artwork_session_meta(session)
-    if meta.get("kind") != "artwork_order":
-        return None, meta
-    slug = meta.get("order")
-    if not slug:
-        return None, meta
-    order = (
-        ArtworkOrder.objects.select_related("artwork").filter(slug=slug).first()
-    )
-    return order, meta
-
-
-def _session_buyer(session):
-    pi = sget(session, "payment_intent") or ""
-    if isinstance(pi, dict):
-        pi = pi.get("id", "")
-    details = sget(session, "customer_details") or {}
-    if not isinstance(details, dict):
-        details = {}
-    email = details.get("email", "") if isinstance(details, dict) else ""
-    name = details.get("name", "") if isinstance(details, dict) else ""
-    if not email:
-        email = sget(session, "customer_email") or ""
-    return str(pi or ""), str(email or ""), str(name or "")
-
-
-def _apply_artwork_paid(order, session):
-    """Paid-transition with double-sale refund backstop."""
-    from artworks.models import ArtworkOrderStatus
-    from artworks.services import apply_paid_transition, artwork_reserved_by
-    from django.db import transaction
-    from subscriptions.services import notifications, stripe_client
-
-    if order.status != ArtworkOrderStatus.PENDING_PAYMENT:
-        return
-    pi, email, name = _session_buyer(session)
-    if not artwork_reserved_by(order):
-        order.status = ArtworkOrderStatus.REFUNDED
-        order.stripe_payment_intent_id = pi or order.stripe_payment_intent_id
-        order.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
-        logger.warning("artwork double-sale order=%s refunding pi=%s", order.slug, pi)
-        refund = stripe_client.create_refund(pi)
-        refund_id = (
-            getattr(refund, "id", "") if not isinstance(refund, dict) else refund.get("id", "")
-        )
-        transaction.on_commit(
-            lambda o=order, rid=refund_id: notifications.send_best_effort(
-                notifications.send_sale_refunded, o, refund_id=rid
-            )
-        )
-        return
-    if apply_paid_transition(order, pi, email or order.buyer_email, name):
-        transaction.on_commit(
-            lambda o=order: notifications.send_best_effort(
-                notifications.send_sale_paid, o
-            )
-        )
-
-
-def _handle_artwork_checkout_completed(event):
-    session = event["data"]["object"]
-    order, _ = _find_artwork_order(session)
-    if order is None:
-        return False
-    if (sget(session, "payment_status") or "") != "paid":
-        return True
-    _apply_artwork_paid(order, session)
-    return True
-
-
-def _handle_artwork_checkout_expired(event):
-    from artworks.services import cancel_order
-    from django.db import transaction
-    from subscriptions.services import notifications
-
-    session = event["data"]["object"]
-    order, _ = _find_artwork_order(session)
-    if order is None:
-        return False
-    if cancel_order(order):
-        transaction.on_commit(
-            lambda o=order: notifications.send_best_effort(
-                notifications.send_sale_cancelled, o
-            )
-        )
-    return True
-
-
-def _handle_artwork_async_succeeded(event):
-    session = event["data"]["object"]
-    order, _ = _find_artwork_order(session)
-    if order is None:
-        return False
-    _apply_artwork_paid(order, session)
-    return True
-
-
-def _handle_artwork_async_failed(event):
-    from artworks.services import cancel_order
-    from django.db import transaction
-    from subscriptions.services import notifications
-
-    session = event["data"]["object"]
-    order, _ = _find_artwork_order(session)
-    if order is None:
-        return False
-    if cancel_order(order):
-        transaction.on_commit(
-            lambda o=order: notifications.send_best_effort(
-                notifications.send_sale_cancelled, o
-            )
-        )
-    return True
 
 
 def _sync_artist(subscription):
@@ -191,8 +68,10 @@ def _invoice_period_end(invoice):
 
 
 def _handle_checkout_completed(event):
+    from artworks import order_webhooks
+
     session = event["data"]["object"]
-    if _handle_artwork_checkout_completed(event):
+    if order_webhooks.handle_checkout_completed(event):
         return
     artist_id = (session.get("metadata") or {}).get("artist_id")
     if not artist_id:
@@ -247,6 +126,7 @@ def _subscription_prior_status(stripe_sub):
 
 
 def _handle_subscription_updated(event):
+    from core.mail_utils import send_best_effort
     from subscriptions.services import notifications
 
     stripe_sub = event["data"]["object"]
@@ -262,7 +142,7 @@ def _handle_subscription_updated(event):
         and prior != ArtistSubscription.Status.CANCELING
     ):
         transaction.on_commit(
-            lambda s=sub: notifications.send_best_effort(
+            lambda s=sub: send_best_effort(
                 notifications.send_online_canceling, s
             )
         )
@@ -270,6 +150,7 @@ def _handle_subscription_updated(event):
 
 
 def _handle_subscription_deleted(event):
+    from core.mail_utils import send_best_effort
     from subscriptions.services import notifications
 
     stripe_sub = event["data"]["object"]
@@ -282,7 +163,7 @@ def _handle_subscription_deleted(event):
         and prior != ArtistSubscription.Status.CANCELED
     ):
         transaction.on_commit(
-            lambda s=sub: notifications.send_best_effort(
+            lambda s=sub: send_best_effort(
                 notifications.send_online_canceled, s
             )
         )
@@ -338,7 +219,9 @@ def _handle_invoice_payment_failed(event):
 
 
 def _handle_checkout_expired(event):
-    if _handle_artwork_checkout_expired(event):
+    from artworks import order_webhooks
+
+    if order_webhooks.handle_checkout_expired(event):
         return
     session = event["data"]["object"]
     meta = sget(session, "metadata") or {}
@@ -362,11 +245,15 @@ def _handle_checkout_expired(event):
 
 
 def _handle_async_payment_succeeded(event):
-    _handle_artwork_async_succeeded(event)
+    from artworks import order_webhooks
+
+    order_webhooks.handle_async_payment_succeeded(event)
 
 
 def _handle_async_payment_failed(event):
-    _handle_artwork_async_failed(event)
+    from artworks import order_webhooks
+
+    order_webhooks.handle_async_payment_failed(event)
 
 
 HANDLERS = {

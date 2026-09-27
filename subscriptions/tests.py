@@ -13,13 +13,16 @@ from django.contrib import admin as django_admin
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.core import mail
-from django.test import RequestFactory, TestCase, override_settings
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+from django.test import RequestFactory, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from artworks.models import Artist
 from subscriptions.admin import BillingPlanForm
-from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory, StripeEvent
+from core.models import StripeEvent
+from subscriptions.models import ArtistSubscription, BillingPlan, BillingPlanPriceHistory
 from subscriptions.services.subscription_state import (
     add_calendar_month,
     cash_renew_datetime,
@@ -115,14 +118,14 @@ class StripeCompatTest(TestCase):
     """sget / to_plain_dict must handle plain dict and StripeObject (stripe>=15)."""
 
     def test_sget_plain_dict(self):
-        from subscriptions.services.stripe_compat import sget
+        from core.stripe_compat import sget
 
         self.assertEqual(sget({"id": "sub_123"}, "id"), "sub_123")
         self.assertEqual(sget({"id": "sub_123"}, "missing", "fallback"), "fallback")
         self.assertIsNone(sget(None, "id"))
 
     def test_sget_get_blocked(self):
-        from subscriptions.services.stripe_compat import sget
+        from core.stripe_compat import sget
 
         blocked = _make_get_blocked_subscription(status="active", period_end=future_epoch())
         # must not raise AttributeError
@@ -130,7 +133,7 @@ class StripeCompatTest(TestCase):
         self.assertEqual(sget(blocked, "missing", "x"), "x")
 
     def test_sget_stripe_object(self):
-        from subscriptions.services.stripe_compat import sget
+        from core.stripe_compat import sget
         import stripe
 
         obj = stripe.Subscription.construct_from(
@@ -169,7 +172,7 @@ class StripeCompatTest(TestCase):
         import json
         from decimal import Decimal
 
-        from subscriptions.services.stripe_compat import to_plain_dict
+        from core.stripe_compat import to_plain_dict
 
         payload = {"id": "sub_123", "unit_amount_decimal": Decimal("9.99"), "nested": {"fx_rate": Decimal("1.234")}, "items": [{"amount": Decimal("5.5")}]}
         plain = to_plain_dict(payload)
@@ -2406,7 +2409,7 @@ class ArtworkOrderWebhookTestCase(TestCase):
 
         self.artwork.status = self.ArtworkStatus.SOLD
         self.artwork.save()
-        with patch("subscriptions.services.stripe_client.create_refund") as mock_refund:
+        with patch("artworks.stripe_orders.create_refund") as mock_refund:
             response = self._post("checkout.session.completed", "evt_wh_8", self._art_session(pi="pi_double"))
         self.assertEqual(response.status_code, 200)
         self.order.refresh_from_db()
@@ -2420,7 +2423,7 @@ class ArtworkOrderWebhookTestCase(TestCase):
         self.artwork.save()
         self.client.raise_request_exception = False
         with patch(
-            "subscriptions.services.stripe_client.create_refund", side_effect=RuntimeError("stripe down")
+            "artworks.stripe_orders.create_refund", side_effect=RuntimeError("stripe down")
         ):
             response = self._post("checkout.session.completed", "evt_wh_9", self._art_session(pi="pi_fail"))
         self.assertEqual(response.status_code, 500)
@@ -2633,7 +2636,7 @@ class ArtworkOrderWebhookEmailTest(TestCase):
 
         self.artwork.status = self.ArtworkStatus.SOLD
         self.artwork.save(update_fields=["status"])
-        with patch("subscriptions.services.stripe_client.create_refund", return_value=_Refund("re_1")),              self.captureOnCommitCallbacks(execute=True):
+        with patch("artworks.stripe_orders.create_refund", return_value=_Refund("re_1")),              self.captureOnCommitCallbacks(execute=True):
             response = self._post("checkout.session.completed", "evt_whm_3", self._art_session(pi="pi_dbl"))
         self.assertEqual(response.status_code, 200)
         self.order.refresh_from_db()
@@ -2650,7 +2653,7 @@ class ArtworkOrderWebhookEmailTest(TestCase):
         self.artwork.save(update_fields=["status"])
         mail.outbox = []
         with patch(
-            "subscriptions.services.stripe_client.create_refund",
+            "artworks.stripe_orders.create_refund",
             side_effect=RuntimeError("stripe down"),
         ):
             response = self._post("checkout.session.completed", "evt_whm_4", self._art_session(pi="pi_fail"))
@@ -2662,3 +2665,60 @@ class _Refund:
     def __init__(self, rid):
         self.id = rid
 
+
+
+class StripeEventMoveMigrationTest(TransactionTestCase):
+    """W1/W2: the StripeEvent move preserves rows and reverses safely.
+
+    Runs the real `subscriptions.0007` migration against the test database:
+    seed rows in the legacy table, migrate forward (rows copied to
+    `core_stripeevent`), then migrate back (rows restored to
+    `subscriptions_stripeevent`).
+    """
+
+    migrate_from = [
+        ("subscriptions", "0006_artistsubscription_cash_last_paid_at"),
+        ("core", "0001_initial"),
+    ]
+    migrate_to = [
+        ("subscriptions", "0007_delete_stripeevent"),
+        ("core", "0001_initial"),
+    ]
+
+    def _migrate(self, targets):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(targets)
+
+    def tearDown(self):
+        executor = MigrationExecutor(connection)
+        executor.loader.build_graph()
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        super().tearDown()
+
+    def _insert_legacy(self, event_id, event_type, payload, error):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO subscriptions_stripeevent "
+                "(event_id, event_type, received_at, processed_at, payload, error) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                [event_id, event_type, timezone.now(), None, payload, error],
+            )
+
+    def test_forward_copies_rows_and_reverse_restores(self):
+        self._migrate(self.migrate_from)
+        self._insert_legacy("evt_mig_a", "invoice.paid", '{"n": 1}', "")
+        self._insert_legacy("evt_mig_b", "invoice.failed", "{}", "boom")
+
+        self._migrate(self.migrate_to)
+        self.assertEqual(StripeEvent.objects.count(), 2)
+        row = StripeEvent.objects.get(event_id="evt_mig_a")
+        self.assertEqual(row.payload, {"n": 1})
+        self.assertIsNone(row.processed_at)
+        self.assertEqual(StripeEvent.objects.get(event_id="evt_mig_b").error, "boom")
+
+        # Reverse: rows copied back to the legacy table.
+        self._migrate(self.migrate_from)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM subscriptions_stripeevent")
+            self.assertEqual(cursor.fetchone()[0], 2)

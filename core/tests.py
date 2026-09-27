@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
+from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -151,3 +152,98 @@ class PublishChangesViewTest(TestCase):
         self.client.force_login(self.plain)
         response = self.client.get(reverse("admin:index"), follow=True)
         self.assertNotContains(response, "Publicar Cambios")
+
+
+class StripeInitTest(TestCase):
+    """W3: `core.stripe` initializes the SDK and fails fast outside dev."""
+
+    def tearDown(self):
+        import importlib
+
+        import core.stripe
+
+        # Reload with the real settings so patched api_key/version never leak.
+        importlib.reload(core.stripe)
+
+    @override_settings(
+        STRIPE_SECRET_KEY="sk_test_init",
+        STRIPE_API_VERSION="2024-06-20",
+        STRIPE_WEBHOOK_SECRET="whsec_x",
+    )
+    @patch.dict("os.environ", {"ENV": "dev"})
+    def test_dev_sets_api_key_and_version(self):
+        import importlib
+
+        import stripe
+
+        import core.stripe
+
+        importlib.reload(core.stripe)
+        self.assertEqual(stripe.api_key, "sk_test_init")
+        self.assertEqual(stripe.api_version, "2024-06-20")
+
+    @override_settings(STRIPE_SECRET_KEY="", STRIPE_WEBHOOK_SECRET="whsec_x")
+    @patch.dict("os.environ", {"ENV": "prod"})
+    def test_missing_secret_key_refuses_outside_dev(self):
+        import importlib
+
+        import core.stripe
+
+        with self.assertRaises(ImproperlyConfigured):
+            importlib.reload(core.stripe)
+
+    @override_settings(STRIPE_SECRET_KEY="sk_test_init", STRIPE_WEBHOOK_SECRET="not-a-secret")
+    @patch.dict("os.environ", {"ENV": "prod"})
+    def test_missing_webhook_secret_refuses_outside_dev(self):
+        import importlib
+
+        import core.stripe
+
+        with self.assertRaises(ImproperlyConfigured):
+            importlib.reload(core.stripe)
+
+
+class StripeEventAdminTest(TestCase):
+    """W5: the audit page survives the model move and stays read-only/ordered."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin_user = User.objects.create_superuser(
+            username="stripe_admin", password="pw", email="admin@x.com"
+        )
+
+    def setUp(self):
+        self.client.force_login(self.admin_user)
+
+    def _make(self, event_id, event_type, payload, error=""):
+        from core.models import StripeEvent
+
+        return StripeEvent.objects.create(
+            event_id=event_id, event_type=event_type, payload=payload, error=error
+        )
+
+    def test_registered_from_core_admin_and_readonly(self):
+        from django.contrib import admin as dj_admin
+
+        from core.models import StripeEvent
+
+        model_admin = dj_admin.site._registry[StripeEvent]
+        self.assertEqual(model_admin.__class__.__module__, "core.admin")
+        self.assertFalse(model_admin.has_add_permission(None))
+        self.assertFalse(model_admin.has_change_permission(None))
+        self.assertFalse(model_admin.has_delete_permission(None))
+        self.assertEqual(list(StripeEvent._meta.ordering), ["-received_at"])
+
+    def test_changelist_lists_events(self):
+        self._make("evt_admin_1", "invoice.paid", {"a": 1})
+        response = self.client.get(reverse("admin:core_stripeevent_changelist"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "invoice.paid")
+
+    def test_change_view_shows_error_and_payload(self):
+        event = self._make("evt_admin_2", "invoice.failed", {"b": 2}, error="boom")
+        response = self.client.get(
+            reverse("admin:core_stripeevent_change", args=[event.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "boom")
