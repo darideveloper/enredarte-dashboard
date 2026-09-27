@@ -3,7 +3,9 @@ Hola,
 Completaste tu solicitud y dejamos la obra separada para ti durante 30 minutos.
 
 Obra: {{ artwork_title }}
+Todas nuestras obras incluyen certificado de autenticidad y entrega segura.
 Monto: {{ currency }} {{ amount }}
+Nota: este monto corresponde únicamente al precio de la obra. El costo de envío se acuerda por separado.
 
 Para completar tu pago, usa este enlace:
 {{ checkout_url }}
@@ -20,7 +22,9 @@ Hello,
 You completed your request and we have held the artwork for you for 30 minutes.
 
 Artwork: {{ artwork_title }}
+All our artworks include a certificate of authenticity and secure delivery.
 Amount: {{ currency }} {{ amount }}
+Note: this amount covers the artwork price only. Delivery cost is agreed separately.
 
 To complete your payment, use this link:
 {{ checkout_url }}
