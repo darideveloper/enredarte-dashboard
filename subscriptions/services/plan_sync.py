@@ -66,13 +66,24 @@ def ensure_stripe_price(plan, user=None):
     # Must happen before archive, otherwise InvalidRequestError.
     stripe_client.set_product_default_price(product_id, new_price_id)
 
-    # 4. Archive old price if present
+    # 4. Archive old price if present. A `resource_missing` error means the
+    # old price is a ghost (deleted, or stale after an account switch): skip
+    # archiving and record `old_price_archived=False`. Any other StripeError
+    # still raises (orphan price remains in Stripe until manual archive).
+    old_price_archived = False
     if old_price_id:
         try:
             stripe_client.archive_price(old_price_id)
+        except stripe.error.InvalidRequestError as e:
+            if getattr(e, "code", None) != "resource_missing":
+                logger.warning("orphan price new=%s old=%s StripeError: %s", new_price_id, old_price_id, e)
+                raise
+            logger.warning("ghost price old=%s skipped archiving (resource_missing)", old_price_id)
         except stripe.error.StripeError as e:
             logger.warning("orphan price new=%s old=%s StripeError: %s", new_price_id, old_price_id, e)
             raise
+        else:
+            old_price_archived = True
 
     # 5. Create history row + update plan atomically
     # Retry creates another price, orphan remains in Stripe until manual archive.
@@ -84,7 +95,7 @@ def ensure_stripe_price(plan, user=None):
             amount=plan.amount,
             currency=plan.currency,
             interval=plan.interval,
-            old_price_archived=bool(old_price_id),
+            old_price_archived=old_price_archived,
             changed_by=user,
         )
         logger.info("plan_sync price %s -> %s amount %s", old_price_id, new_price_id, plan.amount)

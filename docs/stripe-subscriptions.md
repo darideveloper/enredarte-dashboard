@@ -132,6 +132,16 @@ The subscription price is edited from **Suscripciones → Plan de suscripción**
 
 On every change that creates a new price, the previous `price_xxx` is archived in Stripe with `stripe.Price.modify(old_id, active=False)` so it cannot be reused for new checkouts. If there was no previous price (first creation), nothing is archived and `old_stripe_price_id=""` in the history.
 
+### Automatic regeneration (stale or missing product/price)
+
+**Generar link de suscripción** self-heals the shared plan product/price instead of failing:
+
+- If `stripe_price_id` is empty (fresh database, never configured), the link action creates the product + price from the row's `amount` / `currency` / `interval` and proceeds — it no longer refuses with "Configura el precio".
+- If the stored `price_xxx` / `prod_xxx` no longer exists in Stripe (Stripe account switch, deleted or archived price), the checkout's `resource_missing` error triggers one regeneration via the same `ensure_stripe_price` flow, then retries the checkout once with the fresh price. Success shows **"Link generado. El precio fue regenerado automáticamente en Stripe."** plus the usual `BillingPlanPriceHistory` audit row.
+- Any other Stripe error (auth, network, rate-limit) never regenerates — the action keeps failing loud with "Stripe no respondió" so a misconfigured key can never silently create products in the wrong account.
+
+The same heal covers **editing the price from the admin after an account switch**: saving the plan form with a stale `stripe_product_id` creates a fresh product (the ghost old price is not archived, recorded as `old_price_archived=False`) instead of erroring, so operators keep changing the price normally.
+
 ## The `compute_is_active` rule
 
 `subscriptions/services/subscription_state.compute_is_active(subscription)` is

@@ -120,6 +120,11 @@ Same Stripe account, switch to live keys. Product/prices/portal must be
    - Saving the plan in the admin creates the live `price_...` under the same
      product and archives the previous one. `STRIPE_PRICE_ID` is only an
      initial seed for fresh databases, not the runtime source of truth.
+   - After switching accounts (or with an empty price), no manual Stripe setup
+     is strictly required: **Generar link de suscripción** auto-creates /
+     regenerates the product + price on demand and retries once, and saving
+     the plan form heals a stale product the same way (see
+     `docs/stripe-subscriptions.md` § "Automatic regeneration").
    - Verify `BillingPlan.is_active_for_new_signups = True`.
 
 3. **Webhook endpoint (live)**

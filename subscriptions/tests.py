@@ -552,17 +552,35 @@ class AdminEndpointTest(ArtistTestBase):
         create_customer.assert_not_called()
         self.assertFalse(ArtistSubscription.objects.filter(artist=self.artist).exists())
 
-    def test_generate_link_blocked_by_missing_price_id(self):
+    def test_generate_link_auto_creates_price_on_empty_price_id(self):
+        # auto-price-regeneration: an empty stripe_price_id no longer refuses;
+        # generate_link creates the product/price then the checkout.
         self.client.force_login(self.user)
-        BillingPlan.get_solo().save()
-        BillingPlan.objects.update(stripe_price_id="")
+        plan = BillingPlan.get_solo()
+        plan.amount = Decimal("299.00")
+        plan.currency = "MXN"
+        plan.interval = "month"
+        plan.stripe_product_id = ""
+        plan.stripe_price_id = ""
+        plan.save()
+        session = type("S", (), {"url": "https://checkout.stripe.com/c/pay", "expires_at": time.time() + 3600})
         with patch(
-            "artworks.admin.stripe_client.create_customer"
-        ) as create_customer:
+            "artworks.admin.stripe_client.create_customer",
+            return_value=type("C", (), {"id": "cus_new"}),
+        ), patch(
+            "artworks.admin.stripe_client.create_checkout_session",
+            return_value=session,
+        ), patch(
+            "artworks.admin.plan_sync.ensure_stripe_price",
+            side_effect=lambda p, user=None: setattr(p, "stripe_price_id", "price_auto") or p,
+        ) as ensure:
             response = self.client.get(self._action_url(self.artist, "generate-link"))
         self.assertEqual(response.status_code, 302)
-        create_customer.assert_not_called()
-        self.assertFalse(ArtistSubscription.objects.filter(artist=self.artist).exists())
+        ensure.assert_called_once()
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("regenerado" in m for m in msgs))
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/pay")
 
     def test_regenerate_link_reuses_valid_url(self):
         self.client.force_login(self.user)
@@ -2722,3 +2740,256 @@ class StripeEventMoveMigrationTest(TransactionTestCase):
         with connection.cursor() as cursor:
             cursor.execute("SELECT COUNT(*) FROM subscriptions_stripeevent")
             self.assertEqual(cursor.fetchone()[0], 2)
+
+
+class StalePriceErrorTest(TestCase):
+    """2.2: _is_stale_price_error only fires on price/product resource_missing."""
+
+    def _admin(self):
+        from artworks.admin import ArtistAdmin
+        from artworks.models import Artist
+
+        return ArtistAdmin(Artist, django_admin.site)
+
+    def _plan(self, price_id="price_old", product_id="prod_old"):
+        plan = BillingPlan.get_solo()
+        plan.stripe_price_id = price_id
+        plan.stripe_product_id = product_id
+        return plan
+
+    def _err(self, message, param=None, code="resource_missing"):
+        return stripe_lib.error.InvalidRequestError(message, param, code=code)
+
+    def test_price_missing_is_stale(self):
+        admin = self._admin()
+        self.assertTrue(admin._is_stale_price_error(
+            self._err("No such price: 'price_old'", "price"), self._plan()))
+
+    def test_product_missing_is_stale(self):
+        admin = self._admin()
+        self.assertTrue(admin._is_stale_price_error(
+            self._err("No such product: 'prod_old'", "product"), self._plan()))
+
+    def test_stored_id_in_message_is_stale(self):
+        admin = self._admin()
+        plan = self._plan(price_id="pr_xyz123", product_id="pd_xyz123")
+        self.assertTrue(admin._is_stale_price_error(
+            self._err("No such object: 'pr_xyz123'"), plan))
+
+    def test_customer_missing_is_not_price_stale(self):
+        admin = self._admin()
+        self.assertFalse(admin._is_stale_price_error(
+            self._err("No such customer: 'cus_123'", "customer"), self._plan()))
+
+    def test_auth_error_is_not_stale(self):
+        admin = self._admin()
+        self.assertFalse(admin._is_stale_price_error(
+            stripe_lib.error.AuthenticationError("bad key"), self._plan()))
+
+    def test_generic_stripe_error_is_not_stale(self):
+        admin = self._admin()
+        self.assertFalse(admin._is_stale_price_error(
+            stripe_lib.error.StripeError("boom"), self._plan()))
+
+    def test_non_resource_missing_is_not_stale(self):
+        admin = self._admin()
+        self.assertFalse(admin._is_stale_price_error(
+            self._err("Invalid price", "price", code="invalid_request"), self._plan()))
+
+
+class EnsureStripePriceForceCreateTest(TestCase):
+    """5.1: force-create on stale product, concurrent no-op, empty first-create."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("admin3", "admin3@x.com", "x")
+        self.plan = BillingPlan.get_solo()
+        self.plan.amount = Decimal("299.00")
+        self.plan.currency = "MXN"
+        self.plan.interval = "month"
+        self.plan.stripe_product_id = "prod_old"
+        self.plan.stripe_price_id = "price_old"
+        self.plan.save()
+
+    def test_force_create_on_stale_product_skips_ghost_archive(self):
+        from subscriptions.services import plan_sync
+
+        self.plan.amount = Decimal("349.00")
+        stale_product = stripe_lib.error.InvalidRequestError(
+            "No such product: prod_old", "product", code="resource_missing")
+        ghost_price = stripe_lib.error.InvalidRequestError(
+            "No such price: price_old", "price", code="resource_missing")
+        with patch("stripe.Product.retrieve", side_effect=stale_product) as mock_retrieve, \
+             patch("stripe.Product.create",
+                   return_value=type("P", (), {"id": "prod_fresh"})) as mock_create_prod, \
+             patch("stripe.Price.create",
+                   return_value=type("Pr", (), {"id": "price_fresh"})), \
+             patch("stripe.Product.modify",
+                   return_value=type("Pm", (), {"id": "prod_fresh"})), \
+             patch("stripe.Price.modify", side_effect=ghost_price) as mock_archive:
+            result = plan_sync.ensure_stripe_price(self.plan, user=self.user)
+        mock_retrieve.assert_called_once_with("prod_old")
+        mock_create_prod.assert_called_once()
+        mock_archive.assert_called_once_with("price_old", active=False)
+        self.assertEqual(result.stripe_product_id, "prod_fresh")
+        self.assertEqual(result.stripe_price_id, "price_fresh")
+        history = BillingPlanPriceHistory.objects.get()
+        self.assertEqual(history.old_stripe_price_id, "price_old")
+        self.assertEqual(history.new_stripe_price_id, "price_fresh")
+        self.assertFalse(history.old_price_archived)
+
+    def test_concurrent_second_caller_is_noop(self):
+        from subscriptions.services import plan_sync
+
+        # A second caller whose values already match the persisted row
+        # (healed by a concurrent request) makes no Stripe calls.
+        with patch("subscriptions.services.stripe_client.get_or_create_product") as mock_product, \
+             patch("subscriptions.services.stripe_client.create_price") as mock_create:
+            plan_sync.ensure_stripe_price(self.plan, user=self.user)
+            mock_product.assert_not_called()
+            mock_create.assert_not_called()
+        self.assertEqual(BillingPlanPriceHistory.objects.count(), 0)
+
+    def test_empty_price_first_creation(self):
+        from subscriptions.services import plan_sync
+
+        self.plan.stripe_price_id = ""
+        self.plan.stripe_product_id = ""
+        self.plan.save(update_fields=["stripe_price_id", "stripe_product_id"])
+        with patch("subscriptions.services.stripe_client.get_or_create_product",
+                   return_value=type("P", (), {"id": "prod_new"})), \
+             patch("subscriptions.services.stripe_client.create_price",
+                   return_value=type("P2", (), {"id": "price_new"})), \
+             patch("subscriptions.services.stripe_client.set_product_default_price"), \
+             patch("subscriptions.services.stripe_client.archive_price") as mock_archive:
+            result = plan_sync.ensure_stripe_price(self.plan, user=self.user)
+            mock_archive.assert_not_called()
+        self.assertEqual(result.stripe_price_id, "price_new")
+        history = BillingPlanPriceHistory.objects.get()
+        self.assertEqual(history.old_stripe_price_id, "")
+        self.assertFalse(history.old_price_archived)
+
+
+class GenerateLinkAutoRegenTest(ArtistTestBase):
+    """5.2/5.3: generate_link heal paths."""
+
+    def _heal(self, plan, price="price_fresh", product="prod_fresh"):
+        def _ensure(p, user=None):
+            p.stripe_price_id = price
+            p.stripe_product_id = product
+            return p
+        return _ensure
+
+    def test_regenerates_stale_price_and_retries_once(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_stale", stripe_product_id="prod_stale")
+        stale = stripe_lib.error.InvalidRequestError(
+            "No such price: 'price_stale'", "price", code="resource_missing")
+        session = type("S", (), {"url": "https://checkout.stripe.com/c/pay", "expires_at": time.time() + 3600})
+        with patch("artworks.admin.stripe_client.create_customer",
+                   return_value=type("C", (), {"id": "cus_new"})) as mock_cus, \
+             patch("artworks.admin.stripe_client.create_checkout_session",
+                   side_effect=[stale, session]) as mock_session, \
+             patch("artworks.admin.plan_sync.ensure_stripe_price",
+                   side_effect=self._heal(None)) as mock_ensure:
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        mock_ensure.assert_called_once()
+        self.assertEqual(mock_session.call_count, 2)
+        mock_cus.assert_called_once()
+        self.assertEqual(mock_session.call_args_list[0][0][2], "price_stale")
+        self.assertEqual(mock_session.call_args_list[1][0][2], "price_fresh")
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("regenerado" in m for m in msgs))
+        sub = ArtistSubscription.objects.get(artist=self.artist)
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/pay")
+
+    def test_heal_then_retry_failure_no_third_attempt(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_stale", stripe_product_id="prod_stale")
+        stale = stripe_lib.error.InvalidRequestError(
+            "No such price: 'price_stale'", "price", code="resource_missing")
+        with patch("artworks.admin.stripe_client.create_customer",
+                   return_value=type("C", (), {"id": "cus_new"})), \
+             patch("artworks.admin.stripe_client.create_checkout_session",
+                   side_effect=[stale, stripe_lib.error.StripeError("still down")]) as mock_session, \
+             patch("artworks.admin.plan_sync.ensure_stripe_price",
+                   side_effect=self._heal(None)):
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(mock_session.call_count, 2)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        self.assertFalse(ArtistSubscription.objects.filter(
+            artist=self.artist, signup_url__contains="checkout").exists())
+
+    def test_auth_error_does_not_regenerate(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        with patch("artworks.admin.stripe_client.create_customer",
+                   return_value=type("C", (), {"id": "cus_new"})), \
+             patch("artworks.admin.stripe_client.create_checkout_session",
+                   side_effect=stripe_lib.error.AuthenticationError("bad key")), \
+             patch("artworks.admin.plan_sync.ensure_stripe_price") as mock_ensure:
+            response = self.client.get(self._action_url(self.artist, "generate-link"))
+        self.assertEqual(response.status_code, 302)
+        mock_ensure.assert_not_called()
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        self.assertFalse(ArtistSubscription.objects.filter(
+            artist=self.artist, signup_url__contains="checkout").exists())
+
+
+class BillingPlanAdminStaleProductTest(TestCase):
+    """5.4: the BillingPlan admin price form heals a stale product."""
+
+    def setUp(self):
+        self.user = User.objects.create_superuser("admin", "admin@x.com", "x")
+        self.client.force_login(self.user)
+        self.plan = BillingPlan.get_solo()
+        self.plan.name = "Membresía Enredarte"
+        self.plan.amount = Decimal("299.00")
+        self.plan.currency = "MXN"
+        self.plan.interval = "month"
+        self.plan.stripe_product_id = "prod_old"
+        self.plan.stripe_price_id = "price_old"
+        self.plan.save()
+
+    def test_admin_save_heals_stale_product(self):
+        stale = stripe_lib.error.InvalidRequestError(
+            "No such product: prod_old", "product", code="resource_missing")
+        ghost = stripe_lib.error.InvalidRequestError(
+            "No such price: price_old", "price", code="resource_missing")
+        with patch("stripe.Product.retrieve", side_effect=stale), \
+             patch("stripe.Product.create",
+                   return_value=type("P", (), {"id": "prod_fresh"})), \
+             patch("stripe.Price.create",
+                   return_value=type("Pr", (), {"id": "price_fresh"})), \
+             patch("stripe.Product.modify",
+                   return_value=type("Pm", (), {"id": "prod_fresh"})), \
+             patch("stripe.Price.modify", side_effect=ghost):
+            response = self.client.post(
+                f"/admin/subscriptions/billingplan/{self.plan.pk}/change/",
+                data={
+                    "name": "Membresía Enredarte",
+                    "amount": "349.00",
+                    "currency": "MXN",
+                    "interval": "month",
+                    "grace_period_days": "3",
+                    "is_active_for_new_signups": "on",
+                    "history-TOTAL_FORMS": "0",
+                    "history-INITIAL_FORMS": "0",
+                    "history-MIN_NUM_FORMS": "0",
+                    "history-MAX_NUM_FORMS": "0",
+                },
+            )
+        self.assertEqual(response.status_code, 302)
+        self.plan.refresh_from_db()
+        self.assertEqual(self.plan.stripe_product_id, "prod_fresh")
+        self.assertEqual(self.plan.stripe_price_id, "price_fresh")
+        history = BillingPlanPriceHistory.objects.get()
+        self.assertEqual(history.old_stripe_price_id, "price_old")
+        self.assertEqual(history.new_stripe_price_id, "price_fresh")
+        self.assertFalse(history.old_price_archived)

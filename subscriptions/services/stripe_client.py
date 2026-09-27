@@ -88,9 +88,20 @@ def list_subscriptions(customer_id, limit=1):
 
 
 def get_or_create_product(name: str, existing_id: str = ""):
-    """Return a Stripe Product, reusing existing_id when present."""
+    """Return a Stripe Product, reusing existing_id when present.
+
+    When ``existing_id`` no longer resolves in Stripe (deleted product or a
+    stale id after a Stripe account switch), fall back to creating a fresh
+    product instead of re-raising the ``resource_missing`` error, so the
+    ``auto-price-regeneration`` heal path can recover. Any other
+    ``StripeError`` still propagates.
+    """
     if existing_id:
-        return stripe.Product.retrieve(existing_id)
+        try:
+            return stripe.Product.retrieve(existing_id)
+        except stripe.error.InvalidRequestError as e:
+            if getattr(e, "code", None) != "resource_missing":
+                raise
     return stripe.Product.create(name=name)
 
 
