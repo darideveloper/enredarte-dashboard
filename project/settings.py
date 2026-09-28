@@ -289,7 +289,6 @@ UNFOLD = {
     ],
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": True,
-    "ENVIRONMENT": "utils.callbacks.environment_callback",
     "THEME": "light",
     "COLORS": {
         "primary": {
