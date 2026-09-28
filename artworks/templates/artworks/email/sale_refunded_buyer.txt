@@ -4,6 +4,7 @@ Hubo un inconveniente con tu compra y realizamos un reembolso completo.
 
 Obra: {{ artwork_title }}
 Monto reembolsado: {{ currency }} {{ amount }}
+Nota: este monto corresponde únicamente al precio de la obra. El costo de envío se acuerda por separado.
 
 El reembolso se procesará según los tiempos de tu banco.
 
@@ -18,6 +19,7 @@ There was an issue with your purchase, and we have issued a full refund.
 
 Artwork: {{ artwork_title }}
 Refunded amount: {{ currency }} {{ amount }}
+Note: this amount covers the artwork price only. Delivery cost is agreed separately.
 
 The refund will be processed according to your bank's processing times.
 

@@ -3,7 +3,9 @@ Hola,
 Tu pago fue confirmado. ¡Gracias por tu compra!
 
 Obra: {{ artwork_title }}
+Tu obra incluye certificado de autenticidad y entrega segura coordinada por nuestro equipo.
 Monto: {{ currency }} {{ amount }}
+Nota: este monto corresponde únicamente al precio de la obra. El costo de envío se acuerda por separado.
 
 Para coordinar la entrega, completa tus datos de envío desde la página que verás al finalizar la compra.
 
@@ -17,7 +19,9 @@ Hello,
 Your payment was confirmed. Thank you for your purchase!
 
 Artwork: {{ artwork_title }}
+Your artwork includes a certificate of authenticity and secure delivery coordinated by our team.
 Amount: {{ currency }} {{ amount }}
+Note: this amount covers the artwork price only. Delivery cost is agreed separately.
 
 To arrange delivery, please complete your shipping details on the page shown after checkout.
 
