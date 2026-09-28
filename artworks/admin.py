@@ -323,6 +323,12 @@ MSG_LINK_GENERATED_PRICE_REGENERATED = gettext_lazy(
     "Link generado. El precio fue regenerado automáticamente en Stripe."
 )
 MSG_LINK_REGENERATED = gettext_lazy("Link regenerado.")
+MSG_LINK_REGENERATED_PRICE_REGENERATED = gettext_lazy(
+    "Link regenerado. El precio fue regenerado automáticamente en Stripe."
+)
+MSG_ZERO_AMOUNT_HINT = gettext_lazy(
+    "Configura el monto en Plan de suscripción."
+)
 MSG_STALE_CUSTOMER = gettext_lazy("El customer fue eliminado de Stripe; regenera el link")
 
 
@@ -669,6 +675,41 @@ class ArtistAdmin(ModelAdminUnfoldBase):
                     continue
                 raise
 
+    def _checkout_with_price_heal(self, sub, artist, plan):
+        """Create a checkout session, auto-creating/regenerating the plan price.
+
+        Returns `(session, healed)`. Raises `stripe.error.StripeError` on
+        failure (caller logs + shows messages). `plan` is mutated in place by
+        `ensure_stripe_price`, so the retry reads the fresh `stripe_price_id`.
+        """
+        healed = False
+        old_price_id = plan.stripe_price_id or ""
+        if not plan.stripe_price_id:
+            plan_sync.ensure_stripe_price(plan)
+            healed = True
+        try:
+            session = self._create_session_recovering_stale_customer(
+                sub, artist, plan.stripe_price_id
+            )
+            return session, healed
+        except stripe.error.StripeError as e:
+            if not self._is_stale_price_error(e, plan):
+                raise
+            plan_sync.ensure_stripe_price(plan)
+            healed = True
+            try:
+                session = self._create_session_recovering_stale_customer(
+                    sub, artist, plan.stripe_price_id
+                )
+            except stripe.error.StripeError as e2:
+                logger.warning(
+                    "_checkout_with_price_heal retry StripeError after regen "
+                    "(orphan price logged in plan_sync) old=%s new=%s: %s",
+                    old_price_id, plan.stripe_price_id, e2,
+                )
+                raise
+            return session, healed
+
     @action(description="Generar link de suscripción", url_path="generate-link", permissions=["generate_link"])
     def generate_link(self, request, object_id):
         artist = self._resolve_artist(object_id)
@@ -693,16 +734,6 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             # configured) — auto-create the product/price below instead of
             # refusing.
 
-        healed = False
-        if not plan.stripe_price_id:
-            try:
-                plan_sync.ensure_stripe_price(plan)
-                healed = True
-            except stripe.error.StripeError as e:
-                logger.warning("generate_link artist=%s ensure price StripeError: %s", artist.pk, e)
-                messages.error(request, f"Stripe no respondió: {e}")
-                return redirect(redirect_url)
-
         sub, _created = ArtistSubscription.objects.get_or_create(
             artist=artist,
             defaults={"status": ArtistSubscription.Status.PENDING},
@@ -716,31 +747,14 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             sub.raw_state = {}
 
         try:
-            session = self._create_session_recovering_stale_customer(sub, artist, plan.stripe_price_id)
+            session, healed = self._checkout_with_price_heal(sub, artist, plan)
         except stripe.error.StripeError as e:
-            if not self._is_stale_price_error(e, plan):
-                logger.warning("generate_link artist=%s StripeError: %s", artist.pk, e)
-                messages.error(request, f"Stripe no respondió: {e}")
-                return redirect(redirect_url)
-            # Stale plan price/product (e.g. Stripe account switch, deleted or
-            # archived price): regenerate once and retry the checkout exactly
-            # once with the fresh price.
-            try:
-                plan_sync.ensure_stripe_price(plan)
-                healed = True
-            except stripe.error.StripeError as e2:
-                logger.warning("generate_link artist=%s regen price StripeError: %s", artist.pk, e2)
-                messages.error(request, f"Stripe no respondió: {e2}")
-                return redirect(redirect_url)
-            try:
-                session = self._create_session_recovering_stale_customer(sub, artist, plan.stripe_price_id)
-            except stripe.error.StripeError as e3:
-                logger.warning(
-                    "generate_link artist=%s retry StripeError after regen (orphan price logged in plan_sync): %s",
-                    artist.pk, e3,
-                )
-                messages.error(request, f"Stripe no respondió: {e3}")
-                return redirect(redirect_url)
+            logger.warning("generate_link artist=%s StripeError: %s", artist.pk, e)
+            msg = f"Stripe no respondió: {e}"
+            if plan.amount is not None and plan.amount <= 0:
+                msg = f"{msg} {MSG_ZERO_AMOUNT_HINT}"
+            messages.error(request, msg)
+            return redirect(redirect_url)
         sub.signup_url = session.url
         sub.signup_url_expires_at = epoch_to_datetime(session.expires_at)
         sub.status = ArtistSubscription.Status.PENDING
@@ -778,9 +792,18 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             return refused
 
         blocked = _billing_blocked(artist)
+        plan = BillingPlan.get_solo()
         if blocked:
-            messages.error(request, blocked)
-            return redirect(redirect_url)
+            price_only = (
+                bool(artist.email)
+                and plan.is_active_for_new_signups
+                and not plan.stripe_price_id
+            )
+            if not price_only:
+                messages.error(request, blocked)
+                return redirect(redirect_url)
+            # The only blocker is an empty stripe_price_id — auto-create the
+            # product/price in the helper instead of refusing.
 
         sub = ArtistSubscription.objects.filter(artist=artist).first()
         if sub is None:
@@ -793,12 +816,14 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             messages.success(request, MSG_LINK_REGENERATED)
             return redirect(redirect_url)
 
-        plan = BillingPlan.get_solo()
         try:
-            session = self._create_session_recovering_stale_customer(sub, artist, plan.stripe_price_id)
+            session, healed = self._checkout_with_price_heal(sub, artist, plan)
         except stripe.error.StripeError as e:
             logger.warning("regenerate_link artist=%s StripeError: %s", artist.pk, e)
-            messages.error(request, f"Stripe no respondió: {e}")
+            msg = f"Stripe no respondió: {e}"
+            if plan.amount is not None and plan.amount <= 0:
+                msg = f"{msg} {MSG_ZERO_AMOUNT_HINT}"
+            messages.error(request, msg)
             return redirect(redirect_url)
         sub.signup_url = session.url
         sub.signup_url_expires_at = epoch_to_datetime(session.expires_at)
@@ -813,7 +838,10 @@ class ArtistAdmin(ModelAdminUnfoldBase):
             ]
         )
 
-        messages.success(request, MSG_LINK_REGENERATED)
+        if healed:
+            messages.success(request, MSG_LINK_REGENERATED_PRICE_REGENERATED)
+        else:
+            messages.success(request, MSG_LINK_REGENERATED)
         return redirect(redirect_url)
 
     @action(description="Abrir Customer Portal", url_path="open-portal", permissions=["open_portal"], attrs={"target": "_blank"})

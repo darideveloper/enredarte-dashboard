@@ -2942,6 +2942,129 @@ class GenerateLinkAutoRegenTest(ArtistTestBase):
             artist=self.artist, signup_url__contains="checkout").exists())
 
 
+class RegenerateLinkAutoRegenTest(ArtistTestBase):
+    """Regenerar heals stale/empty plan price like Generar."""
+
+    def _expired_sub(self):
+        return ArtistSubscription.objects.create(
+            artist=self.artist,
+            status=ArtistSubscription.Status.PENDING,
+            stripe_customer_id="cus_123",
+            signup_url="https://checkout.stripe.com/c/old",
+            signup_url_expires_at=timezone.now() - timedelta(hours=1),
+        )
+
+    def _heal(self, price="price_fresh", product="prod_fresh"):
+        def _ensure(p, user=None):
+            p.stripe_price_id = price
+            p.stripe_product_id = product
+            return p
+        return _ensure
+
+    def test_regenerates_stale_price_and_retries_once(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_stale", stripe_product_id="prod_stale")
+        sub = self._expired_sub()
+        stale = stripe_lib.error.InvalidRequestError(
+            "No such price: 'price_stale'", "price", code="resource_missing")
+        session = type("S", (), {"url": "https://checkout.stripe.com/c/pay", "expires_at": time.time() + 3600})
+        with patch("artworks.admin.stripe_client.create_checkout_session",
+                   side_effect=[stale, session]) as mock_session, \
+             patch("artworks.admin.plan_sync.ensure_stripe_price",
+                   side_effect=self._heal()) as mock_ensure:
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
+        self.assertEqual(response.status_code, 302)
+        mock_ensure.assert_called_once()
+        self.assertEqual(mock_session.call_count, 2)
+        self.assertEqual(mock_session.call_args_list[0][0][2], "price_stale")
+        self.assertEqual(mock_session.call_args_list[1][0][2], "price_fresh")
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("regenerado" in m for m in msgs))
+        sub.refresh_from_db()
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/pay")
+
+    def test_auto_creates_price_on_empty_price_id(self):
+        self.client.force_login(self.user)
+        plan = BillingPlan.get_solo()
+        plan.amount = Decimal("299.00")
+        plan.currency = "MXN"
+        plan.interval = "month"
+        plan.stripe_product_id = ""
+        plan.stripe_price_id = ""
+        plan.save()
+        sub = self._expired_sub()
+        session = type("S", (), {"url": "https://checkout.stripe.com/c/pay", "expires_at": time.time() + 3600})
+        with patch("artworks.admin.stripe_client.create_checkout_session",
+                   return_value=session), \
+             patch("artworks.admin.plan_sync.ensure_stripe_price",
+                   side_effect=self._heal(price="price_auto", product="prod_auto")) as mock_ensure:
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
+        self.assertEqual(response.status_code, 302)
+        mock_ensure.assert_called_once()
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("regenerado" in m for m in msgs))
+        sub.refresh_from_db()
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/pay")
+
+    def test_heal_then_retry_failure_no_third_attempt(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_stale", stripe_product_id="prod_stale")
+        sub = self._expired_sub()
+        stale = stripe_lib.error.InvalidRequestError(
+            "No such price: 'price_stale'", "price", code="resource_missing")
+        with patch("artworks.admin.stripe_client.create_checkout_session",
+                   side_effect=[stale, stripe_lib.error.StripeError("still down")]) as mock_session, \
+             patch("artworks.admin.plan_sync.ensure_stripe_price",
+                   side_effect=self._heal()):
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(mock_session.call_count, 2)
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        sub.refresh_from_db()
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/old")
+
+    def test_auth_error_does_not_regenerate(self):
+        self.client.force_login(self.user)
+        BillingPlan.get_solo().save()
+        BillingPlan.objects.update(stripe_price_id="price_test")
+        sub = self._expired_sub()
+        with patch("artworks.admin.stripe_client.create_checkout_session",
+                   side_effect=stripe_lib.error.AuthenticationError("bad key")), \
+             patch("artworks.admin.plan_sync.ensure_stripe_price") as mock_ensure:
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
+        self.assertEqual(response.status_code, 302)
+        mock_ensure.assert_not_called()
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        sub.refresh_from_db()
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/old")
+
+    def test_zero_amount_auto_create_shows_monto_hint(self):
+        self.client.force_login(self.user)
+        plan = BillingPlan.get_solo()
+        plan.amount = Decimal("0")
+        plan.currency = "MXN"
+        plan.interval = "month"
+        plan.stripe_product_id = ""
+        plan.stripe_price_id = ""
+        plan.save()
+        sub = self._expired_sub()
+        with patch("artworks.admin.plan_sync.ensure_stripe_price",
+                   side_effect=stripe_lib.error.StripeError("Invalid positive amount")), \
+             patch("artworks.admin.stripe_client.create_checkout_session") as mock_session:
+            response = self.client.get(self._action_url(self.artist, "regenerate-link"))
+        self.assertEqual(response.status_code, 302)
+        mock_session.assert_not_called()
+        msgs = [str(m) for m in get_messages(response.wsgi_request)]
+        self.assertTrue(any("Stripe no respondió" in m for m in msgs))
+        self.assertTrue(any("monto" in m for m in msgs))
+        sub.refresh_from_db()
+        self.assertEqual(sub.signup_url, "https://checkout.stripe.com/c/old")
+
+
 class BillingPlanAdminStaleProductTest(TestCase):
     """5.4: the BillingPlan admin price form heals a stale product."""
 

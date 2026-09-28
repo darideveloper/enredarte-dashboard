@@ -58,7 +58,7 @@ The system SHALL provide a "Copiar link" button on the Artist admin change page 
 - **THEN** the `data-copy-url` value SHALL be written to the clipboard and the button label SHALL briefly display "¡Copiado!" without removing the button icon
 
 ### Requirement: Regenerate subscription link action
-The system SHALL provide a "Regenerar link" changeform action on the Artist admin change page that reuses a valid existing checkout URL or creates a new one when expired. The action SHALL be visible whenever a subscription link exists (`signup_url` present, valid or expired) AND the row is `payment_method="online"` (never for cash rows). When Stripe raises `stripe.error.StripeError`, the system SHALL NOT return `500`; it SHALL `logger.warning`, show `messages.error` with prefix `Stripe no respondió`, and redirect `302`. When the stored `stripe_customer_id` is missing or deleted in Stripe (a stale-customer `StripeError` on the checkout call), the system SHALL clear the stale `stripe_customer_id`, create a fresh customer, and retry the checkout session once before falling through to the generic error path.
+The system SHALL provide a "Regenerar link" changeform action on the Artist admin change page that reuses a valid existing checkout URL or creates a new one when expired. The action SHALL be visible whenever a subscription link exists (`signup_url` present, valid or expired) AND the row is `payment_method="online"` (never for cash rows). When the stored `BillingPlan.stripe_price_id` is empty (and email present with signups active), the system SHALL auto-create the product/price via `plan_sync.ensure_stripe_price` instead of refusing, and when the checkout raises a stale price/product error (a `resource_missing` `InvalidRequestError` referencing `price`/`product`/`price_xxx`/`prod_xxx`) the system SHALL regenerate via `ensure_stripe_price` and retry the checkout exactly once, showing a loud Spanish success message noting the price was regenerated. When Stripe raises any other `stripe.error.StripeError`, the system SHALL NOT return `500`; it SHALL `logger.warning`, show `messages.error` with prefix `Stripe no respondió`, and redirect `302` without persisting a partial URL. When the stored `stripe_customer_id` is missing or deleted in Stripe (a stale-customer `StripeError` on the checkout call), the system SHALL clear the stale `stripe_customer_id`, create a fresh customer, and retry the checkout session once before falling through to the generic error path.
 
 #### Scenario: Regenerate link reuses valid URL
 - **WHEN** an administrator clicks "Regenerar link" and the existing `signup_url` has not expired
@@ -68,13 +68,21 @@ The system SHALL provide a "Regenerar link" changeform action on the Artist admi
 - **WHEN** an administrator clicks "Regenerar link" and the existing `signup_url` has expired
 - **THEN** the system SHALL create a new checkout session, update the `signup_url` and `signup_url_expires_at`, and redirect back to the change form
 
+#### Scenario: Regenerate link auto-creates price on empty price id
+- **WHEN** an administrator clicks "Regenerar link" with an expired link and `BillingPlan.stripe_price_id` is empty (valid `amount > 0`, email present, signups active)
+- **THEN** the system SHALL regenerate the product/price via `ensure_stripe_price`, create the checkout session, store the new `signup_url`, and redirect back with a Spanish success message noting the price was regenerated
+
+#### Scenario: Regenerate link regenerates a stale price and succeeds
+- **WHEN** the stored `BillingPlan` product/price no longer exists in Stripe and the checkout raises a price/product `resource_missing` `InvalidRequestError`
+- **THEN** the system SHALL regenerate the product/price via `ensure_stripe_price`, retry the checkout once with the fresh `price_xxx`, and on success store the new `signup_url` and show a Spanish success message noting the price was regenerated
+
 #### Scenario: Regenerate link hidden on the cash path
 - **WHEN** an administrator opens an Artist change form whose subscription is a cash row
 - **THEN** the "Regenerar link" action SHALL NOT be shown (cash rows never hold a `signup_url`).
 
 #### Scenario: Stripe error during regeneration shows message not 500
-- **WHEN** `stripe.Customer.create` or `stripe.checkout.Session.create` raises `stripe.error.StripeError` during regeneration
-- **THEN** the system SHALL show `messages.error` with prefix `Stripe no respondió` and return `302` without persisting a partial URL.
+- **WHEN** `stripe.Customer.create` or `stripe.checkout.Session.create` raises a non-stale `stripe.error.StripeError` during regeneration
+- **THEN** the system SHALL show `messages.error` with prefix `Stripe no respondió` and return `302` without persisting a partial URL and without regenerating the product/price.
 
 #### Scenario: Regenerate link recovers from a deleted customer
 - **WHEN** the stored `stripe_customer_id` points to a customer deleted or missing in Stripe and the checkout call raises the stale-customer error

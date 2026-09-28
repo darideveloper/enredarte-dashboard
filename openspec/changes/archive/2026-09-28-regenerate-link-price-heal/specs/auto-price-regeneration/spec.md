@@ -1,8 +1,5 @@
-# auto-price-regeneration Specification
+## MODIFIED Requirements
 
-## Purpose
-Self-healing regeneration of the shared `BillingPlan` Stripe product/price during **Generar link de suscripción** and **Regenerar link** when the stored product/price is missing in Stripe (e.g. after a Stripe account switch or a deleted/archived price) or is not yet configured (`stripe_price_id` empty). Regeneration uses the existing `plan_sync.ensure_stripe_price`, retries the checkout once, is restricted to a narrow staleness trigger so it can never create products in the wrong account or spam orphan prices on transient errors, and reports the heal loudly to the operator.
-## Requirements
 ### Requirement: Regenerate product/price on stale price during link generation
 The system SHALL detect, during `Generar link de suscripción` and `Regenerar link`, when the stored `BillingPlan.stripe_price_id` / `stripe_product_id` no longer resolves in Stripe (a `stripe.error.InvalidRequestError` with `code == "resource_missing"` whose `param`/message references `price`, `product`, or the stored `price_xxx` / `prod_xxx`), and SHALL regenerate the product and price via `plan_sync.ensure_stripe_price`, then retry the checkout session **exactly once** using the fresh `stripe_price_id`. The regeneration SHALL re-read the persisted `BillingPlan` row before creating (idempotence check) and SHALL write a `BillingPlanPriceHistory` row via the existing flow.
 
