@@ -1,39 +1,24 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tu compra está reservada / Your purchase is reserved</title>
-    <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #faf7f2; margin: 0; padding: 24px; }
-        .card { background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 32px; max-width: 520px; margin: 0 auto; }
-        h1 { color: #1d3a2f; font-size: 22px; margin: 0 0 12px; }
-        p { color: #444; line-height: 1.6; margin: 0 0 12px; }
-        .cta { background: #1d3a2f; color: #fff; border-radius: 8px; padding: 12px 16px; font-size: 15px; }
-        .muted { color: #777; font-size: 13px; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>Tu compra está reservada</h1>
-        <p>Completaste tu solicitud y dejamos la obra separada para ti durante <strong>30 minutos</strong>.</p>
-        <p><strong>Obra:</strong> {{ artwork_title }}<br>
-           <strong>Monto:</strong> {{ currency }} {{ amount }}</p>
-        <p>Para completar tu pago, usa este enlace:</p>
-        <p class="cta"><a href="{{ checkout_url }}" style="color:#fff; text-decoration:none;">Completar el pago</a></p>
-        <p class="muted">Si no completas el pago en 30 minutos, la obra volverá a estar disponible para otros compradores.</p>
-        <p class="muted">Si tienes alguna duda, responde a este correo y con gusto te ayudamos.</p>
+{% extends "email/base.html" %}
+{% block email_title %}Tu compra está reservada / Your purchase is reserved{% endblock %}
+{% block eyebrow %}Compra de obra{% endblock %}
+{% block title %}Tu compra está reservada{% endblock %}
+{% block body %}
+<p>Completaste tu solicitud y dejamos la obra separada para ti durante <strong>30 minutos</strong>.</p>
+<p><strong>Obra:</strong> {{ artwork_title }}<br>
+   <strong>Monto:</strong> {{ currency }} {{ amount }}</p>
+<p>Para completar tu pago, usa este enlace:</p>
+<p><a class="cta-btn" href="{{ checkout_url }}" style="background:#C41E3A;color:#F2EDE4;border:1px solid #C41E3A;border-radius:0;padding:15px 32px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;display:inline-block;">Completar el pago</a></p>
+<p class="muted">Si no completas el pago en 30 minutos, la obra volverá a estar disponible para otros compradores.</p>
 
-        <hr style="border: 0; border-top: 1px solid #e5e0d8; margin: 24px 0;">
+<hr class="divider">
 
-        <h2 style="color: #1d3a2f; font-size: 18px; margin: 0 0 12px;">Your purchase is reserved</h2>
-        <p>You completed your request and we have held the artwork for you for <strong>30 minutes</strong>.</p>
-        <p><strong>Artwork:</strong> {{ artwork_title }}<br>
-           <strong>Amount:</strong> {{ currency }} {{ amount }}</p>
-        <p>To complete your payment, use this link:</p>
-        <p class="cta"><a href="{{ checkout_url }}" style="color:#fff; text-decoration:none;">Complete payment</a></p>
-        <p class="muted">If you do not complete the payment within 30 minutes, the artwork will become available to other buyers again.</p>
-        <p class="muted">If you have any questions, reply to this email and we will gladly help you.</p>
-    </div>
-</body>
-</html>
+<p class="eyebrow">English version</p>
+<h2 class="email-subtitle">Your purchase is reserved</h2>
+<p>You completed your request and we have held the artwork for you for <strong>30 minutes</strong>.</p>
+<p><strong>Artwork:</strong> {{ artwork_title }}<br>
+   <strong>Amount:</strong> {{ currency }} {{ amount }}</p>
+<p>To complete your payment, use this link:</p>
+<p><a class="cta-btn" href="{{ checkout_url }}" style="background:#C41E3A;color:#F2EDE4;border:1px solid #C41E3A;border-radius:0;padding:15px 32px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:none;display:inline-block;">Complete payment</a></p>
+<p class="muted">If you do not complete the payment within 30 minutes, the artwork will become available to other buyers again.</p>
+<p class="muted">If you have any questions, reply to this email and we will gladly help you.</p>
+{% endblock %}

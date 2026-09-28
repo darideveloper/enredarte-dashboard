@@ -1,5 +1,20 @@
 # Emails Track
 
+## Branding (change `unify-email-branding`)
+
+One shared shell + one token source for all 36 HTML mails, following the
+landing's Gallery Salon system (paper `#F2EDE4`, ink `#1A1A1A`, crimson
+`#C41E3A`, Georgia serif display, sharp `rounded-none` cards):
+
+- Tokens: `core/mail_branding.py` (`BRAND`, `WORDMARK`, `FOOTER_CONTACT`,
+  `brand_context()`); injected into every render via
+  `core.mail_utils.send_audience` and `subscriptions` sender contexts.
+- Shell: `project/templates/email/base.html` (`eyebrow` / `title` / `body` /
+  `cta` blocks) + `email/_wordmark.html` (text wordmark, no image) +
+  `email/_footer.html` (reply-hint + `© Enredarte · info@enredarte.com`).
+  All per-mail templates `{% extends "email/base.html" %}`; the base holds
+  the only `<style>` block. TXT companions are unstyled and unchanged.
+
 Mail is sent from per-domain mailers: `subscriptions/services/notifications.py` (cash + online
 subscriptions) and `artworks/sale_notifications.py` (artwork sales), both via the shared helpers
 in `core/mail_utils.py` (`send_best_effort`, `send_audience`) using `EmailMultiAlternatives`

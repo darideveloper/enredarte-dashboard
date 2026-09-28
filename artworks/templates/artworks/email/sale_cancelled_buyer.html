@@ -1,32 +1,18 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tu pago no se completó / Payment not completed</title>
-    <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #faf7f2; margin: 0; padding: 24px; }
-        .card { background: #fff; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.08); padding: 32px; max-width: 520px; margin: 0 auto; }
-        h1 { color: #1d3a2f; font-size: 22px; margin: 0 0 12px; }
-        p { color: #444; line-height: 1.6; margin: 0 0 12px; }
-        .muted { color: #777; font-size: 13px; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>Tu pago no se completó</h1>
-        <p>Tu pago no se completó y la reserva de la obra ya no está vigente.</p>
-        <p><strong>Obra:</strong> {{ artwork_title }}</p>
-        <p>Si aún te interesa, revisa su disponibilidad en el sitio y vuelve a intentarlo dentro del tiempo indicado.</p>
-        <p class="muted">Si tienes alguna duda, responde a este correo y con gusto te ayudamos.</p>
+{% extends "email/base.html" %}
+{% block email_title %}Tu pago no se completó / Payment not completed{% endblock %}
+{% block eyebrow %}Compra de obra{% endblock %}
+{% block title %}Tu pago no se completó{% endblock %}
+{% block body %}
+<p>Tu pago no se completó y la reserva de la obra ya no está vigente.</p>
+<p><strong>Obra:</strong> {{ artwork_title }}</p>
+<p>Si aún te interesa, revisa su disponibilidad en el sitio y vuelve a intentarlo dentro del tiempo indicado.</p>
 
-        <hr style="border: 0; border-top: 1px solid #e5e0d8; margin: 24px 0;">
+<hr class="divider">
 
-        <h2 style="color: #1d3a2f; font-size: 18px; margin: 0 0 12px;">Payment not completed</h2>
-        <p>Your payment was not completed and the artwork reservation is no longer active.</p>
-        <p><strong>Artwork:</strong> {{ artwork_title }}</p>
-        <p>If you are still interested, check its availability on the site and try again within the designated time window.</p>
-        <p class="muted">If you have any questions, reply to this email and we will gladly help you.</p>
-    </div>
-</body>
-</html>
+<p class="eyebrow">English version</p>
+<h2 class="email-subtitle">Payment not completed</h2>
+<p>Your payment was not completed and the artwork reservation is no longer active.</p>
+<p><strong>Artwork:</strong> {{ artwork_title }}</p>
+<p>If you are still interested, check its availability on the site and try again within the designated time window.</p>
+<p class="muted">If you have any questions, reply to this email and we will gladly help you.</p>
+{% endblock %}

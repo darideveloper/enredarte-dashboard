@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth.models import User
 from django.contrib.messages import get_messages
 from django.core.exceptions import ImproperlyConfigured
+from django.template.loader import render_to_string
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -247,3 +248,64 @@ class StripeEventAdminTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "boom")
+
+
+class EmailBrandingShellTest(TestCase):
+    """unify-email-branding: every HTML mail uses the shared shell + landing tokens."""
+
+    @staticmethod
+    def _mail_templates():
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
+        return sorted((root / "artworks" / "templates" / "artworks" / "email").glob("*.html")) + sorted(
+            (root / "subscriptions" / "templates" / "subscriptions" / "email").glob("*.html")
+        )
+
+    @staticmethod
+    def _template_name(path):
+        from pathlib import Path
+
+        name = Path(path).name
+        return f"artworks/email/{name}" if "artworks" in Path(path).parts else f"subscriptions/email/{name}"
+
+    def test_all_html_extend_base_without_inline_style(self):
+        self.assertTrue(self._mail_templates(), "no mail templates found")
+        for path in self._mail_templates():
+            with self.subTest(template=path.name):
+                source = path.read_text()
+                self.assertIn('extends "email/base.html"', source)
+                self.assertNotIn("<style>", source)
+                self.assertNotIn("#1d3a2f", source)
+                self.assertNotIn("border-radius: 16px", source)
+                self.assertNotIn("<img", source)
+                self.assertNotIn("facebook.com", source)
+                self.assertNotIn("instagram.com", source)
+                self.assertNotIn("wa.me", source)
+
+    def test_all_html_render_shell_markers_from_fallbacks(self):
+        from core.mail_branding import BRAND
+
+        for path in self._mail_templates():
+            with self.subTest(template=path.name):
+                html = render_to_string(self._template_name(path), {})
+                self.assertIn("ENREDARTE", html)
+                self.assertIn("Georgia", html)
+                self.assertIn("border-radius: 0", html)
+                self.assertIn("info@enredarte.com", html)
+                for token in (BRAND["paper"], BRAND["ink"], BRAND["crimson"], BRAND["muted"], BRAND["border"]):
+                    self.assertIn(token, html)
+                self.assertNotIn("#1d3a2f", html)
+
+    def test_buyer_templates_carry_divider_and_reserved_cta(self):
+        from pathlib import Path
+
+        buyers = [p for p in self._mail_templates() if p.name.endswith("_buyer.html") and "artworks" in Path(p).parts]
+        self.assertTrue(buyers, "no buyer templates found")
+        for path in buyers:
+            with self.subTest(template=path.name):
+                html = render_to_string(self._template_name(path), {"checkout_url": "https://checkout.test/x"})
+                self.assertIn("<hr", html)
+        reserved = render_to_string("artworks/email/sale_reserved_buyer.html", {"checkout_url": "https://checkout.test/x"})
+        self.assertIn("background:#C41E3A", reserved)
+        self.assertIn("https://checkout.test/x", reserved)

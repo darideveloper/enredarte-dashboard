@@ -18,6 +18,7 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
+from core.mail_branding import brand_context
 from core.mail_utils import send_audience, send_best_effort
 from subscriptions.models import BillingPlan
 
@@ -75,7 +76,7 @@ def _context(artist, actor):
         from django.utils.formats import date_format
 
         ctx["renew_date"] = date_format(renew, "DATE_FORMAT")
-    return ctx
+    return brand_context(ctx)
 
 
 def _send_cash(kind, artist, actor):

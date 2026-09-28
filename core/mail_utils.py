@@ -13,6 +13,8 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
+from core.mail_branding import brand_context
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +41,7 @@ def send_audience(subject, ctx, template_base, recipients):
     """
     if not recipients:
         return False
+    ctx = brand_context(ctx)
     text = render_to_string(f"{template_base}.txt", ctx)
     html = render_to_string(f"{template_base}.html", ctx)
     msg = EmailMultiAlternatives(subject, text, settings.EMAIL_FROM, recipients)
