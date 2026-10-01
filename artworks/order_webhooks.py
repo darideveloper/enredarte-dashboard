@@ -63,6 +63,9 @@ def _apply_artwork_paid(order, session):
         order.status = ArtworkOrderStatus.REFUNDED
         order.stripe_payment_intent_id = pi or order.stripe_payment_intent_id
         order.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
+        from finance import services as finance_services
+
+        finance_services.record_artwork_refund(order)
         logger.warning("artwork double-sale order=%s refunding pi=%s", order.slug, pi)
         refund = stripe_orders.create_refund(pi)
         refund_id = (

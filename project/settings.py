@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "artworks",
     "blog",
     "subscriptions",
+    "finance",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -309,6 +310,19 @@ UNFOLD = {
         "show_search": True,
         "show_all_applications": True,
         "navigation": [
+            {
+                "title": "Finanzas",
+                "separator": True,
+                "collapsible": False,
+                "items": [
+                    {
+                        "title": "Movimientos",
+                        "icon": "receipt_long",
+                        "link": reverse_lazy("admin:finance_financialentry_changelist"),
+                        "permission": lambda request: request.user.is_staff,
+                    },
+                ],
+            },
             {
                 "title": "Sistema",
                 "separator": True,

@@ -200,6 +200,30 @@ def _handle_invoice_payment_succeeded(event):
             ]
         )
     _sync_artist(sub)
+    _record_invoice_payment(sub, invoice)
+
+
+def _record_invoice_payment(sub, invoice):
+    """Append the subscription income to the financial ledger (idempotent)."""
+    from finance import services as finance_services
+    from finance.models import FinancialEntry
+
+    paid_ts = (invoice.get("status_transitions") or {}).get("paid_at") or invoice.get("created")
+    occurred_on = (
+        timezone.localdate(epoch_to_datetime(paid_ts)) if paid_ts else timezone.localdate()
+    )
+    finance_services.record_subscription_payment(
+        artist=sub.artist,
+        amount=finance_services.cents_to_amount(
+            invoice.get("amount_paid") or invoice.get("total") or 0
+        ),
+        currency=(invoice.get("currency") or "").upper(),
+        occurred_on=occurred_on,
+        payment_method=FinancialEntry.PaymentMethod.STRIPE,
+        subscription=sub,
+        reference=invoice.get("id") or "",
+        note="Suscripción en línea",
+    )
 
 
 def _handle_invoice_payment_failed(event):

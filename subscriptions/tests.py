@@ -1797,6 +1797,12 @@ class CashAdminActionsTest(ArtistTestBase):
         self.assertEqual(len(mail.outbox), 0)
 
     def test_confirmar_pago_activates_and_notifies(self):
+        from finance.models import FinancialEntry
+
+        plan = BillingPlan.get_solo()
+        plan.amount = Decimal("500.00")
+        plan.currency = "MXN"
+        plan.save()
         self._make_cash(ArtistSubscription.Status.PENDING)
         response = self.client.get(self._action_url(self.artist, "confirmar-pago-efectivo"))
         self.assertEqual(response.status_code, 302)
@@ -1809,6 +1815,12 @@ class CashAdminActionsTest(ArtistTestBase):
             self._messages(response),
         )
         self.assertEqual(len(mail.outbox), 2)
+        entry = FinancialEntry.objects.get(
+            kind=FinancialEntry.Kind.SUBSCRIPTION_PAYMENT
+        )
+        self.assertEqual(entry.amount, Decimal("500.00"))
+        self.assertEqual(entry.payment_method, FinancialEntry.PaymentMethod.CASH)
+        self.assertEqual(entry.artist_id, self.artist.pk)
 
     def test_reconfirm_extends_and_resends_receipt(self):
         # Re-confirming an active row counts as a new monthly payment.

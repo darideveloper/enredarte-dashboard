@@ -12,8 +12,14 @@ from core.mail_utils import send_best_effort
 logger = logging.getLogger(__name__)
 
 
+@transaction.atomic
 def apply_paid_transition(order, payment_intent_id="", buyer_email="", buyer_name=""):
-    """Apply idempotent paid-transition; return True if transitioned."""
+    """Apply idempotent paid-transition; return True if transitioned.
+
+    Atomic so the order/artwork state and the financial-ledger rows commit
+    together, including callers that don't open their own transaction
+    (e.g. ``sync_orders_from_stripe``).
+    """
     if order.status != ArtworkOrderStatus.PENDING_PAYMENT:
         return False
     order.stripe_payment_intent_id = payment_intent_id or order.stripe_payment_intent_id
@@ -37,6 +43,9 @@ def apply_paid_transition(order, payment_intent_id="", buyer_email="", buyer_nam
     if artwork.status != ArtworkStatus.SOLD:
         artwork.status = ArtworkStatus.SOLD
         artwork.save(update_fields=["status", "updated_at"])
+    from finance import services as finance_services
+
+    finance_services.record_artwork_sale(order)
     return True
 
 
@@ -106,6 +115,9 @@ def _apply_reconciled_paid(order_id, session):
             order.status = ArtworkOrderStatus.REFUNDED
             order.stripe_payment_intent_id = pi or order.stripe_payment_intent_id
             order.save(update_fields=["status", "stripe_payment_intent_id", "updated_at"])
+            from finance import services as finance_services
+
+            finance_services.record_artwork_refund(order)
             logger.warning("reconcile double-sale order=%s refunding pi=%s", order.slug, pi)
             refund = stripe_orders.create_refund(pi)
             refund_id = (

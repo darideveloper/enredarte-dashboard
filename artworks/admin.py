@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib import admin, messages
 from django.contrib.admin import RelatedOnlyFieldListFilter
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q, Subquery
 from django.forms.models import BaseInlineFormSet
 from django.shortcuts import redirect
@@ -1022,28 +1023,33 @@ class ArtistAdmin(ModelAdminUnfoldBase):
         # Each execution counts as one monthly payment: stamp the paid date
         # and push the renew date one calendar month from the later of today
         # and the current renew date (early payers keep their full period).
-        today = timezone.localdate()
-        current = sub.current_period_end
-        current_renew = timezone.localdate(current) if current is not None else None
-        base = max(today, current_renew) if current_renew is not None else today
-        sub.status = ArtistSubscription.Status.ACTIVE
-        sub.cash_last_paid_at = today
-        sub.current_period_end = cash_renew_datetime(base)
-        sub.raw_state = {"cash": True, "confirmed_by": request.user.get_username()}
-        sub.last_synced_at = timezone.now()
-        sub.save(
-            update_fields=[
-                "status",
-                "cash_last_paid_at",
-                "current_period_end",
-                "raw_state",
-                "last_synced_at",
-                "updated_at",
-            ]
-        )
+        from finance import services as finance_services
 
-        artist.is_active = compute_is_active(sub)
-        artist.save(update_fields=["is_active", "updated_at"])
+        with transaction.atomic():
+            today = timezone.localdate()
+            current = sub.current_period_end
+            current_renew = timezone.localdate(current) if current is not None else None
+            base = max(today, current_renew) if current_renew is not None else today
+            sub.status = ArtistSubscription.Status.ACTIVE
+            sub.cash_last_paid_at = today
+            sub.current_period_end = cash_renew_datetime(base)
+            sub.raw_state = {"cash": True, "confirmed_by": request.user.get_username()}
+            sub.last_synced_at = timezone.now()
+            sub.save(
+                update_fields=[
+                    "status",
+                    "cash_last_paid_at",
+                    "current_period_end",
+                    "raw_state",
+                    "last_synced_at",
+                    "updated_at",
+                ]
+            )
+
+            artist.is_active = compute_is_active(sub)
+            artist.save(update_fields=["is_active", "updated_at"])
+
+            finance_services.record_cash_subscription_payment(sub, today)
 
         return self._notify_cash(
             request, redirect_url, "active", artist,

@@ -1,0 +1,36 @@
+{% if ledger_totals %}
+    <div style="margin-top:1.25rem;overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+            <thead>
+                <tr style="text-align:left;border-bottom:1px solid #e5e7eb;">
+                    <th style="padding:0.5rem 0.75rem;">Vista</th>
+                    <th style="padding:0.5rem 0.75rem;">Moneda</th>
+                    <th style="padding:0.5rem 0.75rem;">Movimientos</th>
+                    <th style="padding:0.5rem 0.75rem;">Ingresos</th>
+                    <th style="padding:0.5rem 0.75rem;">Comisiones</th>
+                    <th style="padding:0.5rem 0.75rem;">Neto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scope_label, rows in ledger_totals.items %}
+                    {% for row in rows %}
+                        <tr style="border-bottom:1px solid #f3f4f6;">
+                            <td style="padding:0.5rem 0.75rem;font-weight:600;">{% if scope_label == "filtered" %}Vista actual{% else %}Total del sistema{% endif %}</td>
+                            <td style="padding:0.5rem 0.75rem;">{{ row.currency }}</td>
+                            <td style="padding:0.5rem 0.75rem;">{{ row.count }}</td>
+                            <td style="padding:0.5rem 0.75rem;color:#166534;">{{ row.income|floatformat:2 }}</td>
+                            <td style="padding:0.5rem 0.75rem;color:#991b1b;">{{ row.expenses|floatformat:2 }}</td>
+                            <td style="padding:0.5rem 0.75rem;font-weight:600;">
+                                <span style="color:{% if row.net < 0 %}#991b1b{% else %}#166534{% endif %};">{{ row.net|floatformat:2 }}</span>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" style="padding:0.5rem 0.75rem;color:#6b7280;">{% if scope_label == "filtered" %}Sin movimientos para los filtros actuales.{% else %}Sin movimientos registrados.{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
