@@ -34,6 +34,7 @@ def _totals(queryset):
 @admin.register(FinancialEntry)
 class FinancialEntryAdmin(ModelAdminUnfoldBase):
     sidebar_icon = "receipt_long"
+    list_filter_submit = True
     list_display = (
         "occurred_on",
         "kind",
