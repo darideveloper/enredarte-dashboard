@@ -424,3 +424,225 @@ class FinanceAdminTest(LedgerMixin, TestCase):
 
         self.assertIsNone(importlib.util.find_spec("finance.urls"))
         self.assertIsNone(importlib.util.find_spec("finance.serializers"))
+
+
+class ExcelExportUnitTests(LedgerMixin, TestCase):
+    def setUp(self):
+        self.artist = self.make_artist(commission=20)
+        self.order = self.make_order(self.artist, amount="1500.00")
+        self.entry = FinancialEntry.objects.create(
+            occurred_on="2026-03-15",
+            kind=FinancialEntry.Kind.ARTWORK_SALE,
+            amount=Decimal("1500.00"),
+            currency=FinancialEntry.Currency.MXN,
+            artist=self.artist,
+            order=self.order,
+            reference="sale-unit-1",
+        )
+
+    def test_sanitize_sheet_name(self):
+        from utils.excel_export import sanitize_sheet_name
+
+        self.assertEqual(sanitize_sheet_name("CleanName"), "CleanName")
+        self.assertEqual(sanitize_sheet_name("Invalid:/*?[]Chars"), "Invalid______Chars")
+        long_name = "A" * 40
+        self.assertEqual(len(sanitize_sheet_name(long_name)), 31)
+
+        existing = {"Test", "Test_2"}
+        self.assertEqual(sanitize_sheet_name("Test", existing), "Test_3")
+
+    def test_serialize_value(self):
+        from utils.excel_export import serialize_value
+
+        field_amount = FinancialEntry._meta.get_field("amount")
+        self.assertEqual(serialize_value(field_amount, self.entry), 1500.0)
+
+        field_occurred = FinancialEntry._meta.get_field("occurred_on")
+        self.assertEqual(str(serialize_value(field_occurred, self.entry)), "2026-03-15")
+
+        field_reconciled = FinancialEntry._meta.get_field("reconciled")
+        self.assertEqual(serialize_value(field_reconciled, self.entry), False)
+
+    def test_columns_for_model_splits_foreign_keys(self):
+        from utils.excel_export import columns_for_model
+
+        cols = columns_for_model(FinancialEntry)
+        headers = [c[0] for c in cols]
+
+        self.assertIn("artist__str__", headers)
+        self.assertIn("artist_id", headers)
+        self.assertIn("order__str__", headers)
+        self.assertIn("order_id", headers)
+        self.assertIn("subscription__str__", headers)
+        self.assertIn("subscription_id", headers)
+
+        getters = {c[0]: c[1] for c in cols}
+        self.assertEqual(getters["artist__str__"](self.entry), str(self.artist))
+        self.assertEqual(getters["artist_id"](self.entry), self.artist.pk)
+        self.assertEqual(getters["order__str__"](self.entry), str(self.order))
+        self.assertEqual(getters["order_id"](self.entry), self.order.pk)
+        self.assertEqual(getters["subscription__str__"](self.entry), "")
+        self.assertEqual(getters["subscription_id"](self.entry), "")
+
+    def test_single_sheet_workbook_building(self):
+        import openpyxl
+        from io import BytesIO
+        from utils.excel_export import build_workbook_for_queryset
+
+        wb = build_workbook_for_queryset(
+            FinancialEntry,
+            FinancialEntry.objects.filter(pk=self.entry.pk),
+            include_related=False,
+        )
+        self.assertEqual(len(wb.sheetnames), 1)
+        self.assertEqual(wb.sheetnames[0], "Movimientos")
+
+        ws = wb.active
+        self.assertEqual(ws.freeze_panes, "A2")
+
+        headers = [cell.value for cell in ws[1]]
+        self.assertIn("artist__str__", headers)
+        self.assertIn("artist_id", headers)
+
+        row_vals = [cell.value for cell in ws[2]]
+        artist_str_idx = headers.index("artist__str__")
+        artist_id_idx = headers.index("artist_id")
+        self.assertEqual(row_vals[artist_str_idx], str(self.artist))
+        self.assertEqual(row_vals[artist_id_idx], self.artist.pk)
+
+
+class ExcelExportRelatedDataTests(LedgerMixin, TestCase):
+    def setUp(self):
+        self.artist = self.make_artist(slug="diego", commission=30)
+        self.order = self.make_order(self.artist, amount="2000.00")
+        self.sale = FinancialEntry.objects.create(
+            occurred_on="2026-02-01",
+            kind=FinancialEntry.Kind.ARTWORK_SALE,
+            amount=Decimal("2000.00"),
+            currency=FinancialEntry.Currency.MXN,
+            artist=self.artist,
+            order=self.order,
+            reference="sale-diego",
+        )
+
+    def test_multi_sheet_export_referenced_rows_only(self):
+        from utils.excel_export import build_workbook_for_queryset
+
+        unreferenced_artist = self.make_artist(slug="unref", commission=10)
+
+        wb = build_workbook_for_queryset(
+            FinancialEntry,
+            FinancialEntry.objects.filter(pk=self.sale.pk),
+            include_related=True,
+        )
+
+        sheetnames = wb.sheetnames
+        self.assertIn("Movimientos", sheetnames)
+        self.assertIn("Artistas", sheetnames)
+        self.assertIn(str(ArtworkOrder._meta.verbose_name_plural), sheetnames)
+        self.assertNotIn("Suscripciones de artistas", sheetnames)
+
+        artist_sheet = wb["Artistas"]
+        artist_headers = [c.value for c in artist_sheet[1]]
+        name_idx = artist_headers.index("Nombre")
+        artist_names = [artist_sheet.cell(row=r, column=name_idx + 1).value for r in range(2, artist_sheet.max_row + 1)]
+        self.assertIn(self.artist.name, artist_names)
+        self.assertNotIn(unreferenced_artist.name, artist_names)
+
+        order_sheet = wb[str(ArtworkOrder._meta.verbose_name_plural)]
+        self.assertEqual(order_sheet.freeze_panes, "A2")
+        self.assertEqual(order_sheet.max_row, 2)
+
+
+class ExcelExportAdminIntegrationTests(LedgerMixin, TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            username="excel_admin", email="admin@example.com", password="password123"
+        )
+        self.client.force_login(self.admin_user)
+        self.url = reverse("admin:finance_financialentry_changelist")
+        self.artist = self.make_artist(slug="exportart", commission=20)
+        self.entry = FinancialEntry.objects.create(
+            occurred_on="2026-03-01",
+            kind=FinancialEntry.Kind.ARTWORK_SALE,
+            amount=Decimal("1200.00"),
+            currency=FinancialEntry.Currency.MXN,
+            artist=self.artist,
+            reference="export-ref-1",
+        )
+
+    def test_export_selected_changelist_action(self):
+        import openpyxl
+        from io import BytesIO
+
+        response = self.client.post(
+            self.url,
+            {
+                "action": "export_selected",
+                "_selected_action": [str(self.entry.pk)],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn("attachment; filename=\"financialentry_", response["Content-Disposition"])
+
+        wb = openpyxl.load_workbook(BytesIO(response.content))
+        self.assertEqual(len(wb.sheetnames), 1)
+        self.assertEqual(wb.sheetnames[0], "Movimientos")
+        ws = wb.active
+        self.assertEqual(ws.max_row, 2)
+
+    def test_export_selected_with_related_changelist_action(self):
+        import openpyxl
+        from io import BytesIO
+
+        response = self.client.post(
+            self.url,
+            {
+                "action": "export_selected_with_related",
+                "_selected_action": [str(self.entry.pk)],
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        wb = openpyxl.load_workbook(BytesIO(response.content))
+        self.assertIn("Movimientos", wb.sheetnames)
+        self.assertIn("Artistas", wb.sheetnames)
+
+    def test_empty_selection_shows_warning(self):
+        response = self.client.post(
+            self.url,
+            {
+                "action": "export_selected",
+            },
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        # Content-Type should remain HTML, not an Excel download
+        self.assertIn("text/html", response["Content-Type"])
+
+    def test_export_requires_view_permission(self):
+        non_staff = User.objects.create_user(
+            username="regular_user", email="reg@example.com", password="password123"
+        )
+        self.client.force_login(non_staff)
+        response = self.client.post(
+            self.url,
+            {
+                "action": "export_selected",
+                "_selected_action": [str(self.entry.pk)],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_no_global_export_button_in_admin(self):
+        response = self.client.get(self.url)
+        content = response.content.decode()
+        self.assertNotIn("Export all app data", content)
+        self.assertNotIn("export_all", content)
