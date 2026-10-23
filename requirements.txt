@@ -1,4 +1,5 @@
 # base
+certifi==2026.10.19  # retira roots emSign (GHSA-6q48-6c7w-9gw2)
 Django>=5.2,<5.3
 whitenoise>=6.11.0
 gunicorn>=24.1.1
