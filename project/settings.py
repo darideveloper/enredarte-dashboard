@@ -196,6 +196,12 @@ if csrf_trusted and csrf_trusted != "None":
         origin.strip().rstrip("/") for origin in csrf_trusted.split(",") if origin.strip()
     ]
 
+# Security hardening — values live in Coolify env vars; defaults are prod-safe.
+SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", str(not DEBUG)).lower() == "true"
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", str(not DEBUG)).lower() == "true"
+CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", str(not DEBUG)).lower() == "true"
+
 # Worktree dev loop: a copied .env.dev must work in any sibling, so in dev
 # accept this checkout's own portless domain (already resolved into HOST).
 if DEBUG and HOST:
