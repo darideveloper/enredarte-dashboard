@@ -1,35 +1,35 @@
 # base
 certifi==2026.10.19  # retira roots emSign (GHSA-6q48-6c7w-9gw2)
-Django>=5.2,<5.3
-whitenoise>=6.11.0
-gunicorn>=24.1.1
-django-cors-headers>=4.9.0
-python-dotenv>=1.0.1
+Django==5.2.18
+whitenoise==6.12.0
+gunicorn==26.2.0
+django-cors-headers==4.9.0
+python-dotenv==1.2.4
 
 # db
-psycopg>=3.2.3
+psycopg==3.3.6
 
 # images
-pillow>=11.1.0
+pillow==13.0.0
 
 # drf & jwt
-djangorestframework>=3.16.1
-django-filter>=24.3
+djangorestframework==3.18.3
+django-filter==26.2
 
 # testing
-selenium>=4.40.0
+selenium==4.51.0
 
 # admin
 django-unfold==0.77.1
-django-solo>=2.3.0
+django-solo==2.5.1
 
 # tools
-requests>=2.32.3
-openpyxl>=3.1,<3.2
+requests==2.34.2
+openpyxl==3.1.5
 
 # payments
-stripe>=15.5.1,<16
+stripe==15.6.1
 
 # storage
-django-storages==1.14.4
+django-storages==1.14.6
 boto3==1.34.162
